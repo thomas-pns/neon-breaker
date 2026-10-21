@@ -66,6 +66,10 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 - [ ] « NIVEAU » veut dire deux choses (le niveau du joueur, gagné avec l'XP, et les 12 niveaux de
   la campagne) : c'est trompeur. Renommer le niveau du joueur en **RANG** (« RANG 5 »), partout :
   menu en ligne, profils, liste des joueurs, salon, conditions des skins, notifications.
+- [ ] Barre d'XP : le texte « 1009 / 1350 XP » (XP totale) ne correspond pas à la barre, qui
+  montre la progression dans le rang en cours. Afficher plutôt « 409 / 750 XP AVANT LE RANG 4 ».
+- [ ] Aperçu des skins : « PROCHAIN : CRYO - NIVEAU 5 » se lit comme « vous êtes niveau 5 ».
+  Écrire « CRYO SE DEBLOQUE AU RANG 5 ».
 
 ## Difficulté
 
