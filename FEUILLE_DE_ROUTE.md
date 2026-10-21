@@ -84,6 +84,23 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   - Classement mondial : onglet « SERIES ».
   - Succès de série : 3, 7 et 30 jours.
 
+## Défi de la semaine, monnaie et boutique
+
+- [ ] **Défi de la semaine** (du lundi au dimanche), en plus du défi du jour : un mur plus long et
+  deux règles spéciales combinées, avec son propre classement.
+- [ ] **Monnaie du jeu**, les **NEONS** (nom à confirmer : NEONS, CREDITS, PIXELS…) :
+  - top 3 de la semaine : 150 / 100 / 50 NEONS, versés par le serveur à la fin de la semaine ;
+  - petits gains réguliers : un défi du jour joué (5), un top 3 du jour (10 / 6 / 3), un succès débloqué (20) ;
+  - solde affiché dans le menu EN LIGNE et sur le profil.
+- [ ] **Boutique** (menu EN LIGNE) : des skins **premium**, en plus de ceux qui se débloquent avec
+  le rang et les succès, qui ne s'achètent qu'avec des NEONS :
+  - motifs animés (plasma, glitch VHS, matrice qui défile, flammes, aurore) ;
+  - traînées de particules, étincelles propres au skin quand la balle rebondit ;
+  - balle assortie au skin, son de rebond spécial ;
+  - des « saisons » : quelques skins disponibles pour un temps limité.
+- [ ] Côté serveur : solde et skins achetés en base. Gains et achats calculés uniquement par
+  le serveur, et une ligne d'historique par mouvement.
+
 ## Campagne
 
 - [ ] **Carte du monde** façon Geometry Dash / carte de jeu de plateforme :
@@ -110,5 +127,4 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 ## Déjà prévu avant
 
 - [ ] Commandes configurables, manettes.
-- [ ] Parties à 4 joueurs.
 - [ ] Chat (pas pour l'instant).
