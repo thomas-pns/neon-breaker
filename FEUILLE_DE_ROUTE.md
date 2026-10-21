@@ -92,6 +92,21 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   - le brouillard cache la suite de la carte tant qu'elle n'est pas atteinte ;
   - le curseur se déplace le long du chemin, et les boss sont des étapes spéciales.
 
+## Duel en ligne
+
+- [ ] Aujourd'hui, les deux joueurs voient le même écran : J1 en bas, J2 en haut. **Retourner la vue
+  du J2** pour que chacun se voie en bas : on dessine le terrain dans une image à part, retournée
+  verticalement, puis on ajoute par-dessus les textes et le HUD à l'endroit. Les commandes
+  gauche / droite restent naturelles (le retournement est vertical uniquement).
+
+## Mode 4 joueurs (gros chantier)
+
+- [ ] Terrain carré plus grand, une raquette par côté (bas, haut, gauche, droite), raquettes
+  verticales pour les côtés. Chaque joueur voit sa raquette en bas (vue tournée).
+- [ ] Variantes : chacun pour soi (chaque côté protège son but, 5 vies chacun) et 2 contre 2.
+- [ ] Le serveur gère déjà les parties ; il faudra passer les salons à 4 places et adapter les
+  instantanés, plus un écran d'attente à 4.
+
 ## Déjà prévu avant
 
 - [ ] Commandes configurables, manettes.
