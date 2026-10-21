@@ -10,7 +10,7 @@ Le jeu sera joignable à l'adresse `https://neon.votre-nom.synology.me`.
 
 ```
 Joueurs ──HTTPS 443──► Box ──► DSM (proxy inversé) ──► conteneur neon-serveur :8765
-                                                         └── /volume1/docker/neon-breaker/data
+                                                         └── docker/neon-breaker/data
 GitHub Actions ──(exécutables, par morceaux)──► même adresse
 ```
 

@@ -1,6 +1,6 @@
 # Projet Container Manager (DSM) : NEON BREAKER
 #
-# Dossier sur le NAS : /volume1/docker/neon-breaker
+# Dossier sur le NAS : /volumeX/docker/neon-breaker (volume1, volume2... selon le NAS)
 #   ├── docker-compose.yml   (ce fichier, collé dans Container Manager)
 #   └── data/                (créé automatiquement : base de données, exécutables)
 #
@@ -23,7 +23,7 @@ services:
     ports:
       - "8765:8765"                  # le proxy inversé de DSM pointe ici
     volumes:
-      - ./data:/data
+      - ./data:/data                 # chemin relatif : marche sur n'importe quel volume
     mem_limit: 400m
     logging:
       driver: json-file
