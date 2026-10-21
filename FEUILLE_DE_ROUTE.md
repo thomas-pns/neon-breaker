@@ -98,6 +98,17 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   - traînées de particules, étincelles propres au skin quand la balle rebondit ;
   - balle assortie au skin, son de rebond spécial ;
   - des « saisons » : quelques skins disponibles pour un temps limité.
+- [ ] **Gains en campagne** : NEONS à la première réussite de chaque niveau (plus pour les boss :
+  SUNSET, GRIDLOCK, CORE). Versement rétroactif pour les niveaux déjà réussis, d'après
+  l'historique des parties sur le serveur.
+- [ ] **Bannières** affichées au-dessus du pseudo (salon, profil, liste des joueurs, classements) :
+  - titres (« LE GOAT », « ZEUS », « LE MONSTRE »…) ;
+  - bannières de boss offertes en récompense (« A ETEINT LE SOLEIL » pour SUNSET, etc.) ;
+  - bannières animées : flammes, étincelles, éclairs, glitch.
+- [ ] **Boutique tournante** : une sélection aléatoire de bannières et de skins qui change chaque
+  semaine, en plus des articles fixes.
+- [ ] **Boîte mystère** : un peu plus chère qu'une bannière, elle donne un objet au hasard parmi
+  tout le catalogue. Un doublon rembourse une partie du prix.
 - [ ] Côté serveur : solde et skins achetés en base. Gains et achats calculés uniquement par
   le serveur, et une ligne d'historique par mouvement.
 
@@ -108,6 +119,15 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   - un décor illustré pour chaque monde ;
   - le brouillard cache la suite de la carte tant qu'elle n'est pas atteinte ;
   - le curseur se déplace le long du chemin, et les boss sont des étapes spéciales.
+
+## Parties classées (Elo)
+
+- [ ] File **CLASSEE** (Duel, puis Course) : on rejoint la file et le serveur forme les paires
+  par cote proche.
+- [ ] Cote **Elo** (1000 au départ) : on gagne ou on perd plus ou moins de points selon la cote
+  de l'adversaire.
+- [ ] Divisions (BRONZE, ARGENT, OR, NEON…), classement Elo dans les classements mondiaux, cote
+  visible sur le profil, saisons avec récompenses en NEONS.
 
 ## Duel en ligne
 
