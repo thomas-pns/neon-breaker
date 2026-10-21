@@ -53,6 +53,20 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   pouvoirs et spéciales. Elles remplacent les lettres, en gardant le code couleur actuel.
   Les mêmes icônes servent dans l'inventaire et dans l'aide.
 
+## Succès (page de profil)
+
+- [ ] Clic ou survol à la souris sur un succès : une fiche détaillée s'ouvre (nom complet,
+  description, date d'obtention). Aujourd'hui, la fiche n'apparaît qu'avec les flèches.
+- [ ] Les noms sont coupés sur les tuiles (« EN ROUT… ») : les écrire en entier sur deux lignes.
+- [ ] Une icône en pixel art par succès (x8, un soleil pour SUNSET, une bombe pour ARTIFICIER…),
+  en couleur une fois obtenu, en gris avant.
+
+## Difficulté
+
+- [ ] Le boss 1 (SUNSET) est déjà très dur : rééquilibrer le monde 1 (moins de tirs, garde plus
+  lente) et/ou ajouter une difficulté au choix (FACILE / NORMAL), ainsi qu'une vie de plus
+  avant chaque boss.
+
 ## Défi du jour
 
 - [ ] **Séries (streaks)** : nombre de jours d'affilée où l'on a joué le défi.
