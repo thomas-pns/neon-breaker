@@ -1,5 +1,6 @@
-# Exécutables Windows et macOS, fabriqués à chaque étiquette de version
-# (git tag v1.2.0 && git push --tags), testés, puis envoyés au NAS.
+# Exécutables Windows et macOS, fabriqués à chaque changement de
+# moteur/version.py sur main (ou à chaque étiquette v1.2.0), testés,
+# puis envoyés au NAS.
 # Ils ne sont PAS publiés sur GitHub : le NAS les distribue et sert la
 # mise à jour automatique.
 #
@@ -11,6 +12,8 @@ name: Exécutables
 on:
   push:
     tags: ["v*.*.*"]
+    branches: [main]
+    paths: ["moteur/version.py"]
   workflow_dispatch:
     inputs:
       version:
@@ -47,7 +50,9 @@ jobs:
       - name: Version
         run: |
           VERSION="${{ github.event.inputs.version }}"
-          [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ] && [ "$GITHUB_REF_TYPE" = "tag" ]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          if [ -z "$VERSION" ]; then VERSION=$(python -c "import re;print(re.search(r'^VERSION *= *\"([^\"]+)\"', open('moteur/version.py', encoding='utf-8').read(), re.M).group(1))"); fi
+          echo "Version : $VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - name: Dépendances
         run: pip install -r requirements.txt pyinstaller pillow

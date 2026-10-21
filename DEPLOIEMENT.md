@@ -94,7 +94,7 @@ La page `https://neon.votre-nom.synology.me` propose alors les trois télécharg
 
 | Quoi | Comment |
 |---|---|
-| Le jeu | Nouvelle étiquette : `git tag v1.0.1 && git push --tags`. Au lancement suivant, le jeu de chaque ami propose **METTRE A JOUR**, se télécharge, se remplace et redémarre. |
+| Le jeu | Changer `VERSION` dans `moteur/version.py` et l'envoyer sur `main` (ou une étiquette `git tag v1.0.1 && git push --tags`). Au lancement suivant, le jeu de chaque ami propose **METTRE A JOUR**, se télécharge, se remplace et redémarre. |
 | Le serveur | Chaque envoi sur `main` publie une nouvelle image. Container Manager > **Projet > neon-breaker > Action > Construire** récupère la dernière version (`pull_policy: always`). |
 | Les succès | Ils sont définis dans `serveur/succes.py` : une mise à jour du serveur suffit, le jeu des joueurs affiche ce que le serveur envoie. |
 
