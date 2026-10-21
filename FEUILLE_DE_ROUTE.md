@@ -88,6 +88,8 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 
 - [ ] **Défi de la semaine** (du lundi au dimanche), en plus du défi du jour : un mur plus long et
   deux règles spéciales combinées, avec son propre classement.
+- [ ] **Séries hebdomadaires** : nombre de semaines d'affilée où l'on a joué le défi de la
+  semaine (série en cours et record sur le profil, succès à 4 et 12 semaines).
 - [ ] **Monnaie du jeu**, les **NEONS** (nom à confirmer : NEONS, CREDITS, PIXELS…) :
   - top 3 de la semaine : 150 / 100 / 50 NEONS, versés par le serveur à la fin de la semaine ;
   - petits gains réguliers : un défi du jour joué (5), un top 3 du jour (10 / 6 / 3), un succès débloqué (20) ;
@@ -113,6 +115,10 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   le serveur, et une ligne d'historique par mouvement.
 
 ## Campagne
+
+- [ ] **Campagne à 2** (la Coop existe déjà, en local et en ligne) : adapter la difficulté au
+  nombre de joueurs (vie des boss, cadence de tir, nombre de vies) ; plus tard, campagne à 4
+  avec la même règle. À 2, c'est le format le plus facile à remplir.
 
 - [ ] **Carte du monde** façon Geometry Dash / carte de jeu de plateforme :
   - un chemin 2D qui relie les niveaux 1, 2, 3… ;
@@ -141,6 +147,8 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 - [ ] Terrain carré plus grand, une raquette par côté (bas, haut, gauche, droite), raquettes
   verticales pour les côtés. Chaque joueur voit sa raquette en bas (vue tournée).
 - [ ] Variantes : chacun pour soi (chaque côté protège son but, 5 vies chacun) et 2 contre 2.
+- [ ] **RAID** (coopératif à 2, 3 ou 4) : tous ensemble contre des boss géants faits pour ça
+  (plusieurs phases, attaques qui visent chaque joueur, points faibles à toucher à plusieurs).
 - [ ] Le serveur gère déjà les parties ; il faudra passer les salons à 4 places et adapter les
   instantanés, plus un écran d'attente à 4.
 
