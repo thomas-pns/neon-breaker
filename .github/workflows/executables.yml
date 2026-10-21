@@ -5,7 +5,7 @@
 # mise à jour automatique.
 #
 # À configurer dans GitHub > Settings > Secrets and variables > Actions :
-#   variable NEON_SERVEUR_URL        https://neon.votre-nom.synology.me
+#   NEON_SERVEUR_URL (variable ou secret)  https://neon.votre-nom.synology.me
 #   secret   NEON_JETON_DEPLOIEMENT  (le même que dans le .env du NAS)
 name: Exécutables
 
@@ -13,7 +13,7 @@ on:
   push:
     tags: ["v*.*.*"]
     branches: [main]
-    paths: ["moteur/version.py", "outils/envoyer_build.py"]
+    paths: ["moteur/version.py", "outils/envoyer_build.py", ".github/workflows/executables.yml"]
   workflow_dispatch:
     inputs:
       version:
@@ -57,7 +57,7 @@ jobs:
       - name: Dépendances
         run: pip install -r requirements.txt pyinstaller pillow
       - name: Fabrication
-        run: python outils/construire.py --version "$VERSION" --serveur "${{ vars.NEON_SERVEUR_URL }}"
+        run: python outils/construire.py --version "$VERSION" --serveur "${{ vars.NEON_SERVEUR_URL || secrets.NEON_SERVEUR_URL }}"
       - name: Autotest de l'exécutable
         env:
           NEON_AUTOTEST: "1"
@@ -66,6 +66,6 @@ jobs:
         run: ${{ matrix.executable }}
       - name: Envoi au NAS
         env:
-          NEON_SERVEUR_URL: ${{ vars.NEON_SERVEUR_URL }}
+          NEON_SERVEUR_URL: ${{ vars.NEON_SERVEUR_URL || secrets.NEON_SERVEUR_URL }}
           NEON_JETON_DEPLOIEMENT: ${{ secrets.NEON_JETON_DEPLOIEMENT }}
         run: python outils/envoyer_build.py "${{ matrix.fichier }}" ${{ matrix.plateforme }} "$VERSION"
