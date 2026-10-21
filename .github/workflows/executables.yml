@@ -13,7 +13,7 @@ on:
   push:
     tags: ["v*.*.*"]
     branches: [main]
-    paths: ["moteur/version.py"]
+    paths: ["moteur/version.py", "outils/envoyer_build.py"]
   workflow_dispatch:
     inputs:
       version:

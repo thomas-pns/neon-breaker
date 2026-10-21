@@ -27,6 +27,12 @@ import urllib.request
 TAILLE_MORCEAU = 900 * 1024
 
 
+def echouer(message):
+    """Affiche l'erreur (aussi comme annotation GitHub, lisible sans les journaux) et quitte."""
+    print(f"::error::{message}")
+    sys.exit(1)
+
+
 def envoyer(chemin, plateforme, version, adresse, jeton):
     with open(chemin, "rb") as fichier:
         contenu = fichier.read()
@@ -36,6 +42,7 @@ def envoyer(chemin, plateforme, version, adresse, jeton):
     for index, morceau in enumerate(morceaux):
         url = (f"{adresse.rstrip('/')}/api/builds/{plateforme}/{version}/{index}"
                f"?total={len(morceaux)}&sha256={empreinte}")
+        dernier = ""
         for essai in range(5):
             requete = urllib.request.Request(url, data=morceau, method="POST", headers={
                 "X-Jeton-Deploiement": jeton, "Content-Type": "application/octet-stream",
@@ -47,13 +54,15 @@ def envoyer(chemin, plateforme, version, adresse, jeton):
             except urllib.error.HTTPError as erreur:
                 detail = erreur.read().decode("utf-8", "replace")
                 if erreur.code in (400, 403, 413):
-                    sys.exit(f"Refusé ({erreur.code}) : {detail}")
-                print(f"  morceau {index} : erreur {erreur.code}, nouvel essai")
+                    echouer(f"Refusé par {url.split('?')[0]} ({erreur.code}) : {detail[:300]}")
+                dernier = f"erreur HTTP {erreur.code} : {detail[:300]}"
+                print(f"  morceau {index} : {dernier}, nouvel essai")
             except (urllib.error.URLError, OSError) as erreur:
-                print(f"  morceau {index} : {erreur}, nouvel essai")
+                dernier = str(erreur)
+                print(f"  morceau {index} : {dernier}, nouvel essai")
             time.sleep(2 * (essai + 1))
         else:
-            sys.exit(f"Échec de l'envoi du morceau {index}")
+            echouer(f"Échec de l'envoi du morceau {index} vers {adresse} : {dernier}")
     print("Publié :", retour)
 
 
@@ -63,5 +72,7 @@ if __name__ == "__main__":
     adresse = os.environ.get("NEON_SERVEUR_URL", "")
     jeton = os.environ.get("NEON_JETON_DEPLOIEMENT", "")
     if not adresse or not jeton:
-        sys.exit("NEON_SERVEUR_URL et NEON_JETON_DEPLOIEMENT doivent être définis.")
+        echouer(f"Manquant dans GitHub > Settings > Secrets and variables > Actions : "
+                f"{'variable NEON_SERVEUR_URL ' if not adresse else ''}"
+                f"{'secret NEON_JETON_DEPLOIEMENT' if not jeton else ''}")
     envoyer(sys.argv[1], sys.argv[2], sys.argv[3].lstrip("v"), adresse, jeton)
