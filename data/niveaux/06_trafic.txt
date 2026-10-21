@@ -1,0 +1,12 @@
+nom: NEON CITY 2-2  TRAFIC
+monde: 2
+vitesse: 1.12
+---
+rrrrrrrrrrrr
+>...........
+bbbbb??bbbbb
+...........<
+CCCCCXXCCCCC
+>...........
+vvvvvvvvvvvv
+...........<

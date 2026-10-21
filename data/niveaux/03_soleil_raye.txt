@@ -1,0 +1,13 @@
+nom: SUNSET GRID 1-3  SOLEIL RAYE
+monde: 1
+vitesse: 1.1
+---
+...oooooo...
+..oOOXXOOo..
+.aaaaaaaaaa.
+............
+.4rrrXXrrr4.
+............
+3vvvv??vvvv3
+............
+MbbbbMMbbbbM

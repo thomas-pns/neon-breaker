@@ -1,0 +1,116 @@
+# -*- coding: utf-8 -*-
+"""
+Objectifs du fichier :
+    Menu « EN LIGNE » : parties en ligne, joueurs, classements mondiaux,
+    profil, couleur du joueur, déconnexion.
+
+Par :
+    Thomas CHASSANIS PONS et Camil BOUZIRI (refonte avec Claude)
+
+Réalisé le 21/10/2026
+"""
+
+import pygame
+
+from moteur import config
+from moteur.police_pixel import dessiner_texte
+from reseau.profil import COULEURS as LISTE_COULEURS, niveau_pour, xp_pour_niveau
+from ecrans.base import MenuVertical
+from ecrans.hud import panneau, barre
+from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, GRIS
+
+
+class EcranHub(EcranEnLigneBase):
+    """Menu principal en ligne."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.menu = MenuVertical([], config.LARGEUR / 2, 330, 3, 48)
+        self.statut = ""
+        self._construire()
+
+    def entrer(self):
+        self.app.en_ligne.verifier_session(self._session)
+
+    def _session(self, resultat):
+        if resultat["code"] == 401:
+            from ecrans.en_ligne.connexion import EcranConnexion
+            self.app.remplacer(EcranConnexion(self.app))
+        elif not resultat["ok"]:
+            self.statut = resultat["erreur"]
+
+    def _construire(self):
+        indice = self.menu.indice
+        self.menu.options = [
+            ("PARTIES EN LIGNE", self._parties),
+            ("JOUEURS", self._joueurs),
+            ("CLASSEMENTS MONDIAUX", self._classements),
+            ("MON PROFIL", self._profil),
+            (f"COULEUR : {self.app.en_ligne.couleur.upper()}", self._couleur),
+            ("SE DECONNECTER", self._deconnecter),
+            ("RETOUR", self._retour),
+        ]
+        self.menu.indice = indice
+
+    def _parties(self):
+        from ecrans.en_ligne.salons import EcranSalons
+        self.app.remplacer(EcranSalons(self.app))
+
+    def _joueurs(self):
+        from ecrans.en_ligne.joueurs import EcranJoueurs
+        self.app.remplacer(EcranJoueurs(self.app))
+
+    def _classements(self):
+        from ecrans.en_ligne.classements import EcranClassementsMondiaux
+        self.app.remplacer(EcranClassementsMondiaux(self.app))
+
+    def _profil(self):
+        from ecrans.en_ligne.joueurs import EcranProfil
+        self.app.remplacer(EcranProfil(self.app, self.app.en_ligne.pseudo))
+
+    def _couleur(self):
+        actuelle = self.app.en_ligne.couleur
+        suivante = LISTE_COULEURS[(LISTE_COULEURS.index(actuelle) + 1) % len(LISTE_COULEURS)] \
+            if actuelle in LISTE_COULEURS else LISTE_COULEURS[0]
+        self.app.en_ligne.changer_couleur(suivante, lambda r: self._construire())
+        self.app.en_ligne.couleur = suivante
+        self._construire()
+
+    def _deconnecter(self):
+        from ecrans.titre import EcranTitre
+        self.app.en_ligne.se_deconnecter()
+        self.app.remplacer(EcranTitre(self.app))
+
+    def _retour(self):
+        from ecrans.titre import EcranTitre
+        self.app.remplacer(EcranTitre(self.app))
+
+    def mettre_a_jour(self, dt):
+        super().mettre_a_jour(dt)
+        if self.app.entrees.vient_d_appuyer("retour"):
+            self._retour()
+            return
+        self.menu.mettre_a_jour(dt, self.app.entrees, self.app.audio)
+
+    def dessiner(self, image):
+        self.dessiner_fond(image)
+        en_ligne = self.app.en_ligne
+        couleur = couleur_profil(en_ligne.couleur)
+        cadre = pygame.Rect(0, 0, 620, 170)
+        cadre.midtop = (config.LARGEUR / 2, 100)
+        panneau(image, cadre, couleur)
+        dessiner_texte(image, en_ligne.pseudo.upper(), cadre.centerx, cadre.y + 46, 6, couleur)
+        niveau = niveau_pour(en_ligne.xp)
+        debut, fin = xp_pour_niveau(niveau), xp_pour_niveau(niveau + 1)
+        dessiner_texte(image, f"NIVEAU {niveau}", cadre.centerx, cadre.y + 100, 3, config.AMBRE)
+        barre(image, pygame.Rect(cadre.x + 80, cadre.y + 126, cadre.w - 160, 10),
+              (en_ligne.xp - debut) / max(1, fin - debut), config.AMBRE)
+        dessiner_texte(image, f"{en_ligne.xp} / {fin} XP", cadre.centerx, cadre.y + 150, 2,
+                       GRIS, lueur=False)
+        self.menu.dessiner(image)
+        attente = len(self.app.donnees.get("a_envoyer", []))
+        bas = self.statut or (f"{attente} PARTIE(S) EN ATTENTE D'ENVOI" if attente else "")
+        if bas:
+            dessiner_texte(image, bas, config.LARGEUR / 2, config.HAUTEUR - 60, 2,
+                           config.ROSE, lueur=False)
+        self.pied(image, "ENTREE : CHOISIR    ECHAP : RETOUR")

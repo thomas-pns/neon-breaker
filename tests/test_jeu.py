@@ -1,0 +1,220 @@
+# -*- coding: utf-8 -*-
+"""
+Objectifs du fichier :
+    Tests unitaires (python -m unittest) : structures maison, collisions,
+    rebond raquette, anti-traversée à grande vitesse, lecture des niveaux,
+    multiplicateur de combo, sauvegarde.
+
+Par :
+    Thomas CHASSANIS PONS et Camil BOUZIRI (refonte avec Claude)
+
+Réalisé le 20/10/2026
+"""
+
+import math
+import os
+import sys
+import tempfile
+import unittest
+
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import pygame  # noqa: E402
+
+from structures.liste import Liste  # noqa: E402
+from structures.file import File  # noqa: E402
+from structures.pile import Pile  # noqa: E402
+from moteur import sauvegarde  # noqa: E402
+from jeu.balle import Balle  # noqa: E402
+from jeu.brique import BriqueNormale, BriqueMetal, BriqueSolide, fabriquer_brique  # noqa: E402
+from jeu.niveau import lire_niveau, charger_campagne, ErreurNiveau  # noqa: E402
+from jeu import terrain as t  # noqa: E402
+from jeu.joueur import Joueur, multiplicateur_pour  # noqa: E402
+from jeu.capsule import CATALOGUE, tirer_effet  # noqa: E402
+from jeu.pouvoirs import appliquer_capsule, activer_pouvoir, declencher_supernova  # noqa: E402
+
+
+class TestStructures(unittest.TestCase):
+
+    def test_liste_ajout_suppression(self):
+        liste = Liste()
+        a, b, c = object(), object(), object()
+        for x in (a, b, c):
+            liste.ajouter_fin(x)
+        self.assertEqual(len(liste), 3)
+        self.assertTrue(liste.supprimer(b))
+        self.assertEqual(list(liste), [a, c])
+        self.assertTrue(liste.supprimer(c))
+        liste.ajouter_fin(b)                 # la queue doit être à jour
+        self.assertEqual(list(liste), [a, b])
+
+    def test_liste_retirer_si(self):
+        liste = Liste()
+        for i in range(10):
+            liste.ajouter_fin(i)
+        self.assertEqual(liste.retirer_si(lambda v: v % 2 == 0), 5)
+        self.assertEqual(list(liste), [1, 3, 5, 7, 9])
+        liste.ajouter_fin(11)
+        self.assertEqual(list(liste)[-1], 11)
+        liste.retirer_si(lambda v: True)
+        self.assertTrue(liste.est_vide())
+        liste.ajouter_fin(1)
+        self.assertEqual(list(liste), [1])
+
+    def test_file_et_pile(self):
+        file, pile = File(), Pile()
+        for i in range(3):
+            file.enfiler(i)
+            pile.empiler(i)
+        self.assertEqual([file.defiler() for _ in range(3)], [0, 1, 2])
+        self.assertEqual(pile.sommet(), 2)
+        self.assertEqual([pile.depiler() for _ in range(3)], [2, 1, 0])
+        self.assertTrue(file.est_vide() and pile.est_vide())
+
+
+class TestCollisions(unittest.TestCase):
+
+    def setUp(self):
+        pygame.init()
+
+    def test_disque_touche_boite(self):
+        boite = (0, 0, 100, 20)
+        self.assertTrue(t.disque_touche_boite(50, 25, 8, boite))
+        self.assertFalse(t.disque_touche_boite(50, 30, 8, boite))
+        # Coin : distance diagonale.
+        self.assertFalse(t.disque_touche_boite(106, 26, 8, boite))
+        self.assertTrue(t.disque_touche_boite(104, 24, 8, boite))
+
+    def test_rebond_face_du_dessous(self):
+        balle = Balle(50, 26)
+        balle.vx, balle.vy = 100, -300
+        face = t.rebondir_sur_boite(balle, (0, 0, 100, 20))
+        self.assertEqual(face, "bas")
+        self.assertGreater(balle.vy, 0)
+        self.assertGreaterEqual(balle.y, 20 + balle.rayon)
+
+    def test_rebond_raquette_angle(self):
+        # Impact au centre en tombant verticalement : repart verticalement.
+        balle = Balle(100, 0)
+        balle.vx, balle.vy = 0, 500
+        t.rebond_raquette(balle, (50, 0, 150, 16))
+        self.assertAlmostEqual(balle.vx, 0, places=5)
+        self.assertLess(balle.vy, 0)
+        self.assertAlmostEqual(balle.vitesse(), 500, places=3)
+        # Impact au bord droit : repart vers la droite, au plus 70° de la verticale.
+        balle = Balle(150, 0)
+        balle.vx, balle.vy = 300, 400
+        t.rebond_raquette(balle, (50, 0, 150, 16))
+        angle = math.degrees(math.atan2(balle.vx, -balle.vy))
+        self.assertGreater(angle, 0)
+        self.assertLessEqual(angle, 70.0001)
+
+    def test_rebond_raquette_du_haut(self):
+        # Raquette du haut (Duel, jalon 4) : la balle repart vers le bas.
+        balle = Balle(100, 0)
+        balle.vx, balle.vy = 0, -500
+        t.rebond_raquette(balle, (50, 0, 150, 16), sens=1)
+        self.assertAlmostEqual(balle.vx, 0, places=5)
+        self.assertGreater(balle.vy, 0)
+
+    def test_pas_de_traversee_a_grande_vitesse(self):
+        terrain = t.Terrain(pygame.Rect(0, 0, 400, 600))
+        briques = Liste()
+        brique = BriqueMetal(150, 200, 100, 10)       # brique très fine
+        briques.ajouter_fin(brique)
+        terrain.remplir(briques)
+        balle = Balle(200, 400)
+        balle.collee = False
+        balle.vx, balle.vy = 0, -6000                  # 50 px par pas !
+        terrain.balles.ajouter_fin(balle)
+        for _ in range(8):                            # 400 px de trajet possible
+            terrain.mettre_a_jour(1 / 120, {})
+        self.assertGreater(balle.vy, 0, "la balle aurait dû rebondir")
+        self.assertGreater(balle.y, 210)
+
+    def test_balle_perdue_et_evenements(self):
+        terrain = t.Terrain(pygame.Rect(0, 0, 400, 600))
+        balle = Balle(20, 590)
+        balle.collee = False
+        balle.vx, balle.vy = 0, 900
+        terrain.balles.ajouter_fin(balle)
+        for _ in range(10):
+            terrain.mettre_a_jour(1 / 120, {})
+        natures = []
+        while not terrain.evenements.est_vide():
+            natures.append(terrain.evenements.defiler()[0])
+        self.assertIn("balle_perdue", natures)
+        self.assertIn("plus_de_balle", natures)
+        self.assertIn("niveau_vide", natures)        # aucune brique
+
+
+class TestBriquesEtNiveaux(unittest.TestCase):
+
+    def test_briques(self):
+        normale = BriqueNormale(0, 0, 10, 10, (1, 2, 3))
+        self.assertTrue(normale.frapper())
+        solide = BriqueSolide(0, 0, 10, 10, (1, 2, 3), vie=3)
+        self.assertFalse(solide.frapper())
+        self.assertFalse(solide.frapper())
+        self.assertTrue(solide.frapper())
+        metal = BriqueMetal(0, 0, 10, 10)
+        for _ in range(20):
+            self.assertFalse(metal.frapper())
+        self.assertFalse(metal.destructible)
+
+    def test_fabrique(self):
+        self.assertIsInstance(fabriquer_brique("a", 0, 0), BriqueNormale)
+        self.assertIsInstance(fabriquer_brique("R", 0, 0), BriqueSolide)
+        self.assertEqual(fabriquer_brique("4", 0, 0).vie, 4)
+        self.assertIsInstance(fabriquer_brique("M", 0, 0), BriqueMetal)
+        self.assertIsNone(fabriquer_brique(".", 0, 0))
+
+    def test_lire_niveau(self):
+        niveau = lire_niveau("nom: TEST\nvitesse: 1.2\n---\naa..\n\nMM\n")
+        self.assertEqual(niveau.nom, "TEST")
+        self.assertAlmostEqual(niveau.vitesse, 1.2)
+        self.assertEqual(niveau.grille, ["aa..", "MM"])
+        briques = niveau.construire(t.Terrain(pygame.Rect(0, 0, 760, 700)))
+        self.assertEqual(len(briques), 4)
+        with self.assertRaises(ErreurNiveau):
+            lire_niveau("nom: SANS SEPARATEUR\naaaa")
+
+    def test_campagne_livree(self):
+        niveaux = charger_campagne()
+        self.assertEqual(len(niveaux), 12)
+        self.assertEqual([n.boss for n in niveaux if n.boss], ["sunset", "gridlock", "core"])
+        for niveau in niveaux:
+            for rangee in niveau.grille:
+                self.assertEqual(len(rangee), 12, niveau.nom)
+            briques = niveau.construire(t.Terrain(pygame.Rect(260, 24, 760, 696)))
+            self.assertTrue(any(b.destructible for b in briques), niveau.nom)
+
+
+class TestScoreEtSauvegarde(unittest.TestCase):
+
+    def test_multiplicateur(self):
+        self.assertEqual(multiplicateur_pour(0), 1)
+        self.assertEqual(multiplicateur_pour(4), 1)
+        self.assertEqual(multiplicateur_pour(5), 2)
+        self.assertEqual(multiplicateur_pour(10), 3)
+        self.assertEqual(multiplicateur_pour(20), 5)
+        self.assertEqual(multiplicateur_pour(99), 8)
+
+    def test_sauvegarde_aller_retour_et_corruption(self):
+        with tempfile.TemporaryDirectory() as dossier:
+            chemin = os.path.join(dossier, "s.json")
+            donnees = sauvegarde.charger(chemin)            # absent -> défaut
+            donnees["meilleurs"]["campagne"] = 1234
+            self.assertTrue(sauvegarde.enregistrer(donnees, chemin))
+            self.assertEqual(sauvegarde.charger(chemin)["meilleurs"]["campagne"], 1234)
+            with open(chemin, "w", encoding="utf-8") as fichier:
+                fichier.write("{pas du json")
+            relu = sauvegarde.charger(chemin)
+            self.assertEqual(relu["meilleurs"], {})
+            self.assertIn("crt", relu["reglages"])
+
+
+if __name__ == "__main__":
+    unittest.main()

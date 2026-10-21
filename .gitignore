@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+data/sons/
+data/sauvegarde.json
+data/sauvegarde.json.tmp
+data/erreurs.log
+data/serveur.txt
+.env
+dist/
+build/
+*.spec
+donnees_serveur/

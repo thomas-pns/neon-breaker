@@ -1,0 +1,12 @@
+nom: CYBER CORE 3-3  SURCHARGE
+monde: 3
+vitesse: 1.22
+---
+555555555555
+4XX4XX4XX4XX
+<...........
+3??3**3??3**
+...........>
+HHHHHHHHHHHH
+M.M.M..M.M.M
+cccccccccccc

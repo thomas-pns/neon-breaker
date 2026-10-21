@@ -1,0 +1,4 @@
+# Jeu (client)
+pygame-ce==2.5.8
+websockets==17.3
+certifi>=2024.0

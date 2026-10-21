@@ -1,0 +1,25 @@
+# Tests automatiques à chaque envoi de code.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dépendances
+        run: pip install -r requirements.txt -r serveur/requirements.txt httpx
+      - name: Tests unitaires
+        run: python -m unittest -v
+      - name: Autotest de tous les écrans
+        run: NEON_AUTOTEST=1 NEON_DONNEES=/tmp/neon python main.py

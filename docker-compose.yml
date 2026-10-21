@@ -1,0 +1,32 @@
+# Projet Container Manager (DSM) : NEON BREAKER
+#
+# Dossier sur le NAS : /volume1/docker/neon-breaker
+#   ├── docker-compose.yml   (ce fichier, collé dans Container Manager)
+#   └── data/                (créé automatiquement : base de données, exécutables)
+#
+# Avant de lancer, remplacez la valeur marquée « À CHANGER » (le jeton secret).
+services:
+  neon-serveur:
+    # Image publiée par GitHub Actions depuis le dépôt thomas-pns/neon-breaker.
+    image: ghcr.io/thomas-pns/neon-breaker:latest
+    pull_policy: always              # « Construire » récupère la dernière version
+    container_name: neon-serveur
+    restart: unless-stopped
+    environment:
+      # À CHANGER : jeton secret, identique au secret GitHub NEON_JETON_DEPLOIEMENT.
+      NEON_JETON_DEPLOIEMENT: "remplacez-moi-par-un-long-jeton-aleatoire"
+      NEON_MAX_PARTIES: "4"
+      # Utilisateur DSM propriétaire du dossier data (1026 / 100 = premier
+      # utilisateur DSM, groupe users ; vérifiable avec la commande « id »).
+      PUID: "1026"
+      PGID: "100"
+    ports:
+      - "8765:8765"                  # le proxy inversé de DSM pointe ici
+    volumes:
+      - ./data:/data
+    mem_limit: 400m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"

@@ -1,0 +1,11 @@
+nom: CYBER CORE 3-2  LABYRINTHE
+monde: 3
+vitesse: 1.2
+---
+P.5......5.P
+.MMMM..MMMM.
+.M*rrrrrr*M.
+.M.R?XX?R.M.
+.M*rrrrrr*M.
+.MMMM..MMMM.
+P.HHHHHHHH.P

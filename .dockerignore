@@ -1,0 +1,11 @@
+.git
+.github
+**/__pycache__
+data/sons
+data/sauvegarde.json*
+data/erreurs.log
+data/serveur.txt
+dist
+build
+tests
+*.spec

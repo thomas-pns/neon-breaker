@@ -1,0 +1,11 @@
+nom: CYBER CORE 3-1  REACTION
+monde: 3
+vitesse: 1.18
+---
+vXvXvXvXvXvX
+X3X3X??3X3X3
+vXvXvXvXvXvX
+............
+4bbbbbbbbbb4
+4BBBB??BBBB4
+4bbbbbbbbbb4

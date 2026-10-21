@@ -1,0 +1,66 @@
+# Exécutables Windows et macOS, fabriqués à chaque étiquette de version
+# (git tag v1.2.0 && git push --tags), testés, puis envoyés au NAS.
+# Ils ne sont PAS publiés sur GitHub : le NAS les distribue et sert la
+# mise à jour automatique.
+#
+# À configurer dans GitHub > Settings > Secrets and variables > Actions :
+#   variable NEON_SERVEUR_URL        https://neon.votre-nom.synology.me
+#   secret   NEON_JETON_DEPLOIEMENT  (le même que dans le .env du NAS)
+name: Exécutables
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version à fabriquer (ex. 1.0.0)"
+        required: true
+
+jobs:
+  fabriquer:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            plateforme: windows
+            fichier: dist/NeonBreaker.exe
+            executable: dist/NeonBreaker.exe
+          - os: macos-15
+            plateforme: mac_arm
+            fichier: dist/NeonBreaker-mac.zip
+            executable: dist/NeonBreaker.app/Contents/MacOS/NeonBreaker
+          - os: macos-15-intel
+            plateforme: mac_intel
+            fichier: dist/NeonBreaker-mac.zip
+            executable: dist/NeonBreaker.app/Contents/MacOS/NeonBreaker
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Version
+        run: |
+          VERSION="${{ github.event.inputs.version }}"
+          [ -z "$VERSION" ] && VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+      - name: Dépendances
+        run: pip install -r requirements.txt pyinstaller pillow
+      - name: Fabrication
+        run: python outils/construire.py --version "$VERSION" --serveur "${{ vars.NEON_SERVEUR_URL }}"
+      - name: Autotest de l'exécutable
+        env:
+          NEON_AUTOTEST: "1"
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: ${{ matrix.executable }}
+      - name: Envoi au NAS
+        env:
+          NEON_SERVEUR_URL: ${{ vars.NEON_SERVEUR_URL }}
+          NEON_JETON_DEPLOIEMENT: ${{ secrets.NEON_JETON_DEPLOIEMENT }}
+        run: python outils/envoyer_build.py "${{ matrix.fichier }}" ${{ matrix.plateforme }} "$VERSION"
