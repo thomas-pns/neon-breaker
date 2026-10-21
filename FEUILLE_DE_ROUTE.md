@@ -41,6 +41,14 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   - **POUVOIRS** : inventaire de 3 places. En solo, 1, 2 ou 3 lancent directement un
     emplacement, et A (ou TAB) + E servent à choisir puis à lancer. À deux, chacun a sa
     touche pour changer et sa touche pour lancer.
+- [ ] **Explications dans le jeu**, car peu de joueurs ouvrent l'aide :
+  - dans le HUD, à côté de l'inventaire, afficher les vraies touches de chaque joueur : 1 2 3,
+    « A / TAB : CHOISIR », « E : LANCER » (en solo), et celles de J1 et de J2 à deux ;
+  - la première fois qu'on attrape un pouvoir, une bulle explique comment le choisir et le lancer ;
+  - la première fois que la jauge OVERDRIVE est pleine, une bulle indique « MAJ / CLIC DROIT : SUPERNOVA » ;
+  - ces bulles ne s'affichent qu'une fois (mémorisé dans la sauvegarde) et se réactivent dans OPTIONS.
+- [ ] Vérifier pourquoi les touches 1 2 3 semblent parfois ne pas répondre
+  (pavé numérique, touches au-dessus des lettres en AZERTY sans MAJ).
 - [ ] **Icônes en pixel art** générées par le jeu pour toutes les capsules : bonus, malus,
   pouvoirs et spéciales. Elles remplacent les lettres, en gardant le code couleur actuel.
   Les mêmes icônes servent dans l'inventaire et dans l'aide.
