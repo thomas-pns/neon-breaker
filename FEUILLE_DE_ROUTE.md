@@ -61,6 +61,12 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 - [ ] Une icône en pixel art par succès (x8, un soleil pour SUNSET, une bombe pour ARTIFICIER…),
   en couleur une fois obtenu, en gris avant.
 
+## Vocabulaire
+
+- [ ] « NIVEAU » veut dire deux choses (le niveau du joueur, gagné avec l'XP, et les 12 niveaux de
+  la campagne) : c'est trompeur. Renommer le niveau du joueur en **RANG** (« RANG 5 »), partout :
+  menu en ligne, profils, liste des joueurs, salon, conditions des skins, notifications.
+
 ## Difficulté
 
 - [ ] Le boss 1 (SUNSET) est déjà très dur : rééquilibrer le monde 1 (moins de tirs, garde plus
