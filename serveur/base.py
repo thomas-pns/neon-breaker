@@ -7,9 +7,10 @@ Objectifs du fichier :
     que les lectures ne bloquent pas les écritures.
 
     Tables :
-      joueurs(id, pseudo, mdp, couleur, xp, cree_le, vu_le, banni)
+      joueurs(id, pseudo, mdp, couleur, xp, cree_le, vu_le, banni, skin)
       sessions(empreinte, joueur_id, expire_le)
-      parties(id, uid, joueur_id, mode, score, victoire, en_ligne, duree, details, joue_le)
+      parties(id, uid, joueur_id, mode, score, victoire, en_ligne, duree, details, joue_le,
+              jour)                     -- jour : date du défi du jour (mode "defi")
       succes(joueur_id, code, obtenu_le)
       cumuls(joueur_id, donnees)          -- JSON des statistiques cumulées
 
@@ -69,7 +70,7 @@ CREATE TABLE IF NOT EXISTS cumuls (
 );
 """
 
-MODES_SCORE = ("campagne", "arcade", "hardcore", "coop")
+MODES_SCORE = ("campagne", "arcade", "hardcore", "coop", "defi")
 MODES_VICTOIRES = ("duel", "course")
 
 
@@ -88,6 +89,15 @@ class Base:
             self.connexion.execute("PRAGMA journal_mode=WAL")
             self.connexion.execute("PRAGMA foreign_keys=ON")
             self.connexion.executescript(SCHEMA)
+            # Migration 1.1 : colonne « jour » pour le défi du jour.
+            colonnes = {l[1] for l in self.connexion.execute("PRAGMA table_info(parties)")}
+            if "jour" not in colonnes:
+                self.connexion.execute("ALTER TABLE parties ADD COLUMN jour TEXT")
+            # Migration 1.1 : skin de raquette choisi par le joueur.
+            colonnes = {l[1] for l in self.connexion.execute("PRAGMA table_info(joueurs)")}
+            if "skin" not in colonnes:
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN skin TEXT NOT NULL DEFAULT 'neon'")
+            self.connexion.execute("CREATE INDEX IF NOT EXISTS parties_jour ON parties(jour, score DESC)")
             self.connexion.commit()
 
     def _executer(self, requete, parametres=(), commit=False):
@@ -151,6 +161,14 @@ class Base:
     def changer_couleur(self, joueur_id, couleur):
         self.ecrire("UPDATE joueurs SET couleur = ? WHERE id = ?", (couleur, joueur_id))
 
+    def changer_skin(self, joueur_id, skin):
+        self.ecrire("UPDATE joueurs SET skin = ? WHERE id = ?", (skin, joueur_id))
+
+    def skins_de(self, joueur):
+        """But : skins débloqués par un joueur (niveau et succès)."""
+        from reseau.profil import skins_debloques
+        return skins_debloques(catalogue.niveau_pour(joueur["xp"]), set(self.succes_de(joueur["id"])))
+
     def changer_mdp(self, joueur_id, mdp_hache):
         self.ecrire("UPDATE joueurs SET mdp = ? WHERE id = ?", (mdp_hache, joueur_id))
 
@@ -182,12 +200,13 @@ class Base:
         score = max(0, min(int(rapport.get("score_equipe", rapport.get("score", 0))), 10 ** 9))
         victoire = bool(rapport.get("victoire")) or rapport.get("gagnant") == rapport.get("numero")
         uid = rapport.get("uid")
+        jour = str(rapport.get("jour"))[:10] if mode == "defi" and rapport.get("jour") else None
         try:
             self.ecrire("INSERT INTO parties (uid, joueur_id, mode, score, victoire, en_ligne, "
-                        "duree, details, joue_le) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "duree, details, joue_le, jour) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         (uid, joueur_id, mode, score, int(victoire), int(en_ligne),
                          float(rapport.get("duree", 0)), json.dumps(rapport)[:20000],
-                         float(rapport.get("joue_le", time.time()))))
+                         float(rapport.get("joue_le", time.time())), jour))
         except sqlite3.IntegrityError:
             return {"doublon": True, "nouveaux_succes": []}
         cumul = catalogue.mettre_a_jour_cumul(self.cumul(joueur_id), rapport)
@@ -229,6 +248,16 @@ class Base:
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
                  "niveau": catalogue.niveau_pour(l["xp"])} for l in lignes]
 
+    def classement_defi(self, jour, limite=20):
+        """But : meilleur score de chaque joueur au défi d'un jour donné."""
+        lignes = self.lire(
+            "SELECT j.pseudo, j.couleur, j.xp, MAX(p.score) AS valeur, COUNT(*) AS essais "
+            "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
+            "WHERE p.mode = 'defi' AND p.jour = ? AND j.banni = 0 GROUP BY p.joueur_id "
+            "ORDER BY valeur DESC LIMIT ?", (jour, limite))
+        return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
+                 "niveau": catalogue.niveau_pour(l["xp"]), "essais": l["essais"]} for l in lignes]
+
     def liste_joueurs(self):
         """But : tous les joueurs (non bannis), du plus haut niveau au plus bas."""
         lignes = self.lire("SELECT id, pseudo, couleur, xp, vu_le FROM joueurs "
@@ -266,7 +295,7 @@ class Base:
                                         "WHERE joueur_id = ? ORDER BY joue_le DESC LIMIT 8", (jid,))]
         niveau = catalogue.niveau_pour(joueur["xp"])
         return {"pseudo": joueur["pseudo"], "couleur": joueur["couleur"], "xp": joueur["xp"],
-                "niveau": niveau, "xp_niveau": catalogue.xp_pour_niveau(niveau),
+                "skin": joueur["skin"], "niveau": niveau, "xp_niveau": catalogue.xp_pour_niveau(niveau),
                 "xp_suivant": catalogue.xp_pour_niveau(niveau + 1),
                 "cree_le": joueur["cree_le"], "vu_le": joueur["vu_le"],
                 "stats": {"parties": cumul.get("parties", 0), "briques": cumul.get("briques", 0),

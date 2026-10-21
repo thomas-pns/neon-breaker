@@ -171,6 +171,8 @@ class ServiceEnLigne:
         self.couleur = compte.get("couleur", "cyan")
         self.niveau = compte.get("niveau", 1)
         self.xp = compte.get("xp", 0)
+        self.skin = compte.get("skin", "neon")
+        self.skins = compte.get("skins", ["neon"])
         self.connecte = False
         self.joignable = None
         self.temps_reel = None
@@ -234,10 +236,19 @@ class ServiceEnLigne:
         self.couleur = donnees.get("couleur", self.couleur)
         self.niveau = donnees.get("niveau", self.niveau)
         self.xp = donnees.get("xp", self.xp)
+        self.skin = donnees.get("skin", self.skin)
+        if "skins" in donnees:
+            nouveaux = [s for s in donnees["skins"] if s not in self.skins]
+            if nouveaux and self.app.donnees.get("compte", {}).get("skins"):
+                from reseau.profil import SKINS_PAR_CODE
+                for code in nouveaux:
+                    if code in SKINS_PAR_CODE:
+                        self.app.notifier("NOUVEAU SKIN !", "ROSE", SKINS_PAR_CODE[code]["nom"])
+            self.skins = list(donnees["skins"])
         self.connecte = True
         self.app.donnees["compte"] = {"jeton": self.jeton, "pseudo": self.pseudo,
                                       "couleur": self.couleur, "niveau": self.niveau,
-                                      "xp": self.xp}
+                                      "xp": self.xp, "skin": self.skin, "skins": self.skins}
         self.app.enregistrer()
 
     def se_connecter(self, pseudo, mdp, inscription, rappel):
@@ -267,6 +278,7 @@ class ServiceEnLigne:
     def oublier(self):
         self.jeton = ""
         self.connecte = False
+        self.skin, self.skins = "neon", ["neon"]
         self.app.donnees["compte"] = {}
         self.app.enregistrer()
 
@@ -284,6 +296,19 @@ class ServiceEnLigne:
             if rappel:
                 rappel(resultat)
         self.appeler("PUT", "/api/moi/couleur", {"couleur": couleur}, recu)
+
+    def skin_actif(self):
+        """But : skin à afficher pour le joueur local ("neon" sans compte)."""
+        return self.skin if self.jeton and self.skin in self.skins else "neon"
+
+    def changer_skin(self, skin, rappel=None):
+        def recu(resultat):
+            if resultat["ok"]:
+                self.memoriser({"skin": skin})
+            if rappel:
+                rappel(resultat)
+        self.skin = skin
+        self.appeler("PUT", "/api/moi/skin", {"skin": skin}, recu)
 
     # --- Scores ------------------------------------------------------------------
 

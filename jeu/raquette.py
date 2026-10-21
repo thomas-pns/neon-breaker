@@ -12,10 +12,11 @@ Par :
 
 Réalisé le 20/10/2026
 
-ToDo List:
-    Skins de raquette.
+    Les skins (reseau/profil.py) ajoutent un motif sur le corps et
+    parfois une traînée d'images fantômes.
 """
 
+import colorsys
 import math
 
 import pygame
@@ -56,6 +57,7 @@ class Raquette:
         self.etourdie = 0.0
         self.gelee = 0.0
         self.temps = 0.0
+        self.fantomes = []           # positions récentes (traînée des skins)
 
     # --- Géométrie ----------------------------------------------------------
 
@@ -162,6 +164,15 @@ class Raquette:
         """
         corps, bord = self.couleurs()
         joueur = self.joueur
+        skin = self._skin()
+        if skin["motif"] == "spectre":
+            r, v, b = colorsys.hsv_to_rgb((temps * 0.25) % 1.0, 0.75, 1.0)
+            corps = (int(r * 255), int(v * 255), int(b * 255))
+            r, v, b = colorsys.hsv_to_rgb((temps * 0.25 + 0.5) % 1.0, 0.6, 1.0)
+            if not getattr(joueur, "bord_impose", False):
+                bord = (int(r * 255), int(v * 255), int(b * 255))
+        if skin["motif"] == "pulse":
+            corps = melanger(corps, config.BLANC, 0.25 + 0.25 * math.sin(temps * 6))
         if (self.etourdie > 0 or self.gelee > 0) and int(temps * 16) % 2:
             corps, bord = (90, 90, 120), (160, 160, 200)
         if joueur is not None and joueur.actif("glace"):
@@ -175,6 +186,8 @@ class Raquette:
         else:
             rect.midtop = (int(self.x), int(self.y))
 
+        if skin["trainee"]:
+            self._dessiner_trainee(image, rect, corps)
         lueur = halo_rect(largeur, hauteur, attenuer(bord, 0.8), rayon=8,
                           epaisseur=4)
         image.blit(lueur, (rect.x - 16, rect.y - 16),
@@ -187,6 +200,7 @@ class Raquette:
             couleur = melanger(couleur, (20, 30, 90), max(0, t - 0.6))
             pygame.draw.line(image, couleur, (rect.x + 3, rect.y + i),
                              (rect.right - 4, rect.y + i))
+        self._dessiner_motif(image, rect, skin["motif"], corps, bord, temps)
         pygame.draw.rect(image, bord, rect, 2, border_radius=6)
 
         intensite = 0.5 + 0.5 * min(1.0, abs(self.vx) / config.RAQUETTE_VITESSE_MAX)
@@ -209,3 +223,49 @@ class Raquette:
             y = rect.top - 3 if self.sens < 0 else rect.bottom + 2
             for k in range(joueur.aimant_prises):
                 image.fill(config.VERT, (rect.centerx - 22 + k * 10, y, 6, 2))
+
+    # --- Skins --------------------------------------------------------------------
+
+    def _skin(self):
+        from reseau.profil import SKINS_PAR_CODE
+        code = getattr(self.joueur, "skin", "neon") if self.joueur is not None else "neon"
+        return SKINS_PAR_CODE.get(code) or SKINS_PAR_CODE["neon"]
+
+    def _dessiner_trainee(self, image, rect, couleur):
+        """Images fantômes derrière la raquette quand elle bouge."""
+        self.fantomes.append(rect.centerx)
+        del self.fantomes[:-6]
+        for k, x in enumerate(self.fantomes[:-1]):
+            if abs(x - rect.centerx) < 4:
+                continue
+            fantome = rect.copy()
+            fantome.centerx = int(x)
+            image.fill(attenuer(couleur, 0.08 + 0.05 * k), fantome.inflate(-6, -4),
+                       special_flags=pygame.BLEND_RGB_ADD)
+
+    def _dessiner_motif(self, image, rect, motif, corps, bord, temps):
+        """Motif propre au skin, dessiné sur le corps de la raquette."""
+        if motif in ("uni", "pulse", "spectre"):
+            return
+        ancienne_zone = image.get_clip()
+        image.set_clip(rect.inflate(-4, -4))
+        trait = attenuer(bord, 0.55)
+        if motif == "rayures":
+            decal = int(temps * 30) % 12
+            for x in range(rect.x - rect.h - 12 + decal, rect.right + 12, 12):
+                pygame.draw.line(image, trait, (x, rect.bottom), (x + rect.h, rect.y), 3)
+        elif motif == "grille":
+            for x in range(rect.x + 6, rect.right, 10):
+                pygame.draw.line(image, trait, (x, rect.y), (x, rect.bottom))
+            pygame.draw.line(image, trait, (rect.x, rect.centery), (rect.right, rect.centery))
+        elif motif == "damier":
+            taille = max(4, rect.h // 2)
+            for i, x in enumerate(range(rect.x, rect.right, taille)):
+                for j, y in enumerate(range(rect.y, rect.bottom, taille)):
+                    if (i + j) % 2:
+                        image.fill(attenuer(bord, 0.45), (x, y, taille, taille))
+        elif motif == "coeur":
+            rayon = max(3, int(rect.h * (0.35 + 0.12 * math.sin(temps * 5))))
+            pygame.draw.circle(image, config.BLANC, rect.center, rayon)
+            pygame.draw.circle(image, bord, rect.center, rayon + 3, 2)
+        image.set_clip(ancienne_zone)

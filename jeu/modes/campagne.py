@@ -116,6 +116,7 @@ class ModeCampagne(ModeDeJeu):
         self.etat = "pret"
         if self.niveau.boss:
             self.annoncer("ALERTE BOSS !", config.ROUGE, 2.2)
+            self.audio("alerte", 0.8)
             self.effets.eclair(0.4, config.ROUGE)
 
     def servir(self):

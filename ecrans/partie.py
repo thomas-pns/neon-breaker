@@ -33,6 +33,10 @@ class EcranPartie(EcranBase):
         self.effets = GestionnaireEffets()
         self.effets.qualite = app.reglages["particules"]
         self.mode = fabrique(app, self.effets)
+        # Le joueur 1 (celui du compte) porte son skin ; le J2 local garde le style NEON.
+        if self.mode.joueurs:
+            self.mode.joueurs[0].appliquer_skin(app.en_ligne.skin_actif(),
+                                                garder_bord=self.mode.deux_joueurs)
         self.accumulateur = 0.0
         self.fini = False
 
@@ -73,12 +77,15 @@ class EcranPartie(EcranBase):
         from ecrans.fin import EcranFin
         from ecrans.saisie import EcranSaisieNom
         app = self.app
-        if self.mode.code in ("campagne", "arcade", "hardcore") and resultat.get("rapports"):
+        if self.mode.code in ("campagne", "arcade", "hardcore", "defi") and resultat.get("rapports"):
             app.en_ligne.ajouter_rapports(resultat["rapports"])
         if self.mode.classement and app.entre_dans_classement(resultat["mode"], resultat["score"]):
             app.remplacer(EcranSaisieNom(app, resultat, self.fabrique))
         else:
             app.remplacer(EcranFin(app, resultat, self.fabrique))
+
+    def musique(self):
+        return self.mode.musique()
 
     def tremblement(self):
         return self.effets.decalage_tremblement()

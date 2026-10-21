@@ -2,8 +2,7 @@
 """
 Objectifs du fichier :
     Écran titre : fond.png du projet d'origine en parallaxe, logo NEON
-    BREAKER qui pulse, menu principal (Jouer, filtre CRT, tremblement,
-    plein écran, quitter).
+    BREAKER qui pulse, menu principal (Jouer, En ligne, Scores, Aide, Options, Quitter).
 
 Par :
     Thomas CHASSANIS PONS et Camil BOUZIRI (refonte avec Claude)
@@ -31,7 +30,7 @@ class EcranTitre(EcranBase):
     def __init__(self, app):
         super().__init__(app)
         self.image_fond = self._charger_fond()
-        self.menu = MenuVertical([], config.LARGEUR / 2, 336, 3, 39)
+        self.menu = MenuVertical([], config.LARGEUR / 2, 350, 3, 46)
         self._construire_menu()
 
     @staticmethod
@@ -44,19 +43,13 @@ class EcranTitre(EcranBase):
 
     def _construire_menu(self):
         """(Re)crée les libellés, qui affichent l'état des réglages."""
-        reglages = self.app.reglages
-        oui_non = {True: "OUI", False: "NON"}
         indice = self.menu.indice
         self.menu.options = [
             ("JOUER", self._jouer),
             (self._libelle_en_ligne(), self._en_ligne),
             ("MEILLEURS SCORES", self._scores),
             ("AIDE", self._aide),
-            (f"FILTRE CRT : {oui_non[reglages['crt']]}", self._basculer_crt),
-            (f"TREMBLEMENT : {oui_non[reglages['tremblement']]}",
-             self._basculer_tremblement),
-            (f"PARTICULES : {reglages['particules'].upper()}", self._basculer_particules),
-            ("PLEIN ECRAN", self.app.ecran.basculer_plein_ecran),
+            ("OPTIONS", self._options),
             ("QUITTER", self._quitter),
         ]
         self.menu.indice = indice
@@ -87,25 +80,16 @@ class EcranTitre(EcranBase):
         from ecrans.aide import EcranAide
         self.app.remplacer(EcranAide(self.app))
 
-    def _basculer_particules(self):
-        ordre = ["bas", "moyen", "haut"]
-        actuel = self.app.reglages["particules"]
-        self.app.reglages["particules"] = ordre[(ordre.index(actuel) + 1) % 3]
-        self.app.enregistrer()
-        self._construire_menu()
-
-    def _basculer_crt(self):
-        self.app.reglages["crt"] = not self.app.reglages["crt"]
-        self.app.enregistrer()
-        self._construire_menu()
-
-    def _basculer_tremblement(self):
-        self.app.reglages["tremblement"] = not self.app.reglages["tremblement"]
-        self.app.enregistrer()
-        self._construire_menu()
+    def _options(self):
+        from ecrans.options import EcranOptions
+        self.app.empiler(EcranOptions(self.app))
 
     def _quitter(self):
         self.app.en_marche = False
+
+    def reprendre(self):
+        self.app.entrees.debut_image()
+        self._construire_menu()
 
     def entrer(self):
         self.app.fond.changer_monde(1)

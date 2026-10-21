@@ -61,6 +61,18 @@ class ModeDeJeu:
 
     # --- Outils -----------------------------------------------------------------
 
+    def musique(self):
+        """
+        But : musique à jouer : (fond, dessus). Thème du monde ou du boss,
+        et la musique OVERDRIVE par-dessus pendant une SUPERNOVA.
+        """
+        if any(getattr(terrain, "boss", None) for terrain in self.terrains):
+            fond = "boss"
+        else:
+            fond = f"monde{getattr(self.app.fond, 'monde', 1)}"
+        dessus = "overdrive" if any(j.supernova > 0 for j in self.joueurs) else None
+        return fond, dessus
+
     def audio(self, nom, volume=1.0):
         """But : jouer un son (raccourci)."""
         self.app.audio.jouer(nom, volume)
@@ -108,6 +120,13 @@ class ModeDeJeu:
         if self.etat in ("pret", "jeu"):
             self.lire_commandes()
         for joueur in self.joueurs:
+            pret = joueur.overdrive_pret()
+            if pret and not getattr(joueur, "overdrive_annonce", False):
+                self.audio("overdrive_pret", 0.8)
+                self.effets.texte("OVERDRIVE PRET !", joueur.raquette.x,
+                                  joueur.raquette.y - 50 * -joueur.raquette.sens,
+                                  config.AMBRE, 2, duree=1.2)
+            joueur.overdrive_annonce = pret
             for fini in joueur.mettre_a_jour(dt_jeu):
                 if fini in CATALOGUE and CATALOGUE[fini].categorie == "malus":
                     self.effets.texte("OUF !", joueur.raquette.x, joueur.raquette.y - 30,
@@ -191,7 +210,7 @@ class ModeDeJeu:
         self.effets.texte(effet.nom + " !", joueur.raquette.x,
                           joueur.raquette.y + 40 * joueur.raquette.sens,
                           effet.couleur(), 3, duree=1.0, vitesse=-40 * -joueur.raquette.sens)
-        self.audio("menu_ok")
+        self.audio("pouvoir")
         self.app.crt.declencher_aberration(0.4)
 
     def lancer_supernova(self, joueur):
@@ -207,8 +226,7 @@ class ModeDeJeu:
         self.effets.onde(joueur.raquette.x, joueur.raquette.y, joueur.couleur_bord, 500, 0.8, 12)
         self.effets.texte("SUPERNOVA !", terrain.rect.centerx, terrain.rect.centery,
                           config.BLANC, 6, duree=1.4, vitesse=-20)
-        self.audio("explosion")
-        self.audio("combo")
+        self.audio("supernova")
 
     # --- Événements des terrains --------------------------------------------------------
 
@@ -299,10 +317,10 @@ class ModeDeJeu:
                           effet.couleur(), 2, duree=1.2, vitesse=40 * raquette.sens)
         self.effets.explosion(capsule.x, capsule.y, effet.couleur(), 14, 200, gravite=0)
         if effet.categorie == "malus":
-            self.audio("metal")
+            self.audio("capsule_malus")
             self.effets.secouer(4)
         else:
-            self.audio("combo", 0.7)
+            self.audio("capsule_bonus", 0.8)
 
     def cible_capsule(self, effet, joueur):
         """But : qui reçoit l'effet (le Duel envoie les malus à l'adversaire)."""
@@ -312,7 +330,7 @@ class ModeDeJeu:
         """But : une vie de plus (redéfini par les modes qui ont des vies)."""
 
     def sur_portail(self, terrain, balle):
-        self.audio("menu_nav", 0.8)
+        self.audio("portail", 0.7)
         self.effets.onde(balle.x, balle.y, config.VIOLET, 50, 0.3, 3)
 
     def sur_filet(self, terrain, joueur):
@@ -321,7 +339,7 @@ class ModeDeJeu:
                           config.VERT, 2)
 
     def sur_tir_laser(self, terrain, raquette):
-        self.audio("mur", 0.25)
+        self.audio("laser", 0.6)
 
     def sur_onde(self, terrain, x, y):
         self.effets.onde(x, y, config.CYAN, 700, 0.6, 10)
@@ -352,7 +370,7 @@ class ModeDeJeu:
         self.audio("vie_perdue", 0.6)
 
     def sur_boss_tir(self, terrain, x, y):
-        self.audio("mur", 0.5)
+        self.audio("boss_tir", 0.6)
 
     def sur_boss_rayon(self, terrain, x):
         self.effets.secouer(5)

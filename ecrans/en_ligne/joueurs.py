@@ -22,7 +22,9 @@ from ecrans.en_ligne.commun import (EcranEnLigneBase, couleur_profil, date_court
 
 COULEURS_CATEGORIES = {"debuts": config.CYAN, "campagne": config.ROSE, "habilete": config.AMBRE,
                        "modes": config.VIOLET, "coop": config.VERT, "collection": config.OR,
-                       "endurance": config.BLEU, "secret": (200, 200, 255)}
+                       "endurance": config.BLEU, "secret": (200, 200, 255),
+                       "defi": config.ROUGE}
+COLONNES_SUCCES = 7
 
 
 class EcranJoueurs(EcranEnLigneBase):
@@ -145,14 +147,16 @@ class EcranProfil(EcranEnLigneBase):
                 self.app.remplacer(EcranHub(self.app))
             return
         ancien = self.choix
+        total = min(COLONNES_SUCCES * 4, len(self.profil["succes"])) if self.profil else 1
+        total = max(1, total)
         if entrees.vient_d_appuyer("droite"):
-            self.choix = (self.choix + 1) % 24
+            self.choix = (self.choix + 1) % total
         if entrees.vient_d_appuyer("gauche"):
-            self.choix = (self.choix - 1) % 24
+            self.choix = (self.choix - 1) % total
         if entrees.vient_d_appuyer("bas"):
-            self.choix = (self.choix + 6) % 24
+            self.choix = (self.choix + COLONNES_SUCCES) % total
         if entrees.vient_d_appuyer("haut"):
-            self.choix = (self.choix - 6) % 24
+            self.choix = (self.choix - COLONNES_SUCCES) % total
         if self.choix != ancien:
             self.app.audio.jouer("menu_nav")
 
@@ -175,10 +179,14 @@ class EcranProfil(EcranEnLigneBase):
         dessiner_texte(image, f"{p['xp']} / {p['xp_suivant']} XP", carte.centerx, carte.y + 160,
                        2, GRIS, lueur=False)
         etat = "EN LIGNE" if p.get("en_ligne") else f"VU LE {date_courte(p['vu_le'])}"
-        dessiner_texte(image, etat, carte.centerx, carte.y + 200, 2,
+        dessiner_texte(image, etat, carte.centerx, carte.y + 192, 2,
                        config.VERT if p.get("en_ligne") else GRIS, lueur=False)
+        from reseau.profil import SKINS_PAR_CODE
+        skin = SKINS_PAR_CODE.get(p.get("skin", "neon"), SKINS_PAR_CODE["neon"])
         dessiner_texte(image, f"INSCRIT LE {date_courte(p['cree_le'])}", carte.centerx,
-                       carte.y + 232, 2, GRIS, lueur=False)
+                       carte.y + 220, 2, GRIS, lueur=False)
+        dessiner_texte(image, f"SKIN : {skin['nom']}", carte.centerx, carte.y + 248, 2,
+                       config.ROSE, lueur=False)
         # Statistiques.
         stats = p["stats"]
         bloc = pygame.Rect(30, 382, 400, 290)
@@ -201,7 +209,8 @@ class EcranProfil(EcranEnLigneBase):
         records = pygame.Rect(450, 96, 800, 110)
         panneau(image, records, config.AMBRE)
         for i, (mode, valeur) in enumerate(p["records"].items()):
-            x = records.x + 100 + i * 200
+            ecart = records.w // max(1, len(p["records"]))
+            x = records.x + ecart // 2 + i * ecart
             dessiner_texte(image, NOMS_MODES.get(mode, mode.upper()), x, records.y + 34, 2, GRIS,
                            lueur=False)
             dessiner_texte(image, f"{valeur:07d}", x, records.y + 74, 3, config.AMBRE)
@@ -213,9 +222,11 @@ class EcranProfil(EcranEnLigneBase):
         panneau(image, cadre, config.OR)
         dessiner_texte(image, f"SUCCES  {obtenus} / {len(succes)}", cadre.centerx, cadre.y + 24,
                        2, config.OR, lueur=False)
-        for i, entree in enumerate(succes[:24]):
-            ligne, colonne = divmod(i, 6)
-            rect = pygame.Rect(cadre.x + 20 + colonne * 128, cadre.y + 48 + ligne * 82, 118, 72)
+        largeur = (cadre.w - 40) // COLONNES_SUCCES
+        for i, entree in enumerate(succes[:COLONNES_SUCCES * 4]):
+            ligne, colonne = divmod(i, COLONNES_SUCCES)
+            rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 48 + ligne * 82,
+                               largeur - 8, 72)
             obtenu = bool(entree["obtenu_le"])
             couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN)
             if not obtenu:
@@ -228,7 +239,7 @@ class EcranProfil(EcranEnLigneBase):
             pygame.draw.rect(image, couleur, rect, 3 if choisi else 2, border_radius=8)
             initiale = entree["nom"][:2] if obtenu else "?"
             dessiner_texte(image, initiale, rect.centerx, rect.y + 26, 4, couleur, lueur=obtenu)
-            dessiner_texte(image, entree["nom"][:9], rect.centerx, rect.bottom - 14, 2,
+            dessiner_texte(image, entree["nom"][:8], rect.centerx, rect.bottom - 14, 2,
                            config.BLANC if obtenu else (110, 90, 140), lueur=False, ombre=False)
         entree = succes[self.choix] if self.choix < len(succes) else None
         if entree:

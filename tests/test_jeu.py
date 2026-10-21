@@ -216,5 +216,53 @@ class TestScoreEtSauvegarde(unittest.TestCase):
             self.assertIn("crt", relu["reglages"])
 
 
+
+class TestNouveautes11(unittest.TestCase):
+    """Défi du jour, skins et musique (version 1.1)."""
+
+    def test_defi_identique_pour_tous(self):
+        from jeu.modes.defi import defi_pour, jour_du_defi
+        from jeu.niveau import generer_rangee
+        import datetime
+        import random
+        graine, modificateur = defi_pour("2026-10-21")
+        self.assertEqual((graine, modificateur), defi_pour("2026-10-21"))
+        self.assertNotEqual(graine, defi_pour("2026-10-22")[0])
+        a, b = random.Random(graine), random.Random(graine)
+        self.assertEqual([generer_rangee(v / 6, a) for v in range(30)],
+                         [generer_rangee(v / 6, b) for v in range(30)])
+        self.assertEqual(jour_du_defi(datetime.datetime(2026, 1, 2, 23, 59)), "2026-01-02")
+
+    def test_skins_debloques(self):
+        from reseau.profil import skins_debloques, SKINS, SKINS_PAR_CODE
+        self.assertEqual(skins_debloques(1, set()), ["neon"])
+        self.assertIn("cryo", skins_debloques(5, set()))
+        self.assertNotIn("cryo", skins_debloques(4, set()))
+        self.assertIn("noyau", skins_debloques(1, {"boss_core"}))
+        self.assertEqual(len(skins_debloques(99, {s["condition"][1] for s in SKINS
+                                                  if s["condition"] and s["condition"][0] == "succes"})),
+                         len(SKINS))
+        from jeu.joueur import Joueur
+        joueur = Joueur(2, "j2", "J2")
+        bord = joueur.couleur_bord
+        joueur.appliquer_skin("sunset", garder_bord=True)
+        self.assertEqual(joueur.couleur_bord, bord)
+        self.assertEqual(joueur.couleur_corps, SKINS_PAR_CODE["sunset"]["corps"])
+        joueur.appliquer_skin("inconnu")
+        self.assertEqual(joueur.skin, "neon")
+
+    def test_musique_boucle(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy absent")
+        from moteur import musique
+        boucle = musique.composer("overdrive", np)
+        self.assertLessEqual(float(np.max(np.abs(boucle))), 0.86)
+        mesures = len(musique.PARTITIONS["overdrive"]["accords"])
+        attendu = 60 / musique.PARTITIONS["overdrive"]["bpm"] * 4 * mesures
+        self.assertAlmostEqual(len(boucle) / musique.FREQ, attendu, delta=0.01)
+
+
 if __name__ == "__main__":
     unittest.main()

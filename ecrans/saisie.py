@@ -29,6 +29,9 @@ ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
 class EcranSaisieNom(EcranBase):
     """Attributs : lettres (list de 3 indices dans ALPHABET), case (int)."""
 
+    def musique(self):
+        return None
+
     def __init__(self, app, resultat, fabrique):
         super().__init__(app)
         self.resultat = resultat

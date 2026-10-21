@@ -89,6 +89,8 @@ SUCCES = [
            lambda r, c: _stat(r, "bombe_max") >= 10),
     Succes("arcade_30", "SURVIVANT", "Atteindre la vague 30 en Arcade", "modes",
            lambda r, c: r.get("mode") == "arcade" and r.get("vagues", 0) >= 30),
+    Succes("arcade_drone", "CHASSEUR DE DRONES", "Vaincre un mini-boss DRONE", "modes",
+           lambda r, c: "drone" in _stat(r, "boss_vaincus", [])),
     Succes("hardcore_monde", "HARDCORE", "Finir un monde en Hardcore", "modes",
            lambda r, c: r.get("mode") == "hardcore" and len(_stat(r, "boss_vaincus", [])) >= 1),
     Succes("duel_7_0", "ECRASANT", "Gagner un Duel 7-0", "modes",
@@ -109,6 +111,12 @@ SUCCES = [
            lambda r, c: c.get("briques", 0) >= 10000),
     Succes("parties_100", "ACCRO", "100 parties jouees", "endurance",
            lambda r, c: c.get("parties", 0) >= 100),
+    Succes("defi_1", "DEFI RELEVE", "Jouer un defi du jour", "defi",
+           lambda r, c: r.get("mode") == "defi"),
+    Succes("defi_7", "HABITUE", "Jouer le defi 7 jours differents", "defi",
+           lambda r, c: len(c.get("jours_defi", [])) >= 7),
+    Succes("defi_vague_20", "MUR DU JOUR", "Atteindre la vague 20 dans un defi", "defi",
+           lambda r, c: r.get("mode") == "defi" and r.get("vagues", 0) >= 20),
     Succes("secret_malus", "MASOCHISTE", "Finir un niveau en ayant attrape 5 malus",
            "secret", lambda r, c: bool(_stat(r, "niveau_5_malus")), secret=True),
 ]
@@ -135,6 +143,8 @@ def mettre_a_jour_cumul(cumul, rapport):
     if rapport.get("victoire") or _gagne(rapport):
         victoires = cumul.setdefault("victoires", {})
         victoires[mode] = victoires.get(mode, 0) + 1
+    if mode == "defi" and rapport.get("jour"):
+        cumul["jours_defi"] = sorted(set(cumul.get("jours_defi", [])) | {str(rapport["jour"])[:10]})
     boss = cumul.setdefault("boss_vaincus", {})
     for nom in stats.get("boss_vaincus", []):
         boss[nom] = boss.get(nom, 0) + 1

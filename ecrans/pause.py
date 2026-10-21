@@ -2,15 +2,13 @@
 """
 Objectifs du fichier :
     Menu pause, posé par-dessus l'écran de partie (écran transparent de la
-    Pile) : reprendre, recommencer, aide, filtre CRT, menu principal, quitter.
+    Pile) : reprendre, recommencer, aide, options (volumes...), menu principal, quitter.
 
 Par :
     Thomas CHASSANIS PONS et Camil BOUZIRI (refonte avec Claude)
 
 Réalisé le 20/10/2026
 
-ToDo List:
-    Réglage du volume depuis la pause.
 """
 
 import math
@@ -27,6 +25,10 @@ class EcranPause(EcranBase):
     """Pause : la partie reste visible, assombrie, et ne bouge plus."""
 
     transparent = True
+    attenuer_musique = True
+
+    def musique(self):
+        return self.partie.musique()
 
     def __init__(self, app, partie):
         super().__init__(app)
@@ -35,7 +37,7 @@ class EcranPause(EcranBase):
             ("REPRENDRE", self._reprendre),
             ("RECOMMENCER", self.partie.recommencer),
             ("AIDE", self._aide),
-            ("FILTRE CRT", self._basculer_crt),
+            ("OPTIONS", self._options),
             ("MENU PRINCIPAL", self._menu),
             ("QUITTER", self._quitter),
         ], config.LARGEUR / 2, 290, 3, 50)
@@ -47,9 +49,12 @@ class EcranPause(EcranBase):
         from ecrans.aide import EcranAide
         self.app.empiler(EcranAide(self.app))
 
-    def _basculer_crt(self):
-        self.app.reglages["crt"] = not self.app.reglages["crt"]
-        self.app.enregistrer()
+    def _options(self):
+        from ecrans.options import EcranOptions
+        self.app.empiler(EcranOptions(self.app))
+
+    def reprendre(self):
+        self.app.entrees.debut_image()
 
     def _menu(self):
         from ecrans.titre import EcranTitre

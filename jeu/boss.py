@@ -526,3 +526,54 @@ def _dessiner_rayons(boss, image, terrain):
 BossGridlock.dessiner_rayons = _dessiner_rayons
 
 BOSS = {"sunset": BossSunset, "gridlock": BossGridlock, "core": BossCore}
+
+
+class BossDrone(BossGridlock):
+    """
+    Mini-boss de l'Arcade (toutes les 10 vagues) : un drone qui patrouille
+    juste sous le mur de briques et tire sur la raquette. Il devient plus
+    résistant et plus agressif à chaque apparition. Tant qu'il vole, le mur
+    ne descend plus.
+    """
+
+    nom = "DRONE"
+    couleur = config.ROSE
+    largeur = 150
+    hauteur = 40
+
+    def __init__(self, terrain, rang=1):
+        Boss.__init__(self, terrain, vie=10 + 4 * rang)
+        self.rang = rang
+        self.nom = f"DRONE MK-{rang}"
+        self.y = terrain.rect.top + 80
+        self.vitesse = 110.0 + 15 * rang
+        self.prochain_tir = 2.0
+        self.rayons = []
+
+    def calculer_phase(self):
+        return 1 if self.vie > self.vie_max / 2 else 2
+
+    def attaquer(self, dt, terrain):
+        # Le drone se place sous la brique la plus basse, sans trop approcher la raquette.
+        bas = max((b.y + b.hauteur for b in terrain.briques if b.solide),
+                  default=terrain.rect.top)
+        plafond = terrain.raquettes[0].y - 230 if terrain.raquettes else terrain.rect.bottom - 260
+        cible_y = max(terrain.rect.top + 50, min(plafond, bas + 50))
+        self.y += (cible_y - self.y) * min(1.0, dt * 2)
+        vitesse = self.vitesse * (1 if self.phase == 1 else 1.5)
+        self.x += vitesse * dt
+        gauche = terrain.rect.left + self.largeur / 2 + 10
+        droite = terrain.rect.right - self.largeur / 2 - 10
+        if self.x < gauche or self.x > droite:
+            self.x = max(gauche, min(droite, self.x))
+            self.vitesse = -self.vitesse
+        self.prochain_tir -= dt
+        if self.prochain_tir <= 0:
+            cible = self.raquette_visee(terrain)
+            if cible is not None:
+                ecarts = (0,) if self.phase == 1 else (-14, 14)
+                if self.rang >= 3 and self.phase == 2:
+                    ecarts = (-20, 0, 20)
+                self.tirer_vers(terrain, cible.x, cible.y, 280 + 20 * self.rang, ecarts,
+                                couleur=config.ROSE)
+            self.prochain_tir = max(1.1, 2.4 - 0.2 * self.rang) * (1 if self.phase == 1 else 0.75)

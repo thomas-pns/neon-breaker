@@ -11,8 +11,7 @@ Par :
 
 Réalisé le 20/10/2026
 
-ToDo List:
-    Options sauvegardées (jalon 3), musique (jalon 2).
+    Choisit aussi la musique selon l'écran actif (méthode musique()).
 """
 
 import os
@@ -124,6 +123,7 @@ class Application:
         self.donnees = sauvegarde.charger()
         self.reglages = self.donnees["reglages"]
         self.audio.volume_effets = self.reglages["volume_effets"]
+        self.audio.volume_musique = self.reglages["volume_musique"]
         from reseau.client import ServiceEnLigne
         self.en_ligne = ServiceEnLigne(self)
         self.notifications = []
@@ -136,7 +136,7 @@ class Application:
         self.notifications.append({"titre": titre, "sous_titre": sous_titre,
                                    "couleur": getattr(config, couleur, config.CYAN),
                                    "temps": 0.0})
-        self.audio.jouer("combo", 0.8)
+        self.audio.jouer("succes", 0.8)
 
     def _dessiner_notifications(self, image):
         """Bandeaux qui glissent depuis la droite, l'un sous l'autre."""
@@ -334,6 +334,17 @@ class Application:
         actif = self.ecran_actif()
         if actif is not None:
             actif.mettre_a_jour(dt)
+        self._musique(dt)
+
+    def _musique(self, dt):
+        """Demander à l'écran actif sa musique et faire avancer les fondus."""
+        actif = self.ecran_actif()
+        if actif is not None:
+            voulue = actif.musique()
+            fond, dessus = voulue if isinstance(voulue, tuple) else (voulue, None)
+            self.audio.musique(fond, dessus)
+            self.audio.attenuation = 0.35 if getattr(actif, "attenuer_musique", False) else 1.0
+        self.audio.mettre_a_jour(dt)
 
     def _dessiner(self):
         """Dessiner l'écran actif (et celui du dessous s'il est transparent)."""

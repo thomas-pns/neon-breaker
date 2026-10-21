@@ -18,7 +18,7 @@ from moteur.police_pixel import dessiner_texte
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, NOMS_MODES, GRIS
 
-ONGLETS = ["campagne", "arcade", "hardcore", "coop", "duel", "course"]
+ONGLETS = ["defi", "campagne", "arcade", "hardcore", "coop", "duel", "course"]
 COULEURS_RANGS = [config.AMBRE, (220, 220, 240), (230, 140, 80)]
 
 
@@ -37,7 +37,12 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
     def charger(self):
         mode = ONGLETS[self.onglet]
         if mode not in self.donnees:
-            self.app.en_ligne.appeler("GET", f"/api/classements/{mode}",
+            if mode == "defi":
+                from jeu.modes.defi import jour_du_defi
+                chemin = f"/api/defi/{jour_du_defi()}"
+            else:
+                chemin = f"/api/classements/{mode}"
+            self.app.en_ligne.appeler("GET", chemin,
                                       rappel=lambda r, m=mode: self._recu(m, r))
 
     def _recu(self, mode, resultat):
@@ -63,8 +68,8 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
     def dessiner(self, image):
         self.dessiner_fond(image)
         for i, mode in enumerate(ONGLETS):
-            rect = pygame.Rect(0, 0, 190, 40)
-            rect.center = (int(config.LARGEUR / 2 + (i - 2.5) * 200), 116)
+            rect = pygame.Rect(0, 0, 166, 40)
+            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 174), 116)
             choisi = i == self.onglet
             pygame.draw.rect(image, config.CYAN if choisi else (60, 30, 90), rect,
                              0 if choisi else 2, border_radius=8)
@@ -80,6 +85,10 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
                            config.ROUGE if self.erreur else config.CYAN, lueur=False)
             return
         unite = "VICTOIRES" if donnees["type"] == "victoires" else "SCORE"
+        if mode == "defi":
+            jour = "/".join(reversed(donnees.get("jour", "--").split("-")[1:]))
+            dessiner_texte(image, f"DEFI DU {jour}", cadre.x + 40, cadre.y + 24, 2, config.AMBRE,
+                           ancrage="gauche", lueur=False)
         dessiner_texte(image, unite, cadre.right - 40, cadre.y + 24, 2, GRIS, ancrage="droite",
                        lueur=False)
         if not donnees["lignes"]:

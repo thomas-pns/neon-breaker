@@ -35,7 +35,7 @@ from serveur.salons import Gestionnaire
 from serveur.succes import SUCCES, niveau_pour
 
 PLATEFORMES = {"windows": "exe", "mac_arm": "zip", "mac_intel": "zip"}
-MODES_SOLO = ("campagne", "arcade", "hardcore")
+MODES_SOLO = ("campagne", "arcade", "hardcore", "defi")
 MORCEAUX_ATTENDUS = {}          # fichier partiel -> numéro du prochain morceau
 
 app = FastAPI(title="NEON BREAKER", docs_url=None, redoc_url=None)
@@ -51,6 +51,10 @@ class Identifiants(BaseModel):
 
 class Couleur(BaseModel):
     couleur: str
+
+
+class Skin(BaseModel):
+    skin: str
 
 
 class EnvoiParties(BaseModel):
@@ -79,7 +83,8 @@ def joueur_connecte(autorisation):
 
 def presentation(joueur):
     return {"pseudo": joueur["pseudo"], "couleur": joueur["couleur"], "xp": joueur["xp"],
-            "niveau": niveau_pour(joueur["xp"])}
+            "niveau": niveau_pour(joueur["xp"]), "skin": joueur["skin"],
+            "skins": base.skins_de(joueur)}
 
 
 def ouvrir_session(joueur):
@@ -139,6 +144,18 @@ def changer_couleur(choix: Couleur, authorization: str = Header(default="")):
     return {"ok": True, "couleur": choix.couleur}
 
 
+@app.put("/api/moi/skin")
+def changer_skin(choix: Skin, authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    if choix.skin not in base.skins_de(joueur):
+        raise HTTPException(400, "Skin verrouille")
+    base.changer_skin(joueur["id"], choix.skin)
+    connexion = gestionnaire.connexions.get(joueur["pseudo"])
+    if connexion is not None:
+        connexion.skin = choix.skin
+    return {"ok": True, "skin": choix.skin}
+
+
 # --- Parties, classements, profils ------------------------------------------------------
 
 @app.post("/api/parties")
@@ -160,6 +177,14 @@ def classement(mode: str):
         raise HTTPException(404, "Mode inconnu")
     return {"mode": mode, "type": "victoires" if mode in MODES_VICTOIRES else "score",
             "lignes": base.classement(mode)}
+
+
+@app.get("/api/defi/{jour}")
+def defi(jour: str):
+    """Classement du défi d'un jour (AAAA-MM-JJ)."""
+    if len(jour) != 10 or not jour.replace("-", "").isdigit():
+        raise HTTPException(400, "Date invalide")
+    return {"mode": "defi", "type": "score", "jour": jour, "lignes": base.classement_defi(jour)}
 
 
 @app.get("/api/joueurs")

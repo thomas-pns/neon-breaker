@@ -50,6 +50,7 @@ class Connexion:
         self.joueur_id = joueur["id"]
         self.pseudo = joueur["pseudo"]
         self.couleur = joueur["couleur"]
+        self.skin = joueur["skin"] if "skin" in joueur.keys() else "neon"
         self.niveau = niveau_pour(joueur["xp"])
         self.salon = None
         self.file = asyncio.Queue(maxsize=90)
@@ -197,6 +198,7 @@ class Gestionnaire:
             connexion = self.connexions.get(pseudo)
             joueurs.append({"pseudo": pseudo, "pret": pseudo in salon.prets,
                             "couleur": connexion.couleur if connexion else "cyan",
+                            "skin": connexion.skin if connexion else "neon",
                             "niveau": connexion.niveau if connexion else 1})
         message = {"t": "salon", **salon.resume(), "joueurs": joueurs}
         for pseudo in salon.membres:
@@ -305,7 +307,9 @@ class Gestionnaire:
     def _envoyer_debut(self, salon, connexion):
         connexion.envoyer({"t": "debut", "mode": salon.mode, "niveau": salon.niveau,
                            "numero": salon.membres.index(connexion.pseudo) + 1,
-                           "joueurs": list(salon.membres)})
+                           "joueurs": list(salon.membres),
+                           "skins": [self.connexions[p].skin if p in self.connexions else "neon"
+                                     for p in salon.membres]})
 
     # --- Boucle de jeu ---------------------------------------------------------------
 

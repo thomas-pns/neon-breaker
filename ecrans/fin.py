@@ -32,6 +32,9 @@ class EcranFin(EcranBase):
     rang (int ou None) : place obtenue dans le top 10.
     """
 
+    def musique(self):
+        return None                     # silence : jingle de victoire / game over
+
     def __init__(self, app, resultat, fabrique, rang=None):
         super().__init__(app)
         self.resultat = resultat

@@ -9,8 +9,8 @@ Par :
 
 Réalisé le 20/10/2026
 
-ToDo List:
-    Menus horizontaux (curseurs de volume) pour les options (jalon 3).
+    Une option peut avoir une 3e valeur, fonction(sens) appelée par les
+    flèches gauche / droite (curseurs de volume du menu OPTIONS).
 """
 
 import math
@@ -59,6 +59,12 @@ class EcranBase:
         Entrée : image (Surface). Sortie : aucune.
         """
 
+    def musique(self):
+        """
+        But : musique voulue sur cet écran : nom, (fond, dessus) ou None (silence).
+        """
+        return "menu"
+
     def tremblement(self):
         """
         But : décalage d'écran à appliquer (secousses).
@@ -104,11 +110,16 @@ class MenuVertical:
                     self.indice = i
         if self.indice != ancien:
             audio.jouer("menu_nav")
+        option = self.options[self.indice]
+        sens = int(entrees.vient_d_appuyer("droite")) - int(entrees.vient_d_appuyer("gauche"))
+        if sens and len(option) > 2:
+            option[2](sens)
+            return
         clic_valide = 1 in entrees.clics and any(
             zone.collidepoint(entrees.souris) for zone in self.zones)
         if entrees.vient_d_appuyer("valider") or clic_valide:
             audio.jouer("menu_ok")
-            self.options[self.indice][1]()
+            option[1]()
 
     def dessiner(self, image):
         """
@@ -116,7 +127,7 @@ class MenuVertical:
         Entrée : image (Surface). Sortie : aucune.
         """
         self.zones = []
-        for i, (texte, _) in enumerate(self.options):
+        for i, (texte, *_) in enumerate(self.options):
             y = self.y + i * self.ecart
             choisi = i == self.indice
             if choisi:

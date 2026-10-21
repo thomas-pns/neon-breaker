@@ -88,6 +88,21 @@ class Joueur:
         self.avec_overdrive = True
         self.avec_pouvoirs = True
         self.points_manche = 0          # Duel : points ; Course : manches
+        self.skin = "neon"
+
+    def appliquer_skin(self, code, garder_bord=False):
+        """
+        But : habiller la raquette avec un skin (couleurs, motif, traînée).
+        Entrées : code (str) ; garder_bord (bool) : à deux joueurs, le bord
+                  garde la couleur du joueur pour qu'on les distingue.
+        """
+        from reseau.profil import SKINS_PAR_CODE
+        skin = SKINS_PAR_CODE.get(code) or SKINS_PAR_CODE["neon"]
+        self.skin = skin["code"]
+        self.bord_impose = garder_bord
+        corps, bord = config.COULEURS_JOUEURS[self.numero]
+        self.couleur_corps = tuple(skin["corps"]) if skin["corps"] else corps
+        self.couleur_bord = bord if garder_bord or not skin["bord"] else tuple(skin["bord"])
 
     # --- Effets temporisés --------------------------------------------------
 

@@ -90,8 +90,12 @@ class EcranSalons(EcranTempsReel):
         self.maximum = 4
         self.indice = 0
         self.mode_creation = 0
-        self.niveau = 0
+        self.niveau = self.niveau_max()
         self.zones = []
+
+    def niveau_max(self):
+        """But : dernier niveau Coop proposable (atteint en Campagne ou en Coop)."""
+        return min(11, max(self.app.niveau_debloque("campagne"), self.app.niveau_debloque("coop")))
 
     def sur_connexion(self):
         self.temps_reel.envoyer({"t": "lister"})
@@ -137,7 +141,7 @@ class EcranSalons(EcranTempsReel):
             self.mode_creation = (self.mode_creation + sens) % len(MODES)
             self.app.audio.jouer("menu_nav")
         elif sens and self.indice == ligne_creation + 1:
-            self.niveau = (self.niveau + sens) % 12
+            self.niveau = (self.niveau + sens) % (self.niveau_max() + 1)
             self.app.audio.jouer("menu_nav")
         clic = 1 in entrees.clics and any(z.collidepoint(entrees.souris) for z in self.zones)
         if entrees.vient_d_appuyer("valider") or clic:
@@ -184,6 +188,9 @@ class EcranSalons(EcranTempsReel):
                            ancrage="gauche", lueur=False)
             dessiner_texte(image, f"< {self.niveau + 1} >", rect.x + 360, rect.centery, 3,
                            config.VERT, lueur=choisi)
+            if self.niveau_max() < 11:
+                dessiner_texte(image, f"DEBLOQUES : 1 A {self.niveau_max() + 1}", rect.right - 24,
+                               rect.centery, 2, GRIS, ancrage="droite", lueur=False)
             self.zones.append(rect)
 
         cote = pygame.Rect(910, 100, 310, 520)

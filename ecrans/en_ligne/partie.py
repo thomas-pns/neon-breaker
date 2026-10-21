@@ -61,8 +61,10 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.effets = GestionnaireEffets()
         self.effets.qualite = app.reglages["particules"]
         self.mode = creer_mode_client(self.code, app, self.effets, debut.get("niveau", 0))
-        for joueur, pseudo in zip(self.mode.joueurs, debut["joueurs"]):
+        skins = debut.get("skins") or []
+        for i, (joueur, pseudo) in enumerate(zip(self.mode.joueurs, debut["joueurs"])):
             joueur.nom = pseudo
+            joueur.appliquer_skin(skins[i] if i < len(skins) else "neon", garder_bord=True)
         self.effets.particules.vider()
         self.effets.textes.vider()
         self.recu = False
@@ -82,6 +84,9 @@ class EcranPartieEnLigne(EcranTempsReel):
         rejouer_effets(message.get("fx", []), self.app, self.effets)
         self.recu = True
         self.pause = message.get("pause")
+        # Un niveau Coop atteint en ligne se débloque aussi pour le joueur.
+        if self.code == "coop" and getattr(self.mode, "indice", 0) > self.app.niveau_debloque("coop"):
+            self.mode.debloquer(self.mode.indice)
 
     def sur_debut(self, message):
         """Retour après une coupure : la partie continue."""
@@ -199,6 +204,9 @@ class EcranPartieEnLigne(EcranTempsReel):
                     balle.x = raquette.x + decalage
 
     # --- Dessin -------------------------------------------------------------------------
+
+    def musique(self):
+        return self.mode.musique()
 
     def tremblement(self):
         return self.effets.decalage_tremblement()

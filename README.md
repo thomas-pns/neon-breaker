@@ -6,7 +6,8 @@ Style synthwave néon : fond animé, halos lumineux, filtre CRT, effets spéciau
 
 > Cahiers des charges : `PROMPT.md` (jeu) et `PROMPT_EN_LIGNE.md` (jeu en ligne).
 > Mise en ligne sur le NAS : **`DEPLOIEMENT.md`**.
-> **État actuel : jeu complet + jeu en ligne.** Reste à faire : musique et nouveaux sons.
+> **Version 1.1** : musiques synthwave générées, nouveaux sons, menu OPTIONS, défi du jour,
+> skins de raquette, mini-boss en Arcade, Coop en ligne limitée aux niveaux débloqués.
 
 ## Installation
 
@@ -26,7 +27,8 @@ Options : `python main.py --plein-ecran`, `python main.py --debug` (affiche les 
 | Mode | Joueurs | Principe |
 |---|---|---|
 | **Campagne** | 1 | 12 niveaux en 3 mondes (Sunset Grid, Neon City, Cyber Core), un boss tous les 4 niveaux, progression sauvegardée |
-| **Arcade** | 1 | Le mur descend de plus en plus vite et des rangées aléatoires arrivent en haut : tenir le plus longtemps possible |
+| **Arcade** | 1 | Le mur descend de plus en plus vite et des rangées aléatoires arrivent en haut : tenir le plus longtemps possible. Un mini-boss DRONE toutes les 10 vagues |
+| **Défi du jour** | 1 | Une Arcade identique pour tout le monde le même jour (mêmes rangées, une règle spéciale tirée au sort), avec son classement du jour |
 | **Hardcore** | 1 | La campagne en 1 vie, balle +30 %, malus seulement, ni pouvoirs ni OVERDRIVE, score x2 |
 | **Coop** | 2 | Deux raquettes en bas, vies et score d'équipe, niveaux de la campagne |
 | **Duel** | 2 | J1 en bas, J2 en haut, mur au centre ; les malus attrapés partent chez l'adversaire ; premier à 7 points |
@@ -42,14 +44,15 @@ Les modes solo ont un top 10, avec saisie du nom en 3 lettres. Les boss :
 
 Menu **EN LIGNE** : créer un compte (pseudo + mot de passe), puis
 
-- **Parties en ligne** : liste des parties ouvertes (4 au maximum). Créez une Coop (avec choix du niveau), un Duel ou une Course, ou rejoignez celle d'un ami. Dans le salon, chacun se déclare **PRET**, puis l'hôte lance.
+- **Parties en ligne** : liste des parties ouvertes (4 au maximum). Créez une Coop (avec choix parmi les niveaux déjà atteints), un Duel ou une Course, ou rejoignez celle d'un ami. Dans le salon, chacun se déclare **PRET**, puis l'hôte lance.
 - **Joueurs** : tous les inscrits, leur niveau, leurs succès, qui est en ligne.
-- **Profil** : niveau et XP, statistiques, records par mode, grille des 24 succès.
-- **Classements mondiaux** : meilleur score par mode, victoires en Duel et en Course.
+- **Profil** : niveau et XP, statistiques, records par mode, grille des 28 succès.
+- **Classements mondiaux** : défi du jour, meilleur score par mode, victoires en Duel et en Course.
 - **Couleur** : la couleur de votre pseudo.
+- **Skin** : l'habillage de votre raquette (9 skins, débloqués par le niveau et les succès), visible par l'autre joueur en ligne.
 
 Les parties en ligne sont calculées par le serveur. Votre raquette répond immédiatement (elle est pilotée sur votre PC), et le décalage réseau est compensé.
-Les scores solo (Campagne, Arcade, Hardcore) sont envoyés automatiquement. Ceux joués hors ligne partent à la prochaine connexion.
+Les scores solo (Campagne, Arcade, Hardcore, Défi) sont envoyés automatiquement. Ceux joués hors ligne partent à la prochaine connexion.
 Les succès débloqués apparaissent en notification en haut à droite. Le jeu se met à jour tout seul quand une nouvelle version sort.
 
 ## Commandes
@@ -114,11 +117,12 @@ P..HHHHHH..P
 ```
 main.py              point d'entrée (NEON_AUTOTEST=1 : visite automatique de tous les écrans)
 moteur/              config, application (Pile d'écrans), rendu néon/CRT, police pixel,
-                     fond synthwave (3 thèmes), effets, audio, entrées, sauvegarde
+                     fond synthwave (3 thèmes), effets, audio (fondus), musique (compositeur
+                     synthwave numpy), entrées, sauvegarde
 jeu/                 balle, raquette, briques, capsules, projectiles, joueur, pouvoirs,
                      boss, niveaux, terrain (physique + File d'événements)
-jeu/modes/           base, campagne (+ hardcore, coop), arcade, duel, course
-ecrans/              titre, modes, niveaux, partie, hud, pause, aide, scores, saisie, fin
+jeu/modes/           base, campagne (+ hardcore, coop), arcade, defi, duel, course
+ecrans/              titre, modes, niveaux, partie, hud, pause, options, aide, scores, saisie, fin
 structures/          Liste, File, Pile (reprises du TP)
 reseau/              client HTTP + WebSocket, instantanés de partie, mise à jour automatique
 ecrans/en_ligne/     connexion, menu en ligne, parties et salon, partie en ligne, joueurs,
@@ -126,7 +130,7 @@ ecrans/en_ligne/     connexion, menu en ligne, parties et salon, partie en ligne
 serveur/             FastAPI + SQLite : comptes, scores, succès, salons, simulation des parties
 outils/              fabrication PyInstaller, envoi au NAS, icône, autotest, démarrage Docker
 .github/workflows/   tests, image Docker du serveur, exécutables Windows / macOS
-tests/               python -m unittest  (46 tests)
+tests/               python -m unittest  (52 tests)
 ```
 
 - Un **Terrain** est une zone de jeu autonome : la Course en affiche deux côte à côte.
@@ -151,7 +155,13 @@ NEON_DONNEES_SERVEUR=./donnees_serveur python -m serveur        # http://localho
 NEON_SERVEUR=http://localhost:8765 python main.py               # le jeu, connecté à ce serveur
 ```
 
+## Musique
+
+`moteur/musique.py` compose six boucles au premier lancement (menu, un thème par monde, boss,
+OVERDRIVE) : basse, nappe, arpège avec écho, mélodie et batterie, rendus avec numpy puis
+gardés en `.wav` dans le dossier de données. La musique de l'OVERDRIVE se pose par-dessus
+celle du niveau, qui reprend là où elle en était. Volumes dans **OPTIONS** (titre ou pause).
+
 ## Prochaine étape
 
-Musique chiptune générée (menu, jeu, boss, OVERDRIVE) et nouveaux effets sonores, puis finitions :
-options complètes, commandes configurables, manettes.
+Commandes configurables, manettes, parties à 4 joueurs.

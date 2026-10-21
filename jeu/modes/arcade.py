@@ -12,8 +12,9 @@ Par :
 
 Réalisé le 20/10/2026
 
-ToDo List:
-    Mini-boss toutes les 10 vagues.
+    Toutes les 10 vagues, un mini-boss (DRONE) apparaît : le mur s'arrête de
+    descendre tant qu'il vole ; le vaincre rapporte des points et une vie.
+    Le décor (et la musique) change de monde aux vagues 15 et 30.
 """
 
 import math
@@ -26,6 +27,7 @@ from moteur.police_pixel import dessiner_texte
 from jeu.joueur import Joueur
 from jeu.modes.base import ModeDeJeu
 from jeu.modes.campagne import RECT_SOLO, PANNEAU_G, PANNEAU_D
+from jeu.boss import BossDrone
 from jeu.niveau import construire_grille, generer_rangee
 from jeu.terrain import Terrain
 from ecrans import hud
@@ -60,7 +62,8 @@ class ModeArcade(ModeDeJeu):
         terrain.couleur_bord = config.ROSE
         self.terrains = [terrain]
         _, pas_y = terrain.pas_grille()
-        grille = [generer_rangee(0, self.aleatoire) for _ in range(RANGEES_DEPART)]
+        rangees = getattr(self, "rangees_depart", None) or RANGEES_DEPART
+        grille = [generer_rangee(0, self.aleatoire) for _ in range(rangees)]
         terrain.remplir(construire_grille(grille, terrain))
         self.app.fond.changer_monde(1)
         self.servir()
@@ -82,8 +85,11 @@ class ModeArcade(ModeDeJeu):
             self.prochaine_vie += config.VIE_BONUS_TOUS_LES
             self.gagner_vie(joueur)
         self.app.fond.vitesse_cible = 0.6 + joueur.multiplicateur * 0.4
+        if terrain.boss is not None and terrain.boss.est_vaincu():
+            terrain.boss = None
         if self.etat == "jeu":
-            self.avant_descente -= dt_jeu
+            if terrain.boss is None:                 # le mur attend la fin du mini-boss
+                self.avant_descente -= dt_jeu
             if self.avant_descente <= 0:
                 self.descendre()
             self.verifier_invasion()
@@ -110,6 +116,12 @@ class ModeArcade(ModeDeJeu):
             for brique in nouvelles:
                 brique.apparition = 0.0
         terrain.niveau_annonce_vide = False
+        self.app.fond.changer_monde(1 + min(2, self.vague // 15))
+        if self.vague % 10 == 0 and terrain.boss is None:
+            terrain.boss = BossDrone(terrain, self.vague // 10)
+            self.annoncer(f"MINI-BOSS : {terrain.boss.nom} !", config.ROUGE, 2.0)
+            self.effets.eclair(0.4, config.ROUGE)
+            self.audio("alerte", 0.8)
         self.intervalle = max(INTERVALLE_MIN, self.intervalle * 0.95)
         self.avant_descente = self.intervalle
         self.effets.secouer(4)
@@ -123,6 +135,13 @@ class ModeArcade(ModeDeJeu):
             self.annoncer("INVASION !", config.ROUGE, 2.5)
             self.vies = 0
             self.fin_de_partie()
+
+    def sur_boss_mort(self, terrain, x, y):
+        super().sur_boss_mort(terrain, x, y)
+        joueur = self.joueurs[0]
+        joueur.stats["boss_vaincus"].append("drone")
+        self.gagner_vie(joueur)
+        self.annoncer("MINI-BOSS VAINCU ! +1 VIE", config.AMBRE, 2.2)
 
     def gagner_vie(self, joueur):
         self.vies += 1
@@ -179,11 +198,15 @@ class ModeArcade(ModeDeJeu):
 
     # --- Dessin -------------------------------------------------------------------
 
+    def record_affiche(self):
+        """But : record montré en haut à gauche."""
+        return self.app.meilleur_score(self.code)
+
     def dessiner_hud(self, image):
         joueur = self.joueurs[0]
         hud.panneau(image, PANNEAU_G, config.ROSE)
         hud.etiquette(image, "RECORD", PANNEAU_G.centerx, 50)
-        record = max(self.app.meilleur_score(self.code), joueur.score)
+        record = max(self.record_affiche(), joueur.score)
         dessiner_texte(image, f"{record:07d}", PANNEAU_G.centerx, 72, 2, config.BLANC,
                        lueur=False)
         hud.bloc_joueur_vertical(image, PANNEAU_G, joueur, 104, self.temps,
@@ -197,7 +220,10 @@ class ModeArcade(ModeDeJeu):
         dessiner_texte(image, str(self.vague), cx, 86, 5, config.ROSE)
         hud.etiquette(image, "DESCENTE DANS", cx, 150)
         couleur = config.ROUGE if self.avant_descente < 1.5 else config.CYAN
-        dessiner_texte(image, f"{max(0, self.avant_descente):.1f} S", cx, 180, 3, couleur)
+        if self.terrains[0].boss is not None:
+            dessiner_texte(image, "BOSS !", cx, 180, 3, config.ROSE)
+        else:
+            dessiner_texte(image, f"{max(0, self.avant_descente):.1f} S", cx, 180, 3, couleur)
         hud.barre(image, pygame.Rect(PANNEAU_D.x + 24, 204, PANNEAU_D.w - 48, 10),
                   1 - self.avant_descente / self.intervalle, couleur)
         hud.etiquette(image, "BRIQUES", cx, 250)

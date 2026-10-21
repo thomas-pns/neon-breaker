@@ -101,13 +101,13 @@ class TestServeur(unittest.TestCase):
         self.assertEqual(classement[0]["pseudo"], "Lea")
         profil = self.client.get("/api/joueurs/lea").json()
         self.assertEqual(profil["records"]["arcade"], 5000)
-        self.assertEqual(len(profil["succes"]), 24)
+        self.assertEqual(len(profil["succes"]), len(SUCCES))
         secret = [s for s in profil["succes"] if s["code"] == "secret_malus"][0]
         self.assertEqual(secret["nom"], "???")
         self.assertIn("Lea", [j["pseudo"] for j in self.client.get("/api/joueurs").json()["joueurs"]])
 
     def test_catalogue_succes(self):
-        self.assertEqual(len(SUCCES), 24)
+        self.assertEqual(len(SUCCES), 28)
         cumul = mettre_a_jour_cumul({}, {"mode": "duel", "numero": 1, "gagnant": 1,
                                          "points": [7, 0], "stats": {"briques": 3}})
         codes = evaluer({"mode": "duel", "numero": 1, "gagnant": 1, "points": [7, 0],
@@ -158,6 +158,7 @@ class TestServeur(unittest.TestCase):
             a.send_json({"t": "lancer"})
             debut = recevoir_jusqua(a, "debut")
             self.assertEqual(debut["numero"], 1)
+            self.assertEqual(debut["skins"], ["neon", "neon"])
             self.assertEqual(recevoir_jusqua(b, "debut")["numero"], 2)
             etat = recevoir_jusqua(a, "etat")
             self.assertEqual(len(etat["terrains"][0]["raquettes"]), 2)
@@ -178,6 +179,63 @@ class TestServeur(unittest.TestCase):
                 b2.send_json({"t": "abandon"})
                 fin = recevoir_jusqua(a, "fin")
                 self.assertEqual(fin["resultat"]["titre"], "PARTIE INTERROMPUE")
+
+    def test_defi_du_jour(self):
+        jeton = self.inscrire("Defieur")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        rapports = [{"uid": f"d{i}", "mode": "defi", "score": s, "jour": "2026-10-21",
+                     "vagues": 21, "stats": {"briques": 3}} for i, s in enumerate((900, 1500))]
+        rapports.append({"uid": "d9", "mode": "defi", "score": 5000, "jour": "2026-10-20"})
+        reponse = self.client.post("/api/parties", json={"rapports": rapports}, headers=entete)
+        self.assertEqual(reponse.status_code, 200)
+        codes = {s["code"] for r in reponse.json()["resultats"] for s in r["nouveaux_succes"]}
+        self.assertIn("defi_1", codes)
+        self.assertIn("defi_vague_20", codes)
+        lignes = self.client.get("/api/defi/2026-10-21").json()["lignes"]
+        ligne = next(l for l in lignes if l["pseudo"] == "Defieur")
+        self.assertEqual(ligne["valeur"], 1500)          # meilleur score du jour seulement
+        self.assertEqual(ligne["essais"], 2)
+        self.assertEqual(self.client.get("/api/defi/n-importe").status_code, 400)
+
+    def test_skins(self):
+        jeton = self.inscrire("Habille")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        moi = self.client.get("/api/moi", headers=entete).json()
+        self.assertEqual(moi["skin"], "neon")
+        self.assertEqual(moi["skins"], ["neon"])
+        refus = self.client.put("/api/moi/skin", json={"skin": "cryo"}, headers=entete)
+        self.assertEqual(refus.status_code, 400)
+        # Un gros score fait monter de niveau : de nouveaux skins se débloquent.
+        self.client.post("/api/parties", headers=entete, json={"rapports": [
+            {"uid": f"h{i}", "mode": "arcade", "score": 10 ** 6} for i in range(10)]})
+        moi = self.client.get("/api/moi", headers=entete).json()
+        self.assertIn("cryo", moi["skins"])
+        ok = self.client.put("/api/moi/skin", json={"skin": "cryo"}, headers=entete)
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(self.client.get("/api/joueurs/Habille").json()["skin"], "cryo")
+
+    def test_migration_base_1_0(self):
+        """Une base créée par la version 1.0 (sans skin ni jour) est mise à niveau."""
+        import sqlite3
+        from serveur.base import Base
+        chemin = os.path.join(DOSSIER, "ancienne.sqlite3")
+        ancienne = sqlite3.connect(chemin)
+        ancienne.executescript("""
+            CREATE TABLE joueurs (id INTEGER PRIMARY KEY, pseudo TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                mdp TEXT NOT NULL, couleur TEXT NOT NULL DEFAULT 'cyan', xp INTEGER NOT NULL DEFAULT 0,
+                cree_le REAL NOT NULL, vu_le REAL NOT NULL, banni INTEGER NOT NULL DEFAULT 0);
+            CREATE TABLE parties (id INTEGER PRIMARY KEY, uid TEXT UNIQUE, joueur_id INTEGER NOT NULL,
+                mode TEXT NOT NULL, score INTEGER NOT NULL, victoire INTEGER NOT NULL DEFAULT 0,
+                en_ligne INTEGER NOT NULL DEFAULT 0, duree REAL NOT NULL DEFAULT 0,
+                details TEXT NOT NULL DEFAULT '{}', joue_le REAL NOT NULL);
+            INSERT INTO joueurs (pseudo, mdp, cree_le, vu_le) VALUES ('Ancien', 'x', 0, 0);
+        """)
+        ancienne.commit()
+        ancienne.close()
+        base = Base(chemin)
+        self.assertEqual(base.joueur_par_pseudo("Ancien")["skin"], "neon")
+        base.enregistrer_partie(1, {"uid": "m1", "mode": "defi", "score": 10, "jour": "2026-10-21"})
+        self.assertEqual(base.classement_defi("2026-10-21")[0]["pseudo"], "Ancien")
 
     def test_protocole_trop_ancien(self):
         with self.client.websocket_connect("/ws") as socket:
