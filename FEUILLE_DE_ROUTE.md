@@ -182,6 +182,15 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
 ## iPhone / iPad (expérimental)
 
+**Alternative plus simple : version navigateur** avec [pygbag](https://pygame-web.github.io/).
+Elle fait tourner pygame-ce dans le navigateur (WebAssembly) et serait hébergée par le NAS, sur
+la même adresse. On y jouerait depuis Safari sur iPhone et iPad, sans Mac, sans App Store, et
+avec une mise à jour automatique.
+- Les modes solo se transposent bien. Le jeu en ligne demande d'adapter le client réseau aux
+  WebSocket du navigateur (pas de fils d'exécution), et la boucle principale doit passer en asyncio.
+- Il faut les mêmes commandes tactiles, et des musiques pré-générées.
+
+
 Piste : [pygame-ios](https://github.com/seekerluke/pygame-ios). Cet outil place le jeu dans un
 projet Xcode qui embarque Python 3.13 et pygame-ce. Il se décrit lui-même comme « pas prêt pour
 la production ».
