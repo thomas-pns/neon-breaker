@@ -31,7 +31,7 @@ tout de suite, mais la balle et l'autre joueur arrivent avec le retard du résea
 demi-ping, plus le temps entre deux images du serveur). C'est surtout sensible quand la balle
 touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
-- [ ] **Rebond décidé par le joueur qui tient la raquette** : quand la balle touche votre
+- [ ] **(retenu en priorité)** **Rebond décidé par le joueur qui tient la raquette** : quand la balle touche votre
   raquette sur votre écran, votre jeu fait rebondir la balle tout de suite et prévient le
   serveur, qui s'aligne (on fait confiance entre amis). Plus aucune balle « traversée » ni de
   rebond en retard sur sa propre raquette.
@@ -179,6 +179,31 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   (plusieurs phases, attaques qui visent chaque joueur, points faibles à toucher à plusieurs).
 - [ ] Le serveur gère déjà les parties ; il faudra passer les salons à 4 places et adapter les
   instantanés, plus un écran d'attente à 4.
+
+## iPhone / iPad (expérimental)
+
+Piste : [pygame-ios](https://github.com/seekerluke/pygame-ios). Cet outil place le jeu dans un
+projet Xcode qui embarque Python 3.13 et pygame-ce. Il se décrit lui-même comme « pas prêt pour
+la production ».
+
+- [ ] Prérequis : un Mac avec Xcode. Les runners macOS de GitHub Actions peuvent aussi fabriquer
+  le projet, mais il faut un certificat Apple pour le signer.
+- [ ] Distribution :
+  - compte Apple gratuit : installation par câble depuis Xcode, l'app expire au bout de 7 jours,
+    3 appareils au maximum ;
+  - compte développeur à 99 €/an : TestFlight, qui permet d'inviter les amis par lien.
+- [ ] **Pas de mise à jour automatique sur iOS** (interdit par Apple) : il faut republier l'app
+  à chaque version.
+- [ ] numpy (musique) n'a pas de version iOS facile : fournir les musiques en .wav
+  pré-générées dans l'app plutôt que de les composer au lancement.
+- [ ] Vérifier que la version de pygame-ce est prise en charge par les modèles de pygame-ios
+  (le jeu utilise la 2.5.8).
+- [ ] Commandes tactiles :
+  - la raquette suit le doigt et un tap lance la balle ;
+  - boutons à l'écran pour les 3 pouvoirs et la SUPERNOVA ;
+  - interface adaptée au format du téléphone (bandes noires ou HUD repensé).
+- [ ] Boucle de jeu : passer par `_ios_tick` au lieu de la boucle `while`.
+- [ ] Premier essai réaliste : une version « test » installée par câble sur ton iPhone.
 
 ## Déjà prévu avant
 
