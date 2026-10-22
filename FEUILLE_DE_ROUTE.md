@@ -15,6 +15,34 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
   Attention : cette correction ne sert qu'à partir de la mise à jour suivante. La mise à jour
   vers la version corrigée elle-même affichera encore l'erreur une dernière fois.
 
+## Noms des records
+
+- [ ] Ne plus demander les 3 lettres à chaque record :
+  - un réglage **NOM DES RECORDS** dans OPTIONS ; par défaut, les 3 premières lettres du pseudo
+    en ligne, sinon les dernières lettres saisies ;
+  - à un nouveau record, le nom est déjà rempli : ENTREE valide tout de suite, ou on le modifie
+    avant de rejouer ;
+  - à deux joueurs, un nom par joueur (J1, J2).
+
+## Latence en ligne
+
+Aujourd'hui, le serveur calcule tout et envoie l'état 30 fois par seconde. Votre raquette répond
+tout de suite, mais la balle et l'autre joueur arrivent avec le retard du réseau (environ un
+demi-ping, plus le temps entre deux images du serveur). C'est surtout sensible quand la balle
+touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
+
+- [ ] **Rebond décidé par le joueur qui tient la raquette** : quand la balle touche votre
+  raquette sur votre écran, votre jeu fait rebondir la balle tout de suite et prévient le
+  serveur, qui s'aligne (on fait confiance entre amis). Plus aucune balle « traversée » ni de
+  rebond en retard sur sa propre raquette.
+- [ ] **Prédiction de la balle** : entre deux images du serveur, le jeu continue de faire
+  avancer la balle (murs et briques compris), puis se recale en douceur au lieu de sauter.
+  Les deux joueurs peuvent voir de petites différences, ce qui est acceptable.
+- [ ] Monter à **60 images par seconde** côté serveur, ou n'envoyer que ce qui change pour
+  garder le même débit.
+- [ ] Afficher le **ping** dans le HUD en ligne (vert / orange / rouge) pour savoir d'où vient
+  la gêne. Si le ping est élevé, c'est le trajet Internet jusqu'au NAS, pas le jeu.
+
 ## Version et mises à jour
 
 - [ ] Afficher la version du jeu en bas à droite de l'écran titre.
