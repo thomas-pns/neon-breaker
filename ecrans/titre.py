@@ -21,7 +21,16 @@ import pygame
 from moteur import config
 from moteur.police_pixel import dessiner_texte
 from moteur.rendu import attenuer
+from moteur.version import VERSION
 from ecrans.base import EcranBase, MenuVertical
+
+
+def texte_version():
+    """
+    But : texte de la version affichée en bas à droite de l'écran titre.
+    Entrée : aucune. Sortie : (str) ex. « V1.1.0 ».
+    """
+    return f"V{VERSION}"
 
 
 class EcranTitre(EcranBase):
@@ -135,11 +144,12 @@ class EcranTitre(EcranBase):
 
         self.menu.dessiner(image)
         if config.EST_TEST:
-            from moteur.version import VERSION
-            dessiner_texte(image, f"VERSION DE TEST {VERSION}", config.LARGEUR - 16,
-                           config.HAUTEUR - 56, 2, config.AMBRE, ancrage="droite", lueur=False)
-            dessiner_texte(image, "SCORES NON ENVOYES", config.LARGEUR - 16, config.HAUTEUR - 34,
+            dessiner_texte(image, "VERSION DE TEST", config.LARGEUR - 16,
+                           config.HAUTEUR - 78, 2, config.AMBRE, ancrage="droite", lueur=False)
+            dessiner_texte(image, "SCORES NON ENVOYES", config.LARGEUR - 16, config.HAUTEUR - 56,
                            2, config.AMBRE, ancrage="droite", lueur=False)
+        dessiner_texte(image, texte_version(), config.LARGEUR - 16, config.HAUTEUR - 30,
+                       2, (150, 120, 200), ancrage="droite", lueur=False)
         dessiner_texte(image, "THOMAS CHASSANIS PONS & CAMIL BOUZIRI  -  CPE 3A",
                        config.LARGEUR / 2, config.HAUTEUR - 30, 2,
                        (150, 120, 200), lueur=False)

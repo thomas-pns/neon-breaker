@@ -27,6 +27,8 @@ from structures.liste import Liste  # noqa: E402
 from structures.file import File  # noqa: E402
 from structures.pile import Pile  # noqa: E402
 from moteur import sauvegarde  # noqa: E402
+from moteur.version import VERSION  # noqa: E402
+from ecrans.titre import texte_version  # noqa: E402
 from jeu.balle import Balle  # noqa: E402
 from jeu.brique import BriqueNormale, BriqueMetal, BriqueSolide, fabriquer_brique  # noqa: E402
 from jeu.niveau import lire_niveau, charger_campagne, ErreurNiveau  # noqa: E402
@@ -215,6 +217,10 @@ class TestScoreEtSauvegarde(unittest.TestCase):
             self.assertEqual(relu["meilleurs"], {})
             self.assertIn("crt", relu["reglages"])
 
+
+class TestEcranTitre(unittest.TestCase):
+    def test_texte_version(self):
+        self.assertEqual(texte_version(), "V" + VERSION)
 
 
 class TestNouveautes11(unittest.TestCase):
