@@ -189,6 +189,11 @@ avec une mise à jour automatique.
 - Les modes solo se transposent bien. Le jeu en ligne demande d'adapter le client réseau aux
   WebSocket du navigateur (pas de fils d'exécution), et la boucle principale doit passer en asyncio.
 - Il faut les mêmes commandes tactiles, et des musiques pré-générées.
+- **Icône sur l'écran d'accueil** : avec un manifeste web (PWA), Safari > Partager > « Sur l'écran
+  d'accueil » donne une icône qui ouvre le jeu en plein écran, comme une app. Un profil de
+  configuration (.mobileconfig avec un « Web Clip ») fait la même chose en un clic, même non
+  signé (iOS affiche « non vérifié »). Un profil ne peut contenir qu'un raccourci vers le site,
+  pas une vraie app.
 
 
 Piste : [pygame-ios](https://github.com/seekerluke/pygame-ios). Cet outil place le jeu dans un
