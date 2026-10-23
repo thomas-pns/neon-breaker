@@ -198,6 +198,7 @@ TOUCHES = {
 AIDE_TOUCHES = {
     "solo": [("\u2190 \u2192 Q D", "BOUGER"), ("SOURIS", "BOUGER"),
              ("ESPACE", "LANCER"), ("1 2 3", "POUVOIRS"),
+             ("A TAB", "CHOISIR"), ("E", "POUVOIR"),
              ("MAJ", "OVERDRIVE"), ("ECHAP", "PAUSE")],
     "j1": [("Q D", "BOUGER"), ("Z", "LANCER"), ("A", "CHOISIR"),
            ("E", "POUVOIR"), ("S", "OVERDRIVE")],

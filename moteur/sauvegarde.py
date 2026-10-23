@@ -31,6 +31,7 @@ DEFAUT = {
     "meilleurs": {},          # mode -> meilleur score
     "classements": {},        # mode -> top 10 [{"nom", "score"}]
     "progression": {},        # "campagne" / "coop" -> dernier niveau débloqué
+    "bulles_vues": [],         # codes des bulles d'aide déjà affichées
 }
 
 

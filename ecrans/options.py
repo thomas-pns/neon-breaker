@@ -35,6 +35,7 @@ class EcranOptions(EcranBase):
     def __init__(self, app):
         super().__init__(app)
         self.menu = MenuVertical([], config.LARGEUR / 2, 214, 3, 40)
+        self.bulles_reactivees = False
         self._construire()
 
     @property
@@ -77,6 +78,8 @@ class EcranOptions(EcranBase):
             ("PLEIN ECRAN  (F11)", self.app.ecran.basculer_plein_ecran),
             (f"NOM DES RECORDS J1 : {self._nom_defaut(1)}", lambda: self._saisir_nom(1)),
             (f"NOM DES RECORDS J2 : {self._nom_defaut(2)}", lambda: self._saisir_nom(2)),
+            ("BULLES D'AIDE : " + ("REACTIVEES" if self.bulles_reactivees else "REVOIR"),
+             self._revoir_bulles),
             ("RETOUR", self._retour),
         ]
         self.menu.indice = indice
@@ -117,6 +120,14 @@ class EcranOptions(EcranBase):
 
     def _retour(self):
         self.app.depiler()
+
+    def _revoir_bulles(self):
+        """But : effacer les bulles deja vues pour les reactiver."""
+        self.app.donnees["bulles_vues"] = []
+        self.bulles_reactivees = True
+        self.app.audio.jouer("menu_ok")
+        self.app.enregistrer()
+        self._construire()
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)

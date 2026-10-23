@@ -58,6 +58,7 @@ class ModeDeJeu:
         self.message = ""
         self.couleur_message = config.BLANC
         self.temps_message = 0.0
+        self.bulle = None
 
     # --- Outils -----------------------------------------------------------------
 
@@ -122,6 +123,8 @@ class ModeDeJeu:
         for joueur in self.joueurs:
             pret = joueur.overdrive_pret()
             if pret and not getattr(joueur, "overdrive_annonce", False):
+                from ecrans.bulles import afficher
+                afficher(self, "overdrive", joueur)
                 self.audio("overdrive_pret", 0.8)
                 self.effets.texte("OVERDRIVE PRET !", joueur.raquette.x,
                                   joueur.raquette.y - 50 * -joueur.raquette.sens,
@@ -134,6 +137,10 @@ class ModeDeJeu:
         for terrain in self.terrains:
             terrain.mettre_a_jour_visuel(dt_jeu)
             self.traiter_evenements(terrain)
+        if self.bulle:
+            self.bulle = (self.bulle[0], max(0.0, self.bulle[1] - dt))
+            if self.bulle[1] <= 0:
+                self.bulle = None
         self.regles(dt, dt_jeu)
 
     def pas_physique(self, dt):
@@ -303,6 +310,9 @@ class ModeDeJeu:
         if cible is None:
             return
         resultat = appliquer_capsule(effet.code, cible, cible.terrain)
+        if resultat == "stocke":
+            from ecrans.bulles import afficher
+            afficher(self, "pouvoir", cible)
         if resultat == "vie":
             self.gagner_vie(cible)
         raquette = cible.raquette
