@@ -68,6 +68,10 @@ class EcranHub(EcranEnLigneBase):
         self.menu.indice = indice
 
     def _parties(self):
+        if self.app.en_ligne.protege():
+            self.statut = "VERSION DE TEST : PAS DE PARTIE EN LIGNE SUR LE VRAI SERVEUR"
+            self.app.audio.jouer("metal")
+            return
         from ecrans.en_ligne.salons import EcranSalons
         self.app.remplacer(EcranSalons(self.app))
 

@@ -82,6 +82,20 @@ def telecharger(url, destination, empreinte_attendue, progression=None):
         raise ValueError("Fichier corrompu (empreinte différente)")
 
 
+def environnement_propre():
+    """
+    But : environnement à donner au script qui relance le jeu. On retire les
+    variables internes de PyInstaller héritées de l'exe actuel : sinon le nouvel
+    exe cherche ses fichiers dans le dossier temporaire de l'ancien (déjà effacé)
+    et affiche « Failed to load Python DLL ».
+    Sortie : (dict).
+    """
+    env = {cle: valeur for cle, valeur in os.environ.items()
+           if not cle.startswith("_PYI_") and not cle.startswith("_MEI")}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return env
+
+
 def installer_windows(nouveau):
     """Remplace l'exécutable courant après sa fermeture, puis le relance."""
     actuel = sys.executable
@@ -95,7 +109,8 @@ start "" "{actuel}"
 del "%~f0"
 ''')
     drapeaux = 0x00000008 | 0x08000000          # DETACHED_PROCESS | CREATE_NO_WINDOW
-    subprocess.Popen(["cmd", "/c", script], creationflags=drapeaux, close_fds=True)
+    subprocess.Popen(["cmd", "/c", script], creationflags=drapeaux, close_fds=True,
+                     env=environnement_propre())
 
 
 def installer_mac(archive):
@@ -118,7 +133,8 @@ mv "{nouveau}" "{paquet}"
 xattr -dr com.apple.quarantine "{paquet}" 2>/dev/null
 open "{paquet}"
 ''')
-    subprocess.Popen(["/bin/sh", script], start_new_session=True, close_fds=True)
+    subprocess.Popen(["/bin/sh", script], start_new_session=True, close_fds=True,
+                     env=environnement_propre())
 
 
 def mettre_a_jour(adresse, infos, progression=None):

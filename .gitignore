@@ -5,6 +5,7 @@ data/sauvegarde.json
 data/sauvegarde.json.tmp
 data/erreurs.log
 data/serveur.txt
+data/canal.txt
 .env
 dist/
 build/

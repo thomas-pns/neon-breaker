@@ -30,6 +30,27 @@ RACINE = getattr(sys, "_MEIPASS",
 DOSSIER_RESSOURCES = os.path.join(RACINE, "data")
 
 
+def _lire_canal():
+    """
+    But : canal de la version : "dev" pour un exe de test (fichier data/canal.txt
+    écrit par outils/construire.py, ou variable NEON_CANAL), sinon "stable".
+    Sortie : (str).
+    """
+    if os.environ.get("NEON_CANAL"):
+        return os.environ["NEON_CANAL"].strip().lower()
+    try:
+        with open(os.path.join(DOSSIER_RESSOURCES, "canal.txt"), encoding="utf-8") as fichier:
+            return fichier.read().strip().lower() or "stable"
+    except OSError:
+        return "stable"
+
+
+CANAL = _lire_canal()
+# Version de test : sauvegarde séparée, aucun score envoyé au vrai serveur,
+# pas de partie en ligne sur le vrai serveur, pas de mise à jour automatique.
+EST_TEST = CANAL == "dev"
+
+
 def _dossier_utilisateur():
     """
     But : dossier où écrire les données du joueur.
@@ -41,11 +62,12 @@ def _dossier_utilisateur():
         dossier = DOSSIER_RESSOURCES            # lancé depuis le code source
     elif sys.platform == "win32":
         dossier = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")),
-                               "NeonBreaker")
+                               "NeonBreaker-dev" if EST_TEST else "NeonBreaker")
     elif sys.platform == "darwin":
-        dossier = os.path.expanduser("~/Library/Application Support/NeonBreaker")
+        dossier = os.path.expanduser("~/Library/Application Support/"
+                                     + ("NeonBreaker-dev" if EST_TEST else "NeonBreaker"))
     else:
-        dossier = os.path.expanduser("~/.local/share/neonbreaker")
+        dossier = os.path.expanduser("~/.local/share/neonbreaker" + ("-dev" if EST_TEST else ""))
     os.makedirs(dossier, exist_ok=True)
     return dossier
 

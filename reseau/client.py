@@ -297,6 +297,16 @@ class ServiceEnLigne:
                 rappel(resultat)
         self.appeler("PUT", "/api/moi/couleur", {"couleur": couleur}, recu)
 
+    def protege(self):
+        """
+        But : version de test branchée sur le vrai serveur ? Dans ce cas, aucun score
+        n'est envoyé et les parties en ligne sont désactivées (consultation seulement).
+        Un serveur de test choisi avec la variable NEON_SERVEUR lève cette protection.
+        Sortie : (bool).
+        """
+        from moteur import config
+        return config.EST_TEST and not os.environ.get("NEON_SERVEUR")
+
     def skin_actif(self):
         """But : skin à afficher pour le joueur local ("neon" sans compte)."""
         return self.skin if self.jeton and self.skin in self.skins else "neon"
@@ -319,6 +329,11 @@ class ServiceEnLigne:
         """
         if not self.jeton:
             return
+        if self.protege():
+            if not getattr(self, "test_annonce", False):
+                self.test_annonce = True
+                self.app.notifier("VERSION DE TEST", "AMBRE", "SCORES NON ENVOYES")
+            return
         file = self.app.donnees.setdefault("a_envoyer", [])
         for rapport in rapports:
             file.append({**rapport, "uid": uuid.uuid4().hex, "joue_le": time.time()})
@@ -329,7 +344,7 @@ class ServiceEnLigne:
     def vider_file(self):
         """But : envoyer les parties en attente ; les succès obtenus sont annoncés."""
         file = self.app.donnees.get("a_envoyer", [])
-        if not file or not self.jeton or self.envoi_en_cours:
+        if not file or not self.jeton or self.envoi_en_cours or self.protege():
             return
         lot = list(file[:50])
         self.envoi_en_cours = True

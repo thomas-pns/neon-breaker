@@ -134,6 +134,12 @@ class EcranTitre(EcranBase):
                          (config.LARGEUR / 2 + largeur_ligne / 2, y_logo + 125), 3)
 
         self.menu.dessiner(image)
+        if config.EST_TEST:
+            from moteur.version import VERSION
+            dessiner_texte(image, f"VERSION DE TEST {VERSION}", config.LARGEUR - 16,
+                           config.HAUTEUR - 56, 2, config.AMBRE, ancrage="droite", lueur=False)
+            dessiner_texte(image, "SCORES NON ENVOYES", config.LARGEUR - 16, config.HAUTEUR - 34,
+                           2, config.AMBRE, ancrage="droite", lueur=False)
         dessiner_texte(image, "THOMAS CHASSANIS PONS & CAMIL BOUZIRI  -  CPE 3A",
                        config.LARGEUR / 2, config.HAUTEUR - 30, 2,
                        (150, 120, 200), lueur=False)
