@@ -62,7 +62,8 @@ reseau/              client HTTP + WebSocket (fil séparé), instantanés, profi
                      (niveaux, skins), mise à jour automatique
 serveur/             api, base (migrations au démarrage), salons, simulation, succès, admin
 structures/          Liste, File, Pile maison (reprises du TP : à utiliser, pas à remplacer)
-outils/              construire.py (PyInstaller), envoyer_build.py, autotest.py, icône, Docker
+outils/              construire.py (PyInstaller), envoyer_build.py, autotest.py, verifier.py,
+                     icône, Docker
 tests/               python -m unittest (52 tests)
 .github/workflows/   tests.yml, serveur.yml, executables.yml
 FEUILLE_DE_ROUTE.md  toutes les idées et corrections à venir
@@ -87,58 +88,49 @@ DEPLOIEMENT.md       installation sur le NAS
 
 ## 3. Déploiement : ce qui se déclenche, et quand
 
-| Workflow | Déclencheur actuel | Effet |
+| Workflow | Déclencheur | Effet |
 |---|---|---|
-| `tests.yml` | push sur `main`, pull requests | tests unitaires et autotest |
-| `serveur.yml` | push sur `main` touchant serveur/jeu/moteur/reseau…, ou lancement manuel | construit et **publie `ghcr.io/thomas-pns/neon-breaker:latest`**. Le NAS ne la récupère que lorsque Thomas fait « Nettoyer » puis « Créer » dans Container Manager |
-| `executables.yml` | push sur `main` modifiant `moteur/version.py`, `outils/envoyer_build.py` ou ce workflow ; **ou une étiquette `v*.*.*` poussée depuis n'importe quelle branche** ; ou lancement manuel | fabrique Windows, Mac Apple et Mac Intel, les teste, puis **les envoie au NAS**, ce qui publie une mise à jour pour tous les joueurs |
+| `tests.yml` | push sur `main` ou `dev/**`, pull requests | tests unitaires et autotest |
+| `serveur.yml` | push sur `main` ou `dev/**` touchant serveur/jeu/moteur/reseau… ; lancement manuel | construit et teste l'image Docker. **Sur `main` seulement**, publie `ghcr.io/thomas-pns/neon-breaker:latest`. Le NAS ne la récupère que lorsque Thomas fait « Nettoyer » puis « Créer » dans Container Manager |
+| `executables.yml` | **`main` seulement** : push modifiant `moteur/version.py` ou `outils/envoyer_build.py` ; lancement manuel depuis `main` | fabrique Windows, Mac Apple et Mac Intel, les teste, puis **les envoie au NAS**, ce qui publie la mise à jour à tous les joueurs |
+| `test-windows.yml` | push sur `dev/**` ; lancement manuel (pas sur `main`) | fabrique un **exe Windows de test** `X.Y.Z-dev.N`, le passe à l'autotest et le dépose en **artefact GitHub** (7 jours). Rien n'est publié |
 
-Points de vigilance :
+L'**exe de test** (canal « dev », fichier `data/canal.txt` écrit par `outils/construire.py`,
+ou variable `NEON_CANAL=dev` depuis le code source) :
+- range ses données dans `NeonBreaker-dev`, et ne touche donc pas à la vraie sauvegarde ;
+- n'envoie **aucun score** au vrai serveur ;
+- **désactive les parties en ligne** sur le vrai serveur. La consultation reste possible :
+  connexion, joueurs, profils, classements ;
+- ne se met **jamais** à jour tout seul ;
+- affiche « VERSION DE TEST » sur l'écran titre.
 
-- Une étiquette `v…` ou un lancement manuel d'`executables.yml` **depuis une branche de
-  dev publie quand même** la mise à jour à tous les joueurs. Il en va de même pour un
-  lancement manuel de `serveur.yml`, qui écrase `:latest`.
-- Un exécutable fabriqué par la CI contient l'adresse du serveur de production (variable
-  GitHub `NEON_SERVEUR_URL`, injectée dans `data/serveur.txt`). Une version de test se connecte
-  donc au **vrai** serveur et y envoie de vrais scores.
-- `outils/construire.py` n'accepte aujourd'hui que des versions `X.Y.Z`.
-- Le jeu range ses données dans `%APPDATA%/NeonBreaker`. Une version de test et la vraie
-  partagent donc la même sauvegarde.
-- Secrets (jeton de déploiement, adresse du serveur) : uniquement dans les secrets et variables
-  GitHub et dans le compose du NAS. **Ne les écris jamais dans le dépôt (il est public), ni
-  dans une consigne donnée à Codex.**
+Pour tester les parties en ligne ou une modification du serveur, lancer un serveur local et
+le choisir avec `NEON_SERVEUR`, ce qui lève la protection :
+`NEON_DONNEES_SERVEUR=./donnees_serveur python -m serveur`, puis
+`NEON_SERVEUR=http://localhost:8765 python main.py`. Un second conteneur « test » sur le NAS
+est une option à proposer à Thomas s'il veut tester à plusieurs.
 
-## 4. Lot 0 — à faire toi-même avant toute délégation
+Secrets (jeton de déploiement, adresse du serveur) : uniquement dans les secrets et variables
+GitHub et dans le compose du NAS. **Ne les écris jamais dans le dépôt (il est public), ni
+dans une consigne donnée à Codex.**
 
-1. Créer la branche `dev/v2-delegation` à partir de `main`. Tout le travail se fait dessus,
-   ou sur des sous-branches `dev/v2-delegation/<tache>` (une par agent, de préférence dans
-   des `git worktree` séparés).
-2. Sécuriser la CI :
-   - `executables.yml` et `serveur.yml` : les étapes d'envoi au NAS et de publication sur GHCR
-     ne doivent s'exécuter que si `github.ref == 'refs/heads/main'`. Pour les étiquettes,
-     vérifier que le commit étiqueté est bien sur `main`, ou supprimer le déclencheur par
-     étiquette ;
-   - `tests.yml` : ajouter les branches `dev/**`.
-3. Nouveau workflow `test-windows.yml` : sur push vers `dev/**` (et en lancement manuel), il
-   fabrique **seulement l'exe Windows**, lance l'autotest, puis le publie en **artefact
-   GitHub** (`actions/upload-artifact`, conservé 7 jours). Pas d'envoi au NAS.
-   - Version : `X.Y.Z-dev.<numéro de run>`. Il faut adapter `construire.py`, et vérifier
-     `comparer_versions` : une version `-dev` doit être considérée comme plus récente que la
-     version en ligne, pour que le jeu de test ne propose pas de « mise à jour » qui
-     l'écraserait.
-   - Dossier de données séparé quand la version contient `-dev` (par exemple
-     `NeonBreaker-dev`), pour ne pas toucher à la vraie sauvegarde de Thomas.
-   - Serveur : par défaut, celui de production, **uniquement si le protocole et le serveur
-     n'ont pas changé**. Pour une tâche qui touche au serveur, tester en local
-     (`NEON_DONNEES_SERVEUR=./donnees_serveur python -m serveur`, puis
-     `NEON_SERVEUR=http://localhost:8765 python main.py`). Un second conteneur « test » sur le
-     NAS est une option à proposer à Thomas plus tard.
-4. Corriger le bug du redémarrage après mise à jour (voir P1-1) : la partie Windows ne peut se
-   vérifier qu'avec un vrai exe.
+## 4. Lot 0 — déjà fait (23/10/2026)
+
+- Branche **`dev/v2-delegation`** créée à partir de `main`. Tout le travail se fait dessus, ou
+  sur des sous-branches `dev/v2-delegation/<tache>` dans des `git worktree` si deux agents
+  touchent des fichiers proches.
+- CI sécurisée : publication au NAS et sur GHCR depuis `main` uniquement, et plus de
+  déclenchement par étiquette.
+- `test-windows.yml` et le canal « dev » décrits ci-dessus.
+- **Bug du redémarrage après mise à jour corrigé** dans `reseau/mise_a_jour.py`
+  (`environnement_propre()` : `PYINSTALLER_RESET_ENVIRONMENT=1`, sans variables `_PYI_*` ni
+  `_MEI*`). La correction ne sera visible qu'à la mise à jour qui suivra sa publication.
+- `python outils/verifier.py` : tests unitaires et autotest en une commande, sur toutes les
+  plateformes.
+- `CLAUDE.md` à la racine : protocole de délégation.
 
 Thomas teste l'artefact sur son PC. **On ne fusionne dans `main` que s'il est d'accord.**
-La fusion, le changement de `VERSION` et l'envoi sur `main` déclenchent alors le déploiement
-normal.
+La fusion, puis le changement de `VERSION` sur `main`, déclenchent le déploiement normal.
 
 ## 5. Travaux par priorité
 
@@ -148,10 +140,8 @@ par Claude, relecture complète) · **[D→C]** Codex écrit, Claude fait la pas
 
 ### P1 — Version 1.2 « confort » (petites tâches indépendantes)
 
-1. **[C] Redémarrage après la mise à jour** (`reseau/mise_a_jour.py`) : lancer le script de
-   remplacement avec `PYINSTALLER_RESET_ENVIRONMENT=1`, sans les variables `_PYI_*` et
-   `_MEIPASS2`. Aujourd'hui, le nouvel exe affiche « Failed to load Python DLL » au redémarrage.
-   La correction ne profite qu'à la mise à jour suivante.
+1. ~~Redémarrage après la mise à jour~~ : fait au lot 0, sur `dev/v2-delegation`. Il reste à le
+   vérifier en conditions réelles lors des deux prochaines mises à jour.
 2. **[D] Version affichée** en bas à droite de l'écran titre (`moteur.version.VERSION`).
 3. **[D→C] Menu NOUVEAUTÉS** : un écran avec un volet dépliable par version (bêtas, 1.0 jeu en
    ligne, 1.1 musique / défi / skins / mini-boss, 1.2…). Le contenu vient d'un fichier de données
@@ -223,45 +213,52 @@ par Claude, relecture complète) · **[D→C]** Codex écrit, Claude fait la pas
 
 Le détail de chaque idée est dans `FEUILLE_DE_ROUTE.md`. Coche les cases au fil des fusions.
 
-## 6. Consignes données à Codex : modèle
+## 6. Consignes données à Codex
 
-Chaque consigne tient en une page et contient :
+Suivre le **modèle et la commande du `CLAUDE.md`** (`codexN exec --sandbox workspace-write
+"..." > .delegation/codexN.log 2>&1`). Les agents ne commitent pas et ne poussent pas : c'est toi
+qui commites après relecture, avec un commit par tâche. Valeurs à reprendre pour ce projet :
 
-1. le contexte minimal (fichiers concernés, extraits utiles) ;
-2. le but et le comportement attendu, avec des exemples ;
-3. les **fichiers autorisés**, de sorte que deux agents ne modifient jamais le même fichier en
-   même temps ;
-4. les conventions de la section 2 ;
-5. les critères d'acceptation : tests à ajouter, commandes qui doivent passer, ce qui ne doit
-   pas changer ;
-6. les interdits :
-   - pas de push sur `main`, pas d'étiquette, pas de lancement manuel de workflow ;
-   - ne modifier ni `.github/`, ni `docker-compose.yml`, ni `moteur/version.py` (sauf demande
-     explicite) ;
-   - aucun secret, pas de nouvelle dépendance, pas de reformatage de fichiers entiers.
+- **Contexte** : « Casse-brique Pygame (pygame-ce 2.5.8, Python 3.12), code et commentaires en
+  français. Serveur FastAPI + SQLite. Voir l'en-tête des fichiers voisins pour le style. »
+- **Fichiers à créer ou modifier** : liste exacte. Deux agents ne reçoivent jamais le même
+  fichier en même temps.
+- **Ne pas toucher** : par défaut `.github/`, `Dockerfile`, `docker-compose.yml`,
+  `moteur/version.py`, `reseau/mise_a_jour.py`, `serveur/base.py`, `outils/construire.py`,
+  `outils/envoyer_build.py`, plus tout fichier non listé.
+- **Conventions** : celles de la section 2, en particulier les en-têtes, les docstrings
+  But / Entrée / Sortie, les textes affichés en majuscules sans accents, les structures maison,
+  les scancodes et l'absence de nouvelle dépendance.
+- **Terminé quand** : comportement attendu, avec des exemples, plus « `python outils/verifier.py`
+  affiche TOUT PASSE », plus les tests à ajouter.
+- **Avant de finir** : « lance `python outils/verifier.py` et corrige jusqu'à TOUT PASSE ».
+- Jamais de secret, jamais d'adresse du serveur dans une consigne.
+
+En cas d'échec : renvoyer l'erreur à l'agent (2 essais au maximum), puis reprendre la main.
+En cas de quota atteint : passer sur l'autre compte, ou faire la tâche soi-même.
 
 ## 7. Relecture et validation (à chaque tâche)
 
 ```bash
-pip install -r requirements.txt -r serveur/requirements.txt httpx
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest -v
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy NEON_AUTOTEST=1 NEON_DONNEES=/tmp/neon python main.py
+pip install -r requirements.txt -r serveur/requirements.txt httpx   # une fois
+python outils/verifier.py
 ```
 
-- Relire le diff ligne à ligne : conventions, effets de bord, compatibilité des sauvegardes
-  (`moteur/sauvegarde.py` fusionne les clés par défaut), compatibilité avec les **anciens jeux**
-  encore installés chez les amis (champs JSON en plus : oui ; champs retirés ou renommés :
-  non, sauf en augmentant `PROTOCOLE`).
+- Relire le diff (`git diff --stat`, puis les parties utiles) : conventions, effets de bord,
+  compatibilité des sauvegardes (`moteur/sauvegarde.py` fusionne les clés par défaut),
+  compatibilité avec les **anciens jeux** encore installés chez les amis (champs JSON en plus :
+  oui ; champs retirés ou renommés : non, sauf en augmentant `PROTOCOLE`).
 - Migrations de base : uniquement des ajouts, idempotents, faits au démarrage dans
   `serveur/base.py` (voir les migrations `jour` et `skin`), et testés sur une base 1.0 (voir
   `test_migration_base_1_0`). Prévenir Thomas de sauvegarder `data/` sur le NAS avant une
   fusion qui touche au serveur.
 - Passe visuelle : créer l'écran avec `SDL_VIDEODRIVER=dummy`, avancer quelques images
   (`app._mettre_a_jour(1/60)` puis `app._dessiner()`), enregistrer
-  `pygame.image.save(app.ecran.image, ...)` et **regarder** les captures (textes qui se
-  chevauchent, qui débordent, lisibilité).
-- Avant de proposer une fusion : la CI de la branche est verte, l'artefact Windows est publié,
-  et Thomas a un court résumé de ce qui a changé et de quoi tester.
+  `pygame.image.save(app.ecran.image, ".delegation/capture.png")` et **regarder** l'image
+  (textes qui se chevauchent, qui débordent, lisibilité).
+- Puis commit sur `dev/v2-delegation` et push : la CI teste, et `test-windows.yml` fournit l'exe à
+  Thomas. Donne-lui un court résumé de ce qui a changé et de quoi tester, avec le lien vers
+  l'onglet Actions.
 
 ## 8. Après la fusion dans `main`
 
