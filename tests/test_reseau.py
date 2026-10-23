@@ -14,13 +14,14 @@ Réalisé le 21/10/2026
 import json
 import os
 import sys
-import tempfile
 import unittest
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-os.environ["NEON_DONNEES"] = tempfile.mkdtemp(prefix="neon_test_client_")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tests import dossier_temporaire  # noqa: E402
+
+os.environ["NEON_DONNEES"] = dossier_temporaire("neon_test_client_")
 
 import pygame  # noqa: E402
 

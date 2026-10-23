@@ -13,14 +13,15 @@ Réalisé le 20/10/2026
 
 import math
 import os
+import shutil
 import sys
-import tempfile
 import unittest
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests import dossier_temporaire  # noqa: E402
 import pygame  # noqa: E402
 
 from structures.liste import Liste  # noqa: E402
@@ -205,17 +206,18 @@ class TestScoreEtSauvegarde(unittest.TestCase):
         self.assertEqual(multiplicateur_pour(99), 8)
 
     def test_sauvegarde_aller_retour_et_corruption(self):
-        with tempfile.TemporaryDirectory() as dossier:
-            chemin = os.path.join(dossier, "s.json")
-            donnees = sauvegarde.charger(chemin)            # absent -> défaut
-            donnees["meilleurs"]["campagne"] = 1234
-            self.assertTrue(sauvegarde.enregistrer(donnees, chemin))
-            self.assertEqual(sauvegarde.charger(chemin)["meilleurs"]["campagne"], 1234)
-            with open(chemin, "w", encoding="utf-8") as fichier:
-                fichier.write("{pas du json")
-            relu = sauvegarde.charger(chemin)
-            self.assertEqual(relu["meilleurs"], {})
-            self.assertIn("crt", relu["reglages"])
+        dossier = dossier_temporaire("neon_test_sauvegarde_")
+        self.addCleanup(shutil.rmtree, dossier, True)
+        chemin = os.path.join(dossier, "s.json")
+        donnees = sauvegarde.charger(chemin)            # absent -> défaut
+        donnees["meilleurs"]["campagne"] = 1234
+        self.assertTrue(sauvegarde.enregistrer(donnees, chemin))
+        self.assertEqual(sauvegarde.charger(chemin)["meilleurs"]["campagne"], 1234)
+        with open(chemin, "w", encoding="utf-8") as fichier:
+            fichier.write("{pas du json")
+        relu = sauvegarde.charger(chemin)
+        self.assertEqual(relu["meilleurs"], {})
+        self.assertIn("crt", relu["reglages"])
 
 
 class TestEcranTitre(unittest.TestCase):
