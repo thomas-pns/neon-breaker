@@ -34,7 +34,7 @@ class EcranOptions(EcranBase):
 
     def __init__(self, app):
         super().__init__(app)
-        self.menu = MenuVertical([], config.LARGEUR / 2, 240, 3, 52)
+        self.menu = MenuVertical([], config.LARGEUR / 2, 214, 3, 40)
         self._construire()
 
     @property
@@ -43,6 +43,21 @@ class EcranOptions(EcranBase):
 
     def musique(self):
         return self.dessous.musique() if self.dessous is not None else "menu"
+
+    def reprendre(self):
+        """
+        But : actualiser les noms apres fermeture de leur ecran de saisie.
+        Entree(s) : aucune. Sortie : aucune.
+        """
+        self._construire()
+
+    def _saisir_nom(self, numero):
+        """
+        But : ouvrir la saisie du nom de record du joueur indique.
+        Entree(s) : numero (int). Sortie : aucune.
+        """
+        from ecrans.saisie import EcranSaisieNom
+        self.app.empiler(EcranSaisieNom(self.app, None, None, reglage=numero))
 
     def _construire(self):
         r = self.app.reglages
@@ -60,9 +75,19 @@ class EcranOptions(EcranBase):
             (f"PARTICULES : {r['particules'].upper()}", lambda: self._particules(1),
              self._particules),
             ("PLEIN ECRAN  (F11)", self.app.ecran.basculer_plein_ecran),
+            (f"NOM DES RECORDS J1 : {self._nom_defaut(1)}", lambda: self._saisir_nom(1)),
+            (f"NOM DES RECORDS J2 : {self._nom_defaut(2)}", lambda: self._saisir_nom(2)),
             ("RETOUR", self._retour),
         ]
         self.menu.indice = indice
+
+    def _nom_defaut(self, numero):
+        """
+        But : obtenir le nom qui sera pre-rempli dans le classement.
+        Entree(s) : numero (int). Sortie : (str) nom de trois caracteres.
+        """
+        from ecrans.saisie import nom_par_defaut
+        return nom_par_defaut(self.app, numero)
 
     def _volume(self, cle, sens):
         valeur = round(self.app.reglages[cle] * 10) + sens
@@ -108,7 +133,7 @@ class EcranOptions(EcranBase):
         cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2 + 10)
         panneau(image, cadre, config.CYAN)
         decalage = math.sin(self.temps * 3) * 3
-        dessiner_texte(image, "OPTIONS", config.LARGEUR / 2, 160 + decalage, 6, config.CYAN)
+        dessiner_texte(image, "OPTIONS", config.LARGEUR / 2, 138 + decalage, 6, config.CYAN)
         self.menu.dessiner(image)
         dessiner_texte(image, "↑↓ : CHOISIR   ←→ : REGLER   ECHAP : RETOUR", config.LARGEUR / 2,
                        cadre.bottom - 26, 2, (150, 120, 200), lueur=False)
