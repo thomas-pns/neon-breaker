@@ -57,6 +57,7 @@ class EcranTitre(EcranBase):
             ("JOUER", self._jouer),
             (self._libelle_en_ligne(), self._en_ligne),
             ("MEILLEURS SCORES", self._scores),
+            ("NOUVEAUTES", self._nouveautes),
             ("AIDE", self._aide),
             ("OPTIONS", self._options),
             ("QUITTER", self._quitter),
@@ -88,6 +89,11 @@ class EcranTitre(EcranBase):
     def _aide(self):
         from ecrans.aide import EcranAide
         self.app.remplacer(EcranAide(self.app))
+
+    def _nouveautes(self):
+        """But : ouvrir l'ecran des nouveautes. Entree(s) : aucune. Sortie : aucune."""
+        from ecrans.nouveautes import EcranNouveautes
+        self.app.remplacer(EcranNouveautes(self.app))
 
     def _options(self):
         from ecrans.options import EcranOptions
@@ -153,4 +159,3 @@ class EcranTitre(EcranBase):
         dessiner_texte(image, "THOMAS CHASSANIS PONS & CAMIL BOUZIRI  -  CPE 3A",
                        config.LARGEUR / 2, config.HAUTEUR - 30, 2,
                        (150, 120, 200), lueur=False)
-

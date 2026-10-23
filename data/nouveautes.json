@@ -1,0 +1,45 @@
+[
+  {
+    "version": "BETA",
+    "titre": "LES PREMIERS JALONS",
+    "lignes": [
+      "REFONTE DU MOTEUR ET PHYSIQUE DE LA BALLE",
+      "BRIQUES SPECIALES, CAPSULES ET BOSS",
+      "CAMPAGNE, ARCADE, HARDCORE ET DEFI",
+      "COOP, DUEL ET COURSE EN LOCAL"
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "titre": "LE JEU EN LIGNE",
+    "lignes": [
+      "COMPTES ET PROFILS DE JOUEURS",
+      "PARTIES EN LIGNE : COOP, DUEL ET COURSE",
+      "CLASSEMENTS, SUCCES, XP ET SKINS"
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "titre": "MUSIQUE ET DEFI",
+    "lignes": [
+      "MUSIQUES COMPOSEES ET EFFETS SONORES",
+      "DEFI DU JOUR A GRAINE FIXE",
+      "SKINS DE RAQUETTE ET MINI-BOSS EN ARCADE"
+    ]
+  },
+  {
+    "version": "1.2.0",
+    "titre": "CONFORT",
+    "lignes": [
+      "VERSION AFFICHEE SUR L'ECRAN TITRE",
+      "MENU NOUVEAUTES",
+      "LE NIVEAU DU JOUEUR DEVIENT LE RANG",
+      "NOM DES RECORDS REGLABLE DANS OPTIONS",
+      "AIDE REFAITE ET TOUCHES DANS LE HUD",
+      "BULLES D'AIDE LA PREMIERE FOIS",
+      "FICHE DETAILLEE DES SUCCES",
+      "EN LIGNE : MISE A JOUR ET MAINTENANCE",
+      "TOUCHES 1 2 3 EN AZERTY ET PAVE NUM"
+    ]
+  }
+]

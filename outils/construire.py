@@ -59,7 +59,8 @@ def main():
     # 4. PyInstaller.
     separateur = ";" if sys.platform == "win32" else ":"
     donnees = [("data/niveaux", "data/niveaux"), ("data/fond.png", "data"),
-               ("data/icone.png", "data"), ("data/serveur.txt", "data"),
+               ("data/icone.png", "data"),
+               ("data/nouveautes.json", "data"), ("data/serveur.txt", "data"),
                ("data/canal.txt", "data")]
     commande = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowed",
                 "--name", "NeonBreaker", "--icon", os.path.join("outils", "icone.png"),
