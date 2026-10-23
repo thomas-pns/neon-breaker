@@ -314,7 +314,7 @@ class EcranSalon(EcranTempsReel):
                                rect.centerx, rect.y + 30, 2, GRIS, lueur=False)
                 dessiner_texte(image, joueur["pseudo"].upper(), rect.centerx, rect.y + 100, 5,
                                couleur)
-                dessiner_texte(image, f"NIVEAU {joueur['niveau']}", rect.centerx, rect.y + 150,
+                dessiner_texte(image, f"RANG {joueur['niveau']}", rect.centerx, rect.y + 150,
                                2, config.AMBRE, lueur=False)
                 pret = joueur["pret"]
                 dessiner_texte(image, "PRET !" if pret else "PAS PRET", rect.centerx,

@@ -103,7 +103,7 @@ class EcranJoueurs(EcranEnLigneBase):
             pygame.draw.circle(image, couleur, (rect.x + 26, rect.centery), 10)
             dessiner_texte(image, joueur["pseudo"].upper(), rect.x + 52, rect.centery, 3, couleur,
                            ancrage="gauche", lueur=choisi)
-            dessiner_texte(image, f"NIV {joueur['niveau']}", rect.x + 430, rect.centery, 2,
+            dessiner_texte(image, f"RANG {joueur['niveau']}", rect.x + 430, rect.centery, 2,
                            config.AMBRE, ancrage="gauche", lueur=False)
             dessiner_texte(image, f"SUCCES {joueur['succes']}/24", rect.x + 560, rect.centery, 2,
                            config.OR, ancrage="gauche", lueur=False)
@@ -173,11 +173,12 @@ class EcranProfil(EcranEnLigneBase):
         panneau(image, carte, couleur)
         dessiner_texte(image, p["pseudo"].upper(), carte.centerx, carte.y + 46,
                        6 if len(p["pseudo"]) <= 8 else 4, couleur)
-        dessiner_texte(image, f"NIVEAU {p['niveau']}", carte.centerx, carte.y + 104, 4, config.AMBRE)
+        dessiner_texte(image, f"RANG {p['niveau']}", carte.centerx, carte.y + 104, 4, config.AMBRE)
         barre(image, pygame.Rect(carte.x + 40, carte.y + 134, carte.w - 80, 10),
               (p["xp"] - p["xp_niveau"]) / max(1, p["xp_suivant"] - p["xp_niveau"]), config.AMBRE)
-        dessiner_texte(image, f"{p['xp']} / {p['xp_suivant']} XP", carte.centerx, carte.y + 160,
-                       2, GRIS, lueur=False)
+        dessiner_texte(image, f"{p['xp'] - p['xp_niveau']} / {p['xp_suivant'] - p['xp_niveau']} "
+                       f"XP AVANT LE RANG {p['niveau'] + 1}", carte.centerx, carte.y + 160,
+                       1, GRIS, lueur=False)
         etat = "EN LIGNE" if p.get("en_ligne") else f"VU LE {date_courte(p['vu_le'])}"
         dessiner_texte(image, etat, carte.centerx, carte.y + 192, 2,
                        config.VERT if p.get("en_ligne") else GRIS, lueur=False)

@@ -135,10 +135,11 @@ class EcranHub(EcranEnLigneBase):
                        cadre.y + 206, 2, GRIS, lueur=False)
         prochain = next((s for s in SKINS if s["code"] not in en_ligne.skins), None)
         if prochain is not None:
-            dessiner_texte(image, f"PROCHAIN : {prochain['nom']}", cadre.centerx, cadre.bottom + 22,
-                           2, config.AMBRE, lueur=False)
-            dessiner_texte(image, condition_lisible(prochain), cadre.centerx, cadre.bottom + 46, 2,
-                           GRIS, lueur=False)
+            condition = condition_lisible(prochain)
+            texte = f"{prochain['nom']} {condition}" if condition.startswith("SE DEBLOQUE") \
+                else f"PROCHAIN : {prochain['nom']}  {condition}"
+            dessiner_texte(image, texte, cadre.centerx, cadre.bottom + 22, 2, config.AMBRE,
+                           lueur=False)
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
@@ -157,10 +158,11 @@ class EcranHub(EcranEnLigneBase):
         dessiner_texte(image, en_ligne.pseudo.upper(), cadre.centerx, cadre.y + 46, 6, couleur)
         niveau = niveau_pour(en_ligne.xp)
         debut, fin = xp_pour_niveau(niveau), xp_pour_niveau(niveau + 1)
-        dessiner_texte(image, f"NIVEAU {niveau}", cadre.centerx, cadre.y + 100, 3, config.AMBRE)
+        dessiner_texte(image, f"RANG {niveau}", cadre.centerx, cadre.y + 100, 3, config.AMBRE)
         barre(image, pygame.Rect(cadre.x + 80, cadre.y + 126, cadre.w - 160, 10),
               (en_ligne.xp - debut) / max(1, fin - debut), config.AMBRE)
-        dessiner_texte(image, f"{en_ligne.xp} / {fin} XP", cadre.centerx, cadre.y + 150, 2,
+        dessiner_texte(image, f"{en_ligne.xp - debut} / {fin - debut} XP AVANT LE RANG {niveau + 1}",
+                       cadre.centerx, cadre.y + 150, 2,
                        GRIS, lueur=False)
         self.menu.dessiner(image)
         self._dessiner_apercu(image)

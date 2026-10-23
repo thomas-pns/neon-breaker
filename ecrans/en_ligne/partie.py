@@ -100,7 +100,7 @@ class EcranPartieEnLigne(EcranTempsReel):
                                          "niveau": gains.get("niveau", ancien)})
             self.app.en_ligne.annoncer_gains(gains)
             if self.app.en_ligne.niveau > ancien:
-                self.app.notifier(f"NIVEAU {self.app.en_ligne.niveau} !", "AMBRE")
+                self.app.notifier(f"RANG {self.app.en_ligne.niveau} !", "AMBRE")
         self.app.remplacer(EcranFinEnLigne(self.app, message["resultat"], gains))
 
     # --- Boucle -------------------------------------------------------------------------
@@ -277,7 +277,7 @@ class EcranFinEnLigne(EcranFin):
             return
         dessiner_texte(image, f"+{self.gains.get('xp_gagnee', 0)} XP", cadre.centerx,
                        cadre.y + 90, 5, config.AMBRE)
-        dessiner_texte(image, f"NIVEAU {self.gains.get('niveau', 1)}", cadre.centerx,
+        dessiner_texte(image, f"RANG {self.gains.get('niveau', 1)}", cadre.centerx,
                        cadre.y + 140, 3, config.BLANC)
         succes = self.gains.get("nouveaux_succes", [])
         if succes:

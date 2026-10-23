@@ -106,7 +106,7 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
             pygame.draw.circle(image, couleur_profil(ligne["couleur"]), (cadre.x + 130, y), 8)
             dessiner_texte(image, ligne["pseudo"].upper(), cadre.x + 150, y, 3, teinte,
                            ancrage="gauche", lueur=i == 0)
-            dessiner_texte(image, f"NIV {ligne['niveau']}", cadre.x + 470, y, 2, GRIS,
+            dessiner_texte(image, f"RANG {ligne['niveau']}", cadre.x + 470, y, 2, GRIS,
                            ancrage="gauche", lueur=False)
             valeur = ligne["valeur"] if unite == "VICTOIRES" else f"{ligne['valeur']:07d}"
             dessiner_texte(image, str(valeur), cadre.right - 40, y, 3, teinte, ancrage="droite",

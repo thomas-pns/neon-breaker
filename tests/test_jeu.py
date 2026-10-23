@@ -257,6 +257,9 @@ class TestNouveautes11(unittest.TestCase):
         joueur.appliquer_skin("inconnu")
         self.assertEqual(joueur.skin, "neon")
 
+    def test_condition_skin_emploie_rang(self):
+        from reseau.profil import condition_lisible, SKINS_PAR_CODE
+        self.assertEqual(condition_lisible(SKINS_PAR_CODE["cryo"]), "SE DEBLOQUE AU RANG 5")
     def test_musique_boucle(self):
         try:
             import numpy as np

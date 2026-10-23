@@ -362,7 +362,7 @@ class ServiceEnLigne:
             for retour in donnees.get("resultats", []):
                 self.annoncer_gains(retour)
             if self.niveau > ancien_niveau:
-                self.app.notifier(f"NIVEAU {self.niveau} !", "AMBRE")
+                self.app.notifier(f"RANG {self.niveau} !", "AMBRE")
         self.appeler("POST", "/api/parties", {"rapports": lot}, recu)
 
     def annoncer_gains(self, gains):
