@@ -135,11 +135,10 @@ class EcranHub(EcranEnLigneBase):
                        cadre.y + 206, 2, GRIS, lueur=False)
         prochain = next((s for s in SKINS if s["code"] not in en_ligne.skins), None)
         if prochain is not None:
-            condition = condition_lisible(prochain)
-            texte = f"{prochain['nom']} {condition}" if condition.startswith("SE DEBLOQUE") \
-                else f"PROCHAIN : {prochain['nom']}  {condition}"
-            dessiner_texte(image, texte, cadre.centerx, cadre.bottom + 22, 2, config.AMBRE,
-                           lueur=False)
+            dessiner_texte(image, f"PROCHAIN : {prochain['nom']}", cadre.centerx, cadre.bottom + 22,
+                           2, config.AMBRE, lueur=False)
+            dessiner_texte(image, condition_lisible(prochain), cadre.centerx, cadre.bottom + 46, 2,
+                           GRIS, lueur=False)
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)

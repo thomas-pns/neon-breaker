@@ -178,7 +178,7 @@ class EcranProfil(EcranEnLigneBase):
               (p["xp"] - p["xp_niveau"]) / max(1, p["xp_suivant"] - p["xp_niveau"]), config.AMBRE)
         dessiner_texte(image, f"{p['xp'] - p['xp_niveau']} / {p['xp_suivant'] - p['xp_niveau']} "
                        f"XP AVANT LE RANG {p['niveau'] + 1}", carte.centerx, carte.y + 160,
-                       1, GRIS, lueur=False)
+                       2, GRIS, lueur=False)
         etat = "EN LIGNE" if p.get("en_ligne") else f"VU LE {date_courte(p['vu_le'])}"
         dessiner_texte(image, etat, carte.centerx, carte.y + 192, 2,
                        config.VERT if p.get("en_ligne") else GRIS, lueur=False)
