@@ -68,6 +68,11 @@ class EcranHub(EcranEnLigneBase):
         self.menu.indice = indice
 
     def _parties(self):
+        infos = self.app.en_ligne.mise_a_jour_requise()
+        if infos:
+            from ecrans.mise_a_jour import EcranMiseAJour
+            self.app.empiler(EcranMiseAJour(self.app, infos))
+            return
         if self.app.en_ligne.protege():
             self.statut = "VERSION DE TEST : PAS DE PARTIE EN LIGNE SUR LE VRAI SERVEUR"
             self.app.audio.jouer("metal")

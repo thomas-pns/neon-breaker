@@ -12,6 +12,7 @@ Réalisé le 21/10/2026
 """
 
 import pygame
+import time
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
@@ -32,11 +33,14 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
         self.onglet = 0
         self.donnees = {}
         self.erreur = ""
+        self.chargement = set()
+        self.prochaine_tentative = 0.0
         self.charger()
 
     def charger(self):
         mode = ONGLETS[self.onglet]
-        if mode not in self.donnees:
+        if mode not in self.donnees and mode not in self.chargement:
+            self.chargement.add(mode)
             if mode == "defi":
                 from jeu.modes.defi import jour_du_defi
                 chemin = f"/api/defi/{jour_du_defi()}"
@@ -46,13 +50,18 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
                                       rappel=lambda r, m=mode: self._recu(m, r))
 
     def _recu(self, mode, resultat):
+        self.chargement.discard(mode)
         if resultat["ok"]:
             self.donnees[mode] = resultat["donnees"]
         else:
-            self.erreur = resultat["erreur"]
+            self.erreur = "SERVEUR EN MAINTENANCE" if resultat.get("maintenance") else resultat["erreur"]
+            if resultat.get("maintenance"):
+                self.prochaine_tentative = time.monotonic() + 5
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
+        if self.erreur == "SERVEUR EN MAINTENANCE" and time.monotonic() >= self.prochaine_tentative:
+            self.charger()
         entrees = self.app.entrees
         if entrees.vient_d_appuyer("retour"):
             from ecrans.en_ligne.hub import EcranHub

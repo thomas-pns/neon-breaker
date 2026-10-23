@@ -179,6 +179,7 @@ class ServiceEnLigne:
         self.version_serveur = None
         self.reponses = queue.Queue()
         self.envoi_en_cours = False
+        self._prochaine_verification_version = time.monotonic() + 30
 
     # --- Adresse ---------------------------------------------------------------
 
@@ -202,7 +203,8 @@ class ServiceEnLigne:
         if not adresse:
             if rappel:
                 self.reponses.put((rappel, {"ok": False, "code": 0, "donnees": None,
-                                            "erreur": "AUCUN SERVEUR CONFIGURE"}))
+                                            "erreur": "AUCUN SERVEUR CONFIGURE",
+                                            "maintenance": False}))
             return
         jeton = self.jeton if authentifie else ""
 
@@ -216,6 +218,9 @@ class ServiceEnLigne:
 
     def traiter(self):
         """But : exécuter les rappels arrivés (appelé à chaque image)."""
+        if self.version_serveur is None and time.monotonic() >= self._prochaine_verification_version:
+            self._prochaine_verification_version = time.monotonic() + 30
+            self.verifier_version(getattr(self.app, "_version_recue", lambda resultat: None))
         while True:
             try:
                 rappel, resultat = self.reponses.get_nowait()
@@ -384,11 +389,20 @@ class ServiceEnLigne:
     # --- Mise à jour ------------------------------------------------------------------
 
     def verifier_version(self, rappel):
+        self._prochaine_verification_version = time.monotonic() + 30
         def recu(resultat):
             if resultat["ok"]:
                 self.version_serveur = resultat["donnees"]
             rappel(resultat)
         self.appeler("GET", "/api/version", rappel=recu, authentifie=False)
+
+    def mise_a_jour_requise(self):
+        """But : trouver une mise a jour disponible. Entree(s) : aucune. Sortie : dict ou None."""
+        from moteur import config
+        if config.EST_TEST or self.version_serveur is None:
+            return None
+        from reseau.mise_a_jour import version_disponible
+        return version_disponible(self.version_serveur)
 
 
 def requete_http(url, methode="GET", corps=None, jeton="", delai=8):
@@ -408,15 +422,18 @@ def requete_http(url, methode="GET", corps=None, jeton="", delai=8):
         with urllib.request.urlopen(requete, **options) as reponse:
             texte = reponse.read().decode("utf-8")
             return {"ok": True, "code": reponse.status,
-                    "donnees": json.loads(texte) if texte else {}, "erreur": ""}
+                    "donnees": json.loads(texte) if texte else {}, "erreur": "", "maintenance": False}
     except urllib.error.HTTPError as erreur:
         try:
             detail = json.loads(erreur.read().decode("utf-8")).get("detail", "")
         except (ValueError, AttributeError):
             detail = ""
+        maintenance = erreur.code in (502, 503, 504)
         return {"ok": False, "code": erreur.code, "donnees": None,
-                "erreur": str(detail or f"ERREUR {erreur.code}")}
+                "erreur": "SERVEUR EN MAINTENANCE" if maintenance else str(detail or f"ERREUR {erreur.code}"),
+                "maintenance": maintenance}
     except (urllib.error.URLError, OSError, ValueError) as erreur:
+        maintenance = not isinstance(erreur, ValueError)
         return {"ok": False, "code": 0, "donnees": None,
-                "erreur": "SERVEUR INJOIGNABLE" if not isinstance(erreur, ValueError)
-                else "REPONSE INVALIDE"}
+                "erreur": "SERVEUR EN MAINTENANCE" if maintenance else "REPONSE INVALIDE",
+                "maintenance": maintenance}

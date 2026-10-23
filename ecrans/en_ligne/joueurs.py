@@ -12,6 +12,7 @@ Réalisé le 21/10/2026
 """
 
 import pygame
+import time
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
@@ -59,21 +60,35 @@ class EcranJoueurs(EcranEnLigneBase):
         super().__init__(app)
         self.joueurs = None
         self.erreur = ""
+        self.chargement = False
+        self.prochaine_tentative = 0.0
         self.indice = 0
         self.zones = []
-        app.en_ligne.appeler("GET", "/api/joueurs", rappel=self._recu)
+        self._charger()
+
+    def _charger(self):
+        """But : demander les donnees au serveur, une requete a la fois. Entree(s) : aucune. Sortie : aucune."""
+        if self.chargement:
+            return
+        self.chargement = True
+        self.app.en_ligne.appeler("GET", "/api/joueurs", rappel=self._recu)
 
     def _recu(self, resultat):
+        self.chargement = False
         if resultat["ok"]:
             self.joueurs = resultat["donnees"]["joueurs"]
             moi = self.app.en_ligne.pseudo.lower()
             self.indice = next((i for i, j in enumerate(self.joueurs)
                                 if j["pseudo"].lower() == moi), 0)
         else:
-            self.erreur = resultat["erreur"]
+            self.erreur = "SERVEUR EN MAINTENANCE" if resultat.get("maintenance") else resultat["erreur"]
+            if resultat.get("maintenance"):
+                self.prochaine_tentative = time.monotonic() + 5
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
+        if self.erreur == "SERVEUR EN MAINTENANCE" and time.monotonic() >= self.prochaine_tentative:
+            self._charger()
         entrees = self.app.entrees
         if entrees.vient_d_appuyer("retour"):
             from ecrans.en_ligne.hub import EcranHub
@@ -151,21 +166,35 @@ class EcranProfil(EcranEnLigneBase):
         self.retour = retour
         self.profil = None
         self.erreur = ""
+        self.chargement = False
+        self.prochaine_tentative = 0.0
         self.choix = 0
         self.fiche_ouverte = False
         self.zones_succes = []
         self.rect_fiche = pygame.Rect(0, 0, 650, 360)
         self.rect_fiche.center = (850, 447)
-        app.en_ligne.appeler("GET", f"/api/joueurs/{pseudo}", rappel=self._recu)
+        self._charger()
+
+    def _charger(self):
+        """But : demander les donnees au serveur, une requete a la fois. Entree(s) : aucune. Sortie : aucune."""
+        if self.chargement:
+            return
+        self.chargement = True
+        self.app.en_ligne.appeler("GET", f"/api/joueurs/{self.pseudo}", rappel=self._recu)
 
     def _recu(self, resultat):
+        self.chargement = False
         if resultat["ok"]:
             self.profil = resultat["donnees"]
         else:
-            self.erreur = resultat["erreur"]
+            self.erreur = "SERVEUR EN MAINTENANCE" if resultat.get("maintenance") else resultat["erreur"]
+            if resultat.get("maintenance"):
+                self.prochaine_tentative = time.monotonic() + 5
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
+        if self.erreur == "SERVEUR EN MAINTENANCE" and time.monotonic() >= self.prochaine_tentative:
+            self._charger()
         entrees = self.app.entrees
         retour = entrees.vient_d_appuyer("retour")
         valider = entrees.vient_d_appuyer("valider")

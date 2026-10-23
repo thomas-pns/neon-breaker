@@ -71,6 +71,11 @@ class EcranTitre(EcranBase):
         return "EN LIGNE"
 
     def _en_ligne(self):
+        infos = self.app.en_ligne.mise_a_jour_requise()
+        if infos:
+            from ecrans.mise_a_jour import EcranMiseAJour
+            self.app.empiler(EcranMiseAJour(self.app, infos))
+            return
         if self.app.en_ligne.jeton:
             from ecrans.en_ligne.hub import EcranHub
             self.app.remplacer(EcranHub(self.app))
