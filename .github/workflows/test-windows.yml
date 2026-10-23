@@ -1,0 +1,49 @@
+# Exécutable Windows DE TEST pour les branches de développement (dev/**).
+# Il est fabriqué, passé à l'autotest, puis déposé en « artefact » GitHub
+# (onglet Actions > le run > Artifacts), téléchargeable pendant 7 jours.
+# Rien n'est envoyé au NAS : les joueurs ne voient rien.
+# La version de test (X.Y.Z-dev.N) a son propre dossier de données
+# (%APPDATA%\NeonBreaker-dev), n'envoie aucun score au vrai serveur,
+# n'y lance pas de partie en ligne et ne se met jamais à jour toute seule.
+name: Exe Windows de test
+
+on:
+  push:
+    branches: ["dev/**"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    if: github.ref != 'refs/heads/main'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Version de test
+        run: |
+          BASE=$(python -c "import re;print(re.search(r'^VERSION *= *\"(\d+\.\d+\.\d+)', open('moteur/version.py', encoding='utf-8').read(), re.M).group(1))")
+          echo "VERSION=$BASE-dev.${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "Version : $BASE-dev.${{ github.run_number }}"
+      - name: Dépendances
+        run: pip install -r requirements.txt pyinstaller pillow
+      - name: Fabrication
+        run: python outils/construire.py --version "$VERSION" --serveur "${{ vars.NEON_SERVEUR_URL || secrets.NEON_SERVEUR_URL }}"
+      - name: Autotest de l'exécutable
+        env:
+          NEON_AUTOTEST: "1"
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: dist/NeonBreaker.exe
+      - name: Nom du fichier
+        run: mv dist/NeonBreaker.exe "dist/NeonBreaker-$VERSION.exe"
+      - name: Artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NeonBreaker-${{ env.VERSION }}-windows
+          path: dist/NeonBreaker-*.exe
+          retention-days: 7

@@ -1,10 +1,11 @@
 # Image Docker du serveur, publiée sur ghcr.io à chaque envoi sur main.
 # Container Manager (NAS) récupère ensuite ghcr.io/<compte>/<depot>:latest.
+# Sur les branches dev/**, l'image est construite et testée mais JAMAIS publiée.
 name: Serveur (image Docker)
 
 on:
   push:
-    branches: [main]
+    branches: [main, "dev/**"]
     paths: ["serveur/**", "jeu/**", "moteur/**", "reseau/**", "structures/**",
             "ecrans/hud.py", "ecrans/base.py", "data/niveaux/**", "Dockerfile",
             "outils/entree_docker.sh", ".github/workflows/serveur.yml"]
@@ -29,8 +30,10 @@ jobs:
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/api/sante && exit 0; sleep 1; done
           docker logs essai; exit 1
       - name: Connexion à ghcr.io
+        if: github.ref == 'refs/heads/main'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Publication
+        if: github.ref == 'refs/heads/main'
         run: |
           docker push "$IMAGE:latest"
           docker push "$IMAGE:${GITHUB_SHA::7}"
