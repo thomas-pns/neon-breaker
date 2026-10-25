@@ -68,6 +68,14 @@ CREATE TABLE IF NOT EXISTS cumuls (
     joueur_id INTEGER PRIMARY KEY REFERENCES joueurs(id) ON DELETE CASCADE,
     donnees TEXT NOT NULL DEFAULT '{}'
 );
+CREATE TABLE IF NOT EXISTS fantomes (
+    mode TEXT NOT NULL,
+    jour TEXT NOT NULL,
+    joueur_id INTEGER NOT NULL REFERENCES joueurs(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL,
+    donnees TEXT NOT NULL,
+    PRIMARY KEY (mode, jour, joueur_id)
+);
 CREATE TABLE IF NOT EXISTS possessions (
     joueur_id INTEGER NOT NULL REFERENCES joueurs(id) ON DELETE CASCADE,
     code TEXT NOT NULL,
@@ -293,6 +301,29 @@ class Base:
                                       "classees": joueur["classees"] + 1}
         return resultat
 
+    def enregistrer_fantome(self, joueur_id, mode, jour, score, donnees):
+        """But : garder le fantôme de la meilleure partie d'un joueur à un défi."""
+        from reseau.fantome import valide
+        if not valide(donnees):
+            return
+        self.ecrire("INSERT INTO fantomes (mode, jour, joueur_id, score, donnees) VALUES (?, ?, ?, ?, ?) "
+                    "ON CONFLICT(mode, jour, joueur_id) DO UPDATE SET score = excluded.score, "
+                    "donnees = excluded.donnees WHERE excluded.score > fantomes.score",
+                    (mode, jour, joueur_id, score, json.dumps(donnees)))
+        # Ménage : on ne garde que les fantômes des 15 derniers défis.
+        self.ecrire("DELETE FROM fantomes WHERE jour NOT IN (SELECT DISTINCT jour FROM fantomes "
+                    "ORDER BY jour DESC LIMIT 15)")
+
+    def meilleur_fantome(self, mode, jour):
+        """But : fantôme du meilleur score d'un défi, ou None."""
+        lignes = self.lire("SELECT f.score, f.donnees, j.pseudo FROM fantomes f JOIN joueurs j "
+                           "ON j.id = f.joueur_id WHERE f.mode = ? AND f.jour = ? AND j.banni = 0 "
+                           "ORDER BY f.score DESC LIMIT 1", (mode, jour))
+        if not lignes:
+            return None
+        return {"pseudo": lignes[0]["pseudo"], "score": lignes[0]["score"],
+                "fantome": json.loads(lignes[0]["donnees"])}
+
     def changer_banniere(self, joueur_id, code):
         self.ecrire("UPDATE joueurs SET banniere = ? WHERE id = ?", (code, joueur_id))
 
@@ -322,6 +353,7 @@ class Base:
         Sortie : (dict) {"doublon", "xp", "niveau", "nouveaux_succes"}.
         """
         rapport = dict(rapport)
+        fantome = rapport.pop("fantome", None)
         rapport["en_ligne"] = en_ligne
         mode = str(rapport.get("mode", "?"))[:20]
         score = max(0, min(int(rapport.get("score_equipe", rapport.get("score", 0))), 10 ** 9))
@@ -337,6 +369,8 @@ class Base:
                          float(rapport.get("joue_le", time.time())), jour))
         except sqlite3.IntegrityError:
             return {"doublon": True, "nouveaux_succes": []}
+        if jour and fantome is not None:
+            self.enregistrer_fantome(joueur_id, mode, jour, score, fantome)
         from reseau import boutique
         from reseau.series import en_cours
         cumul = self.cumul(joueur_id)

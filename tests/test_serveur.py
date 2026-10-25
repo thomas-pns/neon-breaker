@@ -204,6 +204,21 @@ class TestServeur(unittest.TestCase):
         self.assertEqual(lignes[0]["pseudo"], "Classe1")
         self.assertEqual(self.client.get("/api/joueurs/Classe2").json()["elo"], 980)
 
+    def test_fantome(self):
+        from reseau.fantome import Enregistreur
+        enregistreur = Enregistreur()
+        for k in range(50):
+            enregistreur.avancer(0.1, 0.5, k)
+        jeton = self.inscrire("Spectre")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        rapports = [{"uid": f"f{s}", "mode": "defi", "score": s, "jour": "2026-10-22",
+                     "fantome": enregistreur.exporter()} for s in (500, 900, 700)]
+        self.client.post("/api/parties", json={"rapports": rapports}, headers=entete)
+        reponse = self.client.get("/api/fantome/defi/2026-10-22").json()
+        self.assertEqual((reponse["pseudo"], reponse["score"]), ("Spectre", 900))
+        self.assertEqual(self.client.get("/api/fantome/defi/2026-10-23").status_code, 404)
+        self.assertEqual(self.client.get("/api/fantome/arcade/2026-10-22").status_code, 400)
+
     def test_defi_du_jour(self):
         jeton = self.inscrire("Defieur")
         entete = {"Authorization": f"Bearer {jeton}"}

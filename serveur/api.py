@@ -260,6 +260,17 @@ def defi_semaine(semaine: str):
             "lignes": base.classement_defi(semaine, mode="semaine")}
 
 
+@app.get("/api/fantome/{mode}/{jour}")
+def fantome(mode: str, jour: str):
+    """Fantôme du meilleur joueur d'un défi (2.0) : sa raquette et son score à chaque instant."""
+    if mode not in ("defi", "semaine") or not re.fullmatch(r"\d{4}-(\d{2}-\d{2}|W\d{2})", jour):
+        raise HTTPException(400, "Defi inconnu")
+    meilleur = base.meilleur_fantome(mode, jour)
+    if meilleur is None:
+        raise HTTPException(404, "Pas encore de fantome")
+    return meilleur
+
+
 @app.get("/api/series")
 def series():
     """Séries en cours du défi du jour (jours d'affilée), record en second critère."""
