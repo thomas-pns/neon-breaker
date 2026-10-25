@@ -30,6 +30,7 @@ def lancer(app):
     from ecrans.scores import EcranScores
     from ecrans.partie import EcranPartie
     from ecrans.options import EcranOptions
+    from ecrans.commandes import EcranCommandes
     from ecrans.pause import EcranPause
     from ecrans.en_ligne.connexion import EcranConnexion
     from ecrans.en_ligne.hub import EcranHub
@@ -50,6 +51,7 @@ def lancer(app):
         ("nouveautes", lambda: EcranNouveautes(app)),
         ("scores", lambda: EcranScores(app)),
         ("options", lambda: EcranOptions(app)),
+        ("commandes", lambda: EcranCommandes(app)),
         ("connexion", lambda: EcranConnexion(app)),
         ("hub", lambda: EcranHub(app)),
         ("boutique", lambda: EcranBoutique(app)),

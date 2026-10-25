@@ -230,7 +230,7 @@ class ModeArcade(ModeDeJeu):
         dessiner_texte(image, str(self.terrains[0].briques_restantes()), cx, 280, 4,
                        config.AMBRE)
         hud.etiquette(image, "COMMANDES", cx, 500, config.ROSE)
-        hud.dessiner_commandes(image, PANNEAU_D, "solo", 528)
+        hud.dessiner_commandes(image, PANNEAU_D, "solo", 528, self.app)
 
     def dessiner_overlay(self, image):
         terrain = self.terrains[0]

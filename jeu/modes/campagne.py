@@ -348,7 +348,7 @@ class ModeCampagne(ModeDeJeu):
         if self.hardcore:
             dessiner_texte(image, "HARDCORE x2", cx, 362, 2, config.ROUGE)
         hud.etiquette(image, "COMMANDES", cx, 500, config.ROSE)
-        hud.dessiner_commandes(image, rect, aide, 528)
+        hud.dessiner_commandes(image, rect, aide, 528, self.app)
 
     def dessiner_overlay(self, image):
         """Texte « lancer », bilan de niveau."""

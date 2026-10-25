@@ -27,7 +27,7 @@ DEFAUT = {
     "version": 1,
     "reglages": {"crt": True, "tremblement": True, "particules": "haut",
                  "volume_effets": 0.7, "volume_musique": 0.5,
-                 "nom_j1": "", "nom_j2": ""},
+                 "nom_j1": "", "nom_j2": "", "touches": {}},
     "meilleurs": {},          # mode -> meilleur score
     "classements": {},        # mode -> top 10 [{"nom", "score"}]
     "progression": {},        # "campagne" / "coop" -> dernier niveau débloqué

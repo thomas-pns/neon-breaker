@@ -193,9 +193,14 @@ def dessiner_vies(image, cx, y, vies, couleurs=(config.RAQUETTE_CORPS, config.RA
         pygame.draw.rect(image, couleurs[1], rect, 2, border_radius=4)
 
 
-def dessiner_commandes(image, rect, profil, y):
-    """But : rappel des touches d'un profil, en deux colonnes."""
-    for i, (touche, action) in enumerate(config.AIDE_TOUCHES[profil]):
+def dessiner_commandes(image, rect, profil, y, app=None):
+    """But : rappel des touches d'un profil (à jour des OPTIONS et de la manette), en deux colonnes."""
+    if app is not None:
+        from moteur.entrees import libelles_touches
+        lignes = libelles_touches(app, profil)
+    else:
+        lignes = config.AIDE_TOUCHES[profil]
+    for i, (touche, action) in enumerate(lignes):
         ligne_y = y + i * 22
         dessiner_texte(image, touche, rect.x + 14, ligne_y, 2, config.BLANC,
                        ancrage="gauche", lueur=False, ombre=False)

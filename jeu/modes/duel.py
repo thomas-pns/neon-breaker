@@ -200,7 +200,8 @@ class ModeDuel(ModeDeJeu):
                                      touche_overdrive="MAJ" if self.en_ligne else (
                                          "S" if joueur.numero == 1 else "↓"))
             hud.etiquette(image, "COMMANDES", rect.centerx, 486, config.ROSE)
-            hud.dessiner_commandes(image, rect, "solo" if self.en_ligne else aide, 512)
+            hud.dessiner_commandes(image, rect, "solo" if self.en_ligne else aide, 512,
+                                    self.app)
 
     def dessiner_overlay(self, image):
         if self.etat == "compte":

@@ -34,7 +34,7 @@ class EcranOptions(EcranBase):
 
     def __init__(self, app):
         super().__init__(app)
-        self.menu = MenuVertical([], config.LARGEUR / 2, 214, 3, 40)
+        self.menu = MenuVertical([], config.LARGEUR / 2, 206, 3, 36)
         self.bulles_reactivees = False
         self._construire()
 
@@ -76,6 +76,7 @@ class EcranOptions(EcranBase):
             (f"PARTICULES : {r['particules'].upper()}", lambda: self._particules(1),
              self._particules),
             ("PLEIN ECRAN  (F11)", self.app.ecran.basculer_plein_ecran),
+            ("COMMANDES / MANETTE", self._commandes),
             (f"NOM DES RECORDS J1 : {self._nom_defaut(1)}", lambda: self._saisir_nom(1)),
             (f"NOM DES RECORDS J2 : {self._nom_defaut(2)}", lambda: self._saisir_nom(2)),
             ("BULLES D'AIDE : " + ("REACTIVEES" if self.bulles_reactivees else "REVOIR"),
@@ -117,6 +118,10 @@ class EcranOptions(EcranBase):
         self.app.audio.jouer("menu_nav")
         self.app.enregistrer()
         self._construire()
+
+    def _commandes(self):
+        from ecrans.commandes import EcranCommandes
+        self.app.empiler(EcranCommandes(self.app))
 
     def _retour(self):
         self.app.depiler()
