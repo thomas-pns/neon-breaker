@@ -251,4 +251,10 @@ la production ».
 - [x] **(fait en 2.1)** Skins complets (balle, traînée, son) et bannières de boss.
 - [x] **(fait en 2.1)** Mode admin (NEON_ADMINS sur le serveur) et bot de test (F8).
 - [ ] Liste d'amis et classement entre amis.
-- [ ] Version navigateur (pygbag) du solo, puis du jeu en ligne.
+- [ ] **Version navigateur (prochaine priorité)** avec pygbag, hébergée sur le NAS :
+  - rien à installer : un lien, et sur iPhone « Ajouter à l'écran d'accueil » (comme une app) ;
+  - d'abord le solo (Campagne, Arcade, défis), avec des commandes tactiles (glisser pour
+    bouger, toucher pour lancer, boutons pour les pouvoirs) ;
+  - musiques en fichiers audio (numpy n'existe pas dans le navigateur) ;
+  - ensuite le compte et les scores (requêtes web), puis le jeu en ligne (WebSocket du
+    navigateur à la place de la bibliothèque websockets).
