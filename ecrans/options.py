@@ -34,7 +34,7 @@ class EcranOptions(EcranBase):
 
     def __init__(self, app):
         super().__init__(app)
-        self.menu = MenuVertical([], config.LARGEUR / 2, 206, 3, 36)
+        self.menu = MenuVertical([], config.LARGEUR / 2, 200, 3, 34)
         self.bulles_reactivees = False
         self._construire()
 
@@ -77,6 +77,7 @@ class EcranOptions(EcranBase):
              self._particules),
             ("PLEIN ECRAN  (F11)", self.app.ecran.basculer_plein_ecran),
             ("COMMANDES / MANETTE", self._commandes),
+            (f"FANTOME DES DEFIS : {self._nom_fantome()}", lambda: self._fantome(1), self._fantome),
             (f"NOM DES RECORDS J1 : {self._nom_defaut(1)}", lambda: self._saisir_nom(1)),
             (f"NOM DES RECORDS J2 : {self._nom_defaut(2)}", lambda: self._saisir_nom(2)),
             ("BULLES D'AIDE : " + ("REACTIVEES" if self.bulles_reactivees else "REVOIR"),
@@ -115,6 +116,19 @@ class EcranOptions(EcranBase):
         ordre = ["bas", "moyen", "haut"]
         actuel = ordre.index(self.app.reglages["particules"])
         self.app.reglages["particules"] = ordre[(actuel + sens) % 3]
+        self.app.audio.jouer("menu_nav")
+        self.app.enregistrer()
+        self._construire()
+
+    def _nom_fantome(self):
+        return {"ecart": "ECART SEUL", "raquette": "RAQUETTE", "non": "NON"}.get(
+            self.app.reglages.get("fantome", "ecart"), "ECART SEUL")
+
+    def _fantome(self, sens):
+        ordre = ["ecart", "raquette", "non"]
+        actuel = self.app.reglages.get("fantome", "ecart")
+        indice = ordre.index(actuel) if actuel in ordre else 0
+        self.app.reglages["fantome"] = ordre[(indice + sens) % len(ordre)]
         self.app.audio.jouer("menu_nav")
         self.app.enregistrer()
         self._construire()

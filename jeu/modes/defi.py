@@ -158,13 +158,14 @@ class ModeDefi(ModeArcade):
     def dessiner_overlay(self, image):
         super().dessiner_overlay(image)
         fantome = getattr(self, "fantome", None)
-        if fantome is None or self.etat == "fin":
+        reglage = self.app.reglages.get("fantome", "ecart")
+        if fantome is None or self.etat == "fin" or reglage == "non":
             return
         terrain = self.terrains[0]
         temps = self.enregistreur.temps
         relatif = fantome.x_a(temps)
         raquette = terrain.raquettes[0]
-        if relatif is not None:
+        if relatif is not None and reglage == "raquette":    # raquette visible seulement sur demande
             rect = pygame.Rect(0, 0, int(raquette.largeur), int(raquette.hauteur))
             rect.midtop = (int(terrain.rect.x + relatif * terrain.rect.w), int(raquette.y))
             voile = pygame.Surface(rect.size, pygame.SRCALPHA)
@@ -173,7 +174,7 @@ class ModeDefi(ModeArcade):
             pygame.draw.rect(image, (200, 220, 255), rect, 1, border_radius=6)
         ecart = self.joueurs[0].score - fantome.score_a(temps)
         couleur = config.VERT if ecart >= 0 else config.ROSE
-        dessiner_texte(image, f"FANTOME {fantome.nom[:10]}   {'+' if ecart >= 0 else ''}{ecart}",
+        dessiner_texte(image, f"RECORD {fantome.nom[:10]}   {'+' if ecart >= 0 else ''}{ecart}",
                        terrain.rect.centerx, terrain.rect.y + 18, 2, couleur, lueur=False)
 
     def _garder_fantome(self):
