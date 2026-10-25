@@ -37,6 +37,27 @@ PANNEAU_D = pygame.Rect(1040, 24, 220, 672)
 COULEURS_MONDES = {1: config.CYAN, 2: config.BLEU, 3: config.VERT}
 BONUS_VIE = 1000
 BONUS_TEMPS_MAX = 3000
+TEMPS_CIBLE = 100                 # 3e étoile : niveau fini en moins de 100 s...
+TEMPS_CIBLE_BOSS = 150            # ... ou 150 s pour un boss
+
+
+def temps_cible(niveau):
+    """But : temps à battre pour la 3e étoile d'un niveau (s). Sortie : (int)."""
+    return TEMPS_CIBLE_BOSS if niveau.boss else TEMPS_CIBLE
+
+
+def etoiles_niveau(pertes, temps, niveau):
+    """
+    But : étoiles gagnées sur un niveau terminé, sous forme de masque : bit 0 pour
+    l'avoir fini, bit 1 sans perdre de vie, bit 2 sous le temps cible. Chaque
+    étoile peut être gagnée lors d'une partie différente. Sortie : (int) 1 à 7.
+    """
+    return 1 | (2 if pertes == 0 else 0) | (4 if temps <= temps_cible(niveau) else 0)
+
+
+def nombre_etoiles(masque):
+    """But : nombre d'étoiles d'un masque. Sortie : (int) 0 à 3."""
+    return bin(int(masque) & 7).count("1")
 
 
 class ModeCampagne(ModeDeJeu):
@@ -68,6 +89,8 @@ class ModeCampagne(ModeDeJeu):
         self.temps_total = 0.0
         self.indice = indice
         self.indice_depart = indice
+        self.etoiles_partie = {}
+        self.etoiles_niveau = 0
         self.charger_niveau(indice)
 
     # --- Mise en place -------------------------------------------------------------
@@ -112,6 +135,7 @@ class ModeCampagne(ModeDeJeu):
         self.app.fond.changer_monde(self.niveau.monde)
         self.total_briques = max(1, terrain.briques_restantes())
         self.temps_niveau = 0.0
+        self.pertes_niveau = 0
         self.servir()
         self.etat = "pret"
         if self.niveau.boss:
@@ -165,6 +189,7 @@ class ModeCampagne(ModeDeJeu):
     def perdre_vie(self):
         """Plus aucune balle en jeu : une vie de moins."""
         self.vies -= 1
+        self.pertes_niveau = getattr(self, "pertes_niveau", 0) + 1
         terrain = self.terrains[0]
         for joueur in self.joueurs:
             joueur.reinitialiser_manche()
@@ -222,7 +247,24 @@ class ModeCampagne(ModeDeJeu):
         self.scores_avant = [j.score for j in self.joueurs]
         self.bilan_affiche = 0.0
         self.etat = "bilan"
+        self.etoiles_niveau = etoiles_niveau(self.pertes_niveau, self.temps_niveau, self.niveau)
+        cumul = self.memoriser_etoiles(self.indice, self.etoiles_niveau)
+        self.etoiles_partie[str(self.indice)] = nombre_etoiles(cumul)
         self.debloquer(self.indice + 1)
+
+    def memoriser_etoiles(self, indice, etoiles):
+        """
+        But : ajouter les étoiles gagnées à celles du niveau (carte du monde).
+        Sortie : (int) masque cumulé.
+        """
+        toutes = self.app.donnees.setdefault("etoiles", {}).setdefault(self.code, {})
+        ancien = int(toutes.get(str(indice), 0))
+        if self.en_ligne:
+            return ancien | etoiles
+        if ancien | etoiles != ancien:
+            toutes[str(indice)] = ancien | etoiles
+            self.app.enregistrer()
+        return ancien | etoiles
 
     def mettre_a_jour_bilan(self, dt):
         """Décompte des bonus, puis Entrée pour continuer."""
@@ -267,6 +309,7 @@ class ModeCampagne(ModeDeJeu):
                        ("MEILLEUR COMBO", str(meilleur_combo))],
             "rapports": self.rapports(victoire=victoire, indice_depart=self.indice_depart,
                                       niveau_atteint=self.indice + 1,
+                                      etoiles=dict(self.etoiles_partie),
                                       score_equipe=self.score_total()),
         }
 
@@ -321,22 +364,28 @@ class ModeCampagne(ModeDeJeu):
     def dessiner_bilan(self, image):
         from ecrans.base import voile
         terrain = self.terrains[0]
-        cadre = pygame.Rect(0, 0, 560, 300)
+        cadre = pygame.Rect(0, 0, 560, 360)
         cadre.center = terrain.rect.center
         voile(image, 120)
         hud.panneau(image, cadre, config.AMBRE)
         dessiner_texte(image, "NIVEAU TERMINE !", cadre.centerx, cadre.y + 45, 4,
                        config.AMBRE)
+        apparues = self.etoiles_niveau & ((1 << min(3, int(self.bilan_affiche * 2))) - 1)
+        hud.dessiner_etoiles(image, 0, (cadre.centerx, cadre.y + 92), 16, masque=apparues)
+        cible = temps_cible(self.niveau)
+        dessiner_texte(image, f"{'SANS PERDRE DE VIE' if self.pertes_niveau == 0 else 'VIE PERDUE'}"
+                       f"   {int(self.temps_niveau)} S / {cible} S", cadre.centerx, cadre.y + 122,
+                       2, (170, 140, 220), lueur=False)
         for i, (libelle, valeur) in enumerate(self.bilan):
             if i >= int(self.bilan_affiche):
                 break
-            y = cadre.y + 100 + i * 34
+            y = cadre.y + 160 + i * 34
             dessiner_texte(image, libelle, cadre.x + 40, y, 2, config.CYAN,
                            ancrage="gauche", lueur=False)
             dessiner_texte(image, f"+{valeur}", cadre.right - 40, y, 2, config.BLANC,
                            ancrage="droite", lueur=False)
         if self.bilan_affiche >= len(self.bilan):
-            y = cadre.y + 110 + len(self.bilan) * 34
+            y = cadre.y + 170 + len(self.bilan) * 34
             pygame.draw.line(image, config.AMBRE, (cadre.x + 40, y - 18),
                              (cadre.right - 40, y - 18), 1)
             dessiner_texte(image, "SCORE", cadre.x + 40, y, 3, config.AMBRE,

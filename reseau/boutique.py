@@ -152,6 +152,7 @@ def tirer_boite(possedes, hasard=None):
 
 GAIN_NIVEAU = 10                  # niveau de campagne réussi pour la première fois
 GAIN_BOSS = 50                    # boss vaincu pour la première fois (par mode)
+GAIN_ETOILE = 5                   # chaque nouvelle étoile d'un niveau (carte du monde)
 GAIN_DEFI = 20                    # première partie du défi du jour...
 GAIN_DEFI_SERIE = 5               # ... + 5 par jour de série (au plus +30)
 GAIN_SEMAINE = 60                 # première partie du défi de la semaine
@@ -204,6 +205,20 @@ def gains_partie(rapport, cumul, jour, serie_defi=0):
             boss_payes.add(cle)
             detail.append((f"BOSS {str(nom).upper()}", GAIN_BOSS))
     cumul["boss_payes"] = sorted(boss_payes)
+    if mode in MODES_CAMPAGNE and isinstance(rapport.get("etoiles"), dict):
+        payees = dict(cumul.get("etoiles_payees", {}))
+        nouvelles = 0
+        for indice, nombre in list(rapport["etoiles"].items())[:60]:
+            try:
+                cle, nombre = f"{mode}:{int(indice)}", max(0, min(3, int(nombre)))
+            except (TypeError, ValueError):
+                continue
+            if nombre > payees.get(cle, 0):
+                nouvelles += nombre - payees.get(cle, 0)
+                payees[cle] = nombre
+        if nouvelles:
+            detail.append((f"ETOILES x{nouvelles}", GAIN_ETOILE * nouvelles))
+        cumul["etoiles_payees"] = payees
 
     if mode == "defi" and rapport.get("jour"):
         jours = set(cumul.get("defis_payes", []))

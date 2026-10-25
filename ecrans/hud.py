@@ -267,3 +267,30 @@ def bloc_joueur_horizontal(image, rect, joueur, temps, gauche_texte="", droite_t
     lignes = lignes_effets(joueur)
     for i, (code, _, couleur, _) in enumerate(lignes[:4]):
         _pastille(image, pygame.Rect(rect.right - 124 + i * 28, rect.y + 44, 24, 22), code, couleur)
+
+
+def dessiner_etoiles(image, obtenues, centre, taille=12, total=3, couleur=None, ecart=None,
+                     masque=None):
+    """
+    But : rangée d'étoiles (pleines pour les obtenues, en creux pour les autres).
+    Entrées : image ; obtenues (int) ; centre (x, y) ; taille (rayon) ; total (int) ;
+              couleur (tuple ou None : or) ; ecart (px entre deux étoiles) ;
+              masque (int ou None) : étoile k pleine si le bit k est mis (remplace obtenues).
+    """
+    couleur = couleur or config.OR
+    ecart = ecart or taille * 2.4
+    cx, cy = centre
+    for k in range(total):
+        x = cx + (k - (total - 1) / 2) * ecart
+        points = []
+        for i in range(10):
+            angle = -math.pi / 2 + i * math.pi / 5
+            rayon = taille if i % 2 == 0 else taille * 0.45
+            points.append((x + math.cos(angle) * rayon, cy + math.sin(angle) * rayon))
+        pleine = (masque >> k) & 1 if masque is not None else k < obtenues
+        if pleine:
+            pygame.draw.polygon(image, couleur, points)
+            pygame.draw.polygon(image, (255, 250, 210), points, 1)
+        else:
+            pygame.draw.polygon(image, (40, 20, 70), points)
+            pygame.draw.polygon(image, (110, 80, 150), points, 1)

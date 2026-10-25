@@ -25,6 +25,7 @@ def lancer(app):
     from ecrans.titre import EcranTitre
     from ecrans.modes import EcranModes, fabrique_mode
     from ecrans.aide import EcranAide
+    from ecrans.carte import EcranCarte
     from ecrans.nouveautes import EcranNouveautes
     from ecrans.scores import EcranScores
     from ecrans.partie import EcranPartie
@@ -45,6 +46,7 @@ def lancer(app):
         ("titre", lambda: EcranTitre(app)),
         ("modes", lambda: EcranModes(app)),
         ("aide", lambda: EcranAide(app)),
+        ("carte", lambda: EcranCarte(app, "campagne")),
         ("nouveautes", lambda: EcranNouveautes(app)),
         ("scores", lambda: EcranScores(app)),
         ("options", lambda: EcranOptions(app)),

@@ -32,6 +32,14 @@ class TestGains(unittest.TestCase):
                  "stats": {"niveaux_finis": 2, "boss_vaincus": []}}
         self.assertEqual(b.total(b.gains_partie(suite, cumul, "2026-10-25")), b.GAIN_NIVEAU)
 
+    def test_etoiles_payees_une_fois(self):
+        cumul = {}
+        rapport = {"mode": "campagne", "duree": 0, "stats": {}, "etoiles": {"0": 2, "1": 9}}
+        self.assertEqual(b.total(b.gains_partie(rapport, cumul, "j")), 5 * b.GAIN_ETOILE)
+        mieux = {"mode": "campagne", "duree": 0, "stats": {}, "etoiles": {"0": 3}}
+        self.assertEqual(b.total(b.gains_partie(mieux, cumul, "j")), b.GAIN_ETOILE)
+        self.assertEqual(b.total(b.gains_partie(mieux, cumul, "j")), 0)
+
     def test_hardcore_paie_double(self):
         rapport = {"mode": "hardcore", "indice_depart": 0, "duree": 0,
                    "stats": {"niveaux_finis": 1}}
