@@ -76,8 +76,11 @@ class TempsReel:
         try:
             self.boucle.run_until_complete(self._session())
         except Exception as erreur:            # serveur injoignable, coupure...
-            self.erreur = str(erreur)[:80]
+            self.erreur = (type(erreur).__name__ + " " + str(erreur))[:120]
         finally:
+            if self.etat != "ferme":
+                journaliser(f"coupure : {self.erreur or 'fermee sans raison'} "
+                            f"(ping {self.ping:.0f} ms)")
             if self.etat != "ferme":
                 self.etat = "erreur"
             self.boucle.close()
@@ -121,9 +124,15 @@ class TempsReel:
                     self._poster({"t": "ping", "c": time.monotonic()})
 
             taches = [asyncio.ensure_future(t()) for t in (recevoir, envoyer, pinger)]
-            await asyncio.wait(taches, return_when=asyncio.FIRST_COMPLETED)
+            finies, _ = await asyncio.wait(taches, return_when=asyncio.FIRST_COMPLETED)
             for tache in taches:
                 tache.cancel()
+            for tache in finies:
+                if not tache.cancelled() and tache.exception() is not None:
+                    raise tache.exception()
+            code = getattr(socket, "close_code", None)
+            if code is not None and code != 1000:
+                self.erreur = f"fermee par le serveur, code {code} {getattr(socket, 'close_reason', '')}"
 
     def _poster(self, message):
         """Dans la boucle réseau : mettre un message en file d'envoi (daté)."""
@@ -471,6 +480,22 @@ class ServiceEnLigne:
             return None
         from reseau.mise_a_jour import version_disponible
         return version_disponible(self.version_serveur)
+
+
+def journaliser(texte):
+    """
+    But : noter un incident réseau (date + texte) dans reseau.log, à côté de la
+    sauvegarde, pour comprendre les coupures. Le fichier ne dépasse pas 50 Ko.
+    """
+    try:
+        from moteur import config
+        chemin = os.path.join(config.DOSSIER_DATA, "reseau.log")
+        if os.path.exists(chemin) and os.path.getsize(chemin) > 50000:
+            os.replace(chemin, chemin + ".1")
+        with open(chemin, "a", encoding="utf-8") as fichier:
+            fichier.write(time.strftime("%Y-%m-%d %H:%M:%S ") + texte + "\n")
+    except OSError:
+        pass
 
 
 def requete_http(url, methode="GET", corps=None, jeton="", delai=8):

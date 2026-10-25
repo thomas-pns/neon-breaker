@@ -72,5 +72,19 @@ class TestFluidite(unittest.TestCase):
         self.assertIsNone(balle.correction)
 
 
+class TestFusionEtats(unittest.TestCase):
+
+    def test_briques_et_effets_gardes(self):
+        from reseau.instantane import fusionner_etats
+        ancien = {"t": "etat", "terrains": [{"balles": [1], "briques": ["vieilles"]}], "fx": [["a"]]}
+        nouveau = {"t": "etat", "terrains": [{"balles": [2]}], "fx": [["b"]]}
+        fusion = fusionner_etats(ancien, nouveau)
+        self.assertEqual(fusion["terrains"][0]["balles"], [2])          # le plus récent
+        self.assertEqual(fusion["terrains"][0]["briques"], ["vieilles"])  # rien de perdu
+        self.assertEqual(fusion["fx"], [["a"], ["b"]])
+        recent = {"t": "etat", "terrains": [{"balles": [3], "briques": ["neuves"]}], "fx": []}
+        self.assertEqual(fusionner_etats(ancien, recent)["terrains"][0]["briques"], ["neuves"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -56,26 +56,46 @@ class Connexion:
         self.niveau = niveau_pour(joueur["xp"])
         self.elo = joueur["elo"] if "elo" in joueur.keys() else 1000
         self.salon = None
-        self.file = asyncio.Queue(maxsize=90)
+        self.file = []                    # messages à envoyer, dans l'ordre (texte JSON)
+        self.etat_en_attente = None       # dernier état de partie pas encore envoyé (dict)
+        self.signal = asyncio.Event()
         self.ouverte = True
         self.tache_envoi = asyncio.create_task(self._envoyer_en_continu())
 
     def envoyer(self, message):
-        """But : mettre un message en file (sans attendre)."""
+        """
+        But : mettre un message en file (sans attendre). Les états de partie ne
+        s'empilent pas : si le réseau du joueur a un raté, il reçoit directement
+        l'état le plus récent (fusionné pour ne perdre aucune brique ni effet)
+        au lieu de rattraper une file d'états périmés.
+        """
         if not self.ouverte:
             return
-        if self.file.full():
-            try:
-                self.file.get_nowait()          # on jette le plus ancien
-            except asyncio.QueueEmpty:
-                pass
-        self.file.put_nowait(json.dumps(message, separators=(",", ":")))
+        if message.get("t") == "etat":
+            if self.etat_en_attente is not None:
+                from reseau.instantane import fusionner_etats
+                message = fusionner_etats(self.etat_en_attente, message)
+            self.etat_en_attente = message
+        else:
+            if self.etat_en_attente is not None:      # garder l'ordre : l'état d'abord
+                self.file.append(json.dumps(self.etat_en_attente, separators=(",", ":")))
+                self.etat_en_attente = None
+            self.file.append(json.dumps(message, separators=(",", ":")))
+            del self.file[:-200]
+        self.signal.set()
 
     async def _envoyer_en_continu(self):
         try:
             while True:
-                texte = await self.file.get()
-                await self.websocket.send_text(texte)
+                await self.signal.wait()
+                self.signal.clear()
+                while self.file or self.etat_en_attente is not None:
+                    if self.file:
+                        texte = self.file.pop(0)
+                    else:
+                        texte = json.dumps(self.etat_en_attente, separators=(",", ":"))
+                        self.etat_en_attente = None
+                    await self.websocket.send_text(texte)
         except Exception:                       # connexion fermée
             self.ouverte = False
 

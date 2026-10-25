@@ -76,7 +76,7 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.coupure = None
         self.menu_quitter = False
         self.sons_a_ignorer = []         # instants des rebonds joués ici (sons du serveur en double)
-        self.diagnostic = {"intervalles": [], "lissages": 0, "sauts": 0}
+        self.diagnostic = {"intervalles": [], "lissages": 0, "sauts": 0, "trous": 0, "coupures": 0}
 
     def joueur_local(self):
         return self.mode.joueurs[self.numero - 1]
@@ -147,6 +147,7 @@ class EcranPartieEnLigne(EcranTempsReel):
             return
         if self.coupure is None:
             self.coupure = self.temps
+            self.diagnostic["coupures"] = self.diagnostic.get("coupures", 0) + 1
         elif self.temps - self.coupure > 35:
             from ecrans.en_ligne.salons import EcranSalons
             self.app.notifier("CONNEXION PERDUE", "ROUGE")
@@ -301,6 +302,12 @@ class EcranPartieEnLigne(EcranTempsReel):
             intervalles = self.diagnostic["intervalles"]
             intervalles.append(maintenant - precedent)
             del intervalles[:-120]
+            if maintenant - precedent > 0.4:              # trou réseau : noté pour comprendre
+                self.diagnostic["trous"] = self.diagnostic.get("trous", 0) + 1
+                if self.diagnostic["trous"] <= 30:
+                    from reseau.client import journaliser
+                    journaliser(f"trou de {(maintenant - precedent) * 1000:.0f} ms sans etat "
+                                f"(ping {self.temps_reel.ping:.0f} ms)")
         self.diagnostic["derniere"] = maintenant
 
     def _dessiner_diagnostic(self, image):
@@ -317,7 +324,9 @@ class EcranPartieEnLigne(EcranTempsReel):
                   f"GIGUE {gigue * 1000:.0f} MS",
                   f"MAX {max(intervalles, default=0) * 1000:.0f} MS",
                   f"LISSAGES {self.diagnostic['lissages']}",
-                  f"SAUTS {self.diagnostic['sauts']}"]
+                  f"SAUTS {self.diagnostic['sauts']}",
+                  f"TROUS {self.diagnostic.get('trous', 0)}",
+                  f"COUPURES {self.diagnostic.get('coupures', 0)}"]
         cadre = pygame.Rect(config.LARGEUR - 230, 60, 214, 30 + 24 * len(lignes))
         pygame.draw.rect(image, (10, 0, 24), cadre, border_radius=8)
         pygame.draw.rect(image, config.CYAN, cadre, 1, border_radius=8)
