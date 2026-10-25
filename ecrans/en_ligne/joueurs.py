@@ -57,6 +57,7 @@ class EcranJoueurs(EcranEnLigneBase):
     """Tous les joueurs du serveur."""
 
     titre = "JOUEURS"
+    onglet = ""
 
     def __init__(self, app):
         super().__init__(app)
@@ -93,8 +94,7 @@ class EcranJoueurs(EcranEnLigneBase):
             self._charger()
         entrees = self.app.entrees
         if entrees.vient_d_appuyer("retour"):
-            from ecrans.en_ligne.hub import EcranHub
-            self.app.remplacer(EcranHub(self.app))
+            self.retour_accueil()
             return
         if not self.joueurs:
             return
@@ -164,6 +164,7 @@ class EcranProfil(EcranEnLigneBase):
     """Page de profil d'un joueur."""
 
     titre = "PROFIL"
+    onglet = ""
 
     def __init__(self, app, pseudo, retour="hub"):
         super().__init__(app)
@@ -249,8 +250,7 @@ class EcranProfil(EcranEnLigneBase):
         if self.retour == "joueurs":
             self.app.remplacer(EcranJoueurs(self.app))
         else:
-            from ecrans.en_ligne.hub import EcranHub
-            self.app.remplacer(EcranHub(self.app))
+            self.retour_accueil()
 
     def dessiner(self, image):
         self.dessiner_fond(image, "PROFIL")

@@ -73,7 +73,7 @@ def fabrique_mode(code, indice=0):
     return fabrique
 
 
-class EcranModes(EcranBase):
+class AncienEcranModes(EcranBase):
     """Attributs : indice (int) : carte sélectionnée, zones (list de Rect)."""
 
     def __init__(self, app):
@@ -249,3 +249,9 @@ class EcranModes(EcranBase):
             pygame.draw.line(image, config.BLANC, (cx - 8, cy), (cx + 8, cy), 2)
             pygame.draw.lines(image, config.BLANC, False, [(cx + 2, cy - 6), (cx + 8, cy),
                                                             (cx + 2, cy + 6)], 2)
+
+
+def EcranModes(app):
+    """But : depuis la 2.1, le choix du mode est l'onglet JOUER (carrousel)."""
+    from ecrans.jouer import EcranJouer
+    return EcranJouer(app, "solo")

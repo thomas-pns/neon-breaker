@@ -88,8 +88,9 @@ class EcranSalons(EcranTempsReel):
 
     titre = "PARTIES EN LIGNE"
 
-    def __init__(self, app):
+    def __init__(self, app, creer=None):
         super().__init__(app)
+        self.creer = creer                 # mode à créer dès la connexion (onglet JOUER, 2.1)
         self.salons = []
         self.joueurs_en_ligne = []
         self.maximum = 4
@@ -104,6 +105,9 @@ class EcranSalons(EcranTempsReel):
 
     def sur_connexion(self):
         self.temps_reel.envoyer({"t": "lister"})
+        if self.creer:
+            self.temps_reel.envoyer({"t": "creer", "mode": self.creer, "niveau": self.niveau})
+            self.creer = None
 
     def sur_salons(self, message):
         self.salons = [s for s in message["liste"]]

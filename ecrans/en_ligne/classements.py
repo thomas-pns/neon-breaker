@@ -20,8 +20,10 @@ from moteur.bannieres import dessiner_banniere
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, NOMS_MODES, GRIS
 
-ONGLETS = ["defi", "semaine", "series", "classe", "campagne", "arcade", "hardcore", "coop",
-           "duel", "course"]
+ONGLETS = ["records", "defi", "semaine", "series", "classe", "campagne", "arcade", "hardcore",
+           "coop", "duel", "course"]
+MODES_RECORDS = [("campagne", "CAMPAGNE", config.CYAN), ("arcade", "ARCADE", config.ROSE),
+                 ("hardcore", "HARDCORE", config.ROUGE), ("coop", "COOP", config.VERT)]
 COULEURS_RANGS = [config.AMBRE, (220, 220, 240), (230, 140, 80)]
 
 
@@ -29,10 +31,11 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
     """Attributs : onglet (int), donnees (dict mode -> réponse du serveur)."""
 
     titre = "CLASSEMENTS MONDIAUX"
+    onglet = "CLASSEMENTS"
 
     def __init__(self, app):
         super().__init__(app)
-        self.onglet = 0
+        self.indice_onglet = 0
         self.donnees = {}
         self.erreur = ""
         self.chargement = set()
@@ -40,7 +43,9 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
         self.charger()
 
     def charger(self):
-        mode = ONGLETS[self.onglet]
+        mode = ONGLETS[self.indice_onglet]
+        if mode == "records" or not self.app.en_ligne.jeton:
+            return                                  # records de ce PC : rien à demander
         if mode not in self.donnees and mode not in self.chargement:
             self.chargement.add(mode)
             if mode == "defi":
@@ -71,30 +76,64 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
             self.charger()
         entrees = self.app.entrees
         if entrees.vient_d_appuyer("retour"):
-            from ecrans.en_ligne.hub import EcranHub
-            self.app.remplacer(EcranHub(self.app))
+            self.retour_accueil()
             return
-        sens = int(entrees.vient_d_appuyer("droite") or 1 in entrees.clics) \
-            - int(entrees.vient_d_appuyer("gauche"))
+        ancien = self.indice_onglet
+        sens = int(entrees.vient_d_appuyer("droite")) - int(entrees.vient_d_appuyer("gauche"))
         if sens:
-            self.onglet = (self.onglet + sens) % len(ONGLETS)
+            self.indice_onglet = (self.indice_onglet + sens) % len(ONGLETS)
+        if 1 in entrees.clics:
+            for i, zone in enumerate(getattr(self, "zones_onglets", [])):
+                if zone.collidepoint(entrees.souris):
+                    self.indice_onglet = i
+        if self.indice_onglet != ancien:
             self.app.audio.jouer("menu_nav")
             self.charger()
 
+    def _dessiner_records(self, image, cadre):
+        """But : les meilleurs scores de ce PC, mode par mode (top 5)."""
+        dessiner_texte(image, "MES RECORDS (SUR CE PC)", cadre.x + 40, cadre.y + 26, 2, config.AMBRE,
+                       ancrage="gauche", lueur=False)
+        for k, (mode, nom, couleur) in enumerate(MODES_RECORDS):
+            x = cadre.x + 30 + k * 180
+            dessiner_texte(image, nom, x + 80, cadre.y + 74, 3, couleur)
+            lignes = self.app.classement(mode)[:8]
+            if not lignes:
+                dessiner_texte(image, "AUCUN SCORE", x + 80, cadre.y + 120, 2, (120, 90, 170), lueur=False)
+            for i, ligne in enumerate(lignes):
+                y = cadre.y + 120 + i * 40
+                teinte = COULEURS_RANGS[i] if i < 3 else config.BLANC
+                dessiner_texte(image, f"{i + 1}", x + 6, y, 2, teinte, ancrage="gauche", lueur=False)
+                dessiner_texte(image, str(ligne.get("nom", "???"))[:3], x + 32, y, 2, teinte,
+                               ancrage="gauche", lueur=False)
+                dessiner_texte(image, str(ligne.get("score", 0)), x + 160, y, 2, teinte,
+                               ancrage="droite", lueur=False)
+
     def dessiner(self, image):
         self.dessiner_fond(image)
+        self.zones_onglets = []
         for i, mode in enumerate(ONGLETS):
-            rect = pygame.Rect(0, 0, 118, 40)
-            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 124), 116)
-            choisi = i == self.onglet
+            rect = pygame.Rect(0, 0, 106, 40)
+            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 112), 104)
+            self.zones_onglets.append(rect)
+            choisi = i == self.indice_onglet
             pygame.draw.rect(image, config.CYAN if choisi else (60, 30, 90), rect,
                              0 if choisi else 2, border_radius=8)
             dessiner_texte(image, NOMS_MODES[mode], rect.centerx, rect.centery, 2,
                            (20, 0, 30) if choisi else config.CYAN, lueur=False)
-        mode = ONGLETS[self.onglet]
+        mode = ONGLETS[self.indice_onglet]
         cadre = pygame.Rect(0, 0, 760, 500)
-        cadre.midtop = (config.LARGEUR / 2, 152)
+        cadre.midtop = (config.LARGEUR / 2, 140)
         panneau(image, cadre, config.CYAN)
+        if mode == "records":
+            self._dessiner_records(image, cadre)
+            self.pied(image, "← → : MODE    TAB : ONGLET    ECHAP : ACCUEIL")
+            return
+        if not self.app.en_ligne.jeton:
+            dessiner_texte(image, "CONNECTE-TOI POUR VOIR LES CLASSEMENTS MONDIAUX", cadre.centerx,
+                           cadre.centery, 2, config.ROSE, lueur=False)
+            self.pied(image, "← → : MODE    TAB : ONGLET    ECHAP : ACCUEIL")
+            return
         donnees = self.donnees.get(mode)
         if donnees is None:
             dessiner_texte(image, self.erreur or "CHARGEMENT...", cadre.centerx, cadre.centery, 3,

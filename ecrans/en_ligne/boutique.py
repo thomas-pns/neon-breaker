@@ -48,6 +48,7 @@ class EcranBoutique(EcranEnLigneBase):
     """
 
     titre = "BOUTIQUE"
+    onglet = "BOUTIQUE"
 
     def __init__(self, app):
         super().__init__(app)
@@ -197,8 +198,7 @@ class EcranBoutique(EcranEnLigneBase):
                 self.etat = "vitrine"
             return
         if entrees.vient_d_appuyer("retour"):
-            from ecrans.en_ligne.hub import EcranHub
-            self.app.remplacer(EcranHub(self.app))
+            self.retour_accueil()
             return
         if self.etat != "vitrine":
             return

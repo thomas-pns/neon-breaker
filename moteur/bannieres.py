@@ -122,7 +122,7 @@ def _anime(image, banniere, rect, temps):
             image.fill(hasard.choice((vive, (255, 40, 120), config.BLANC)), bande.clip(rect))
 
 
-def dessiner_banniere(image, code, rect, temps=0.0, cadre=True, voile=0):
+def dessiner_banniere(image, code, rect, temps=0.0, cadre=True, voile=0, icone=True):
     """
     But : dessiner une bannière dans un rectangle (rien si le code est vide ou inconnu).
     Entrées : image ; code (str) ; rect (pygame.Rect) ; temps (float) : animations ;
@@ -140,7 +140,7 @@ def dessiner_banniere(image, code, rect, temps=0.0, cadre=True, voile=0):
         image.set_clip(rect.clip(zone) if zone else rect)
         _anime(image, banniere, rect, temps)
         image.set_clip(zone)
-    if banniere["icone"]:
+    if banniere["icone"] and icone:
         from moteur.icones import dessiner_icone
         echelle = max(1, rect.h // 14)
         for cx in (rect.x + rect.h * 0.6, rect.right - rect.h * 0.6):
