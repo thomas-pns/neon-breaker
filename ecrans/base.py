@@ -131,7 +131,9 @@ class MenuVertical:
             y = self.y + i * self.ecart
             choisi = i == self.indice
             if choisi:
-                pulsation = 0.5 + 0.5 * math.sin(self.temps * 8)
+                # 8 paliers seulement : le texte lumineux reste en cache (un flou par
+                # couleur), sinon chaque image refaisait un flou coûteux (chutes de FPS).
+                pulsation = round((0.5 + 0.5 * math.sin(self.temps * 8)) * 7) / 7
                 couleur = (255, int(176 + 79 * pulsation), int(255 * pulsation * 0.4))
                 libelle = f"> {texte} <"
             else:

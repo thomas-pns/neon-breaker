@@ -151,7 +151,8 @@ class EcranModes(EcranBase):
         rect.center = (int(cx), int(cy))
         self.zones.append(rect)
         fond = pygame.Surface(rect.size, pygame.SRCALPHA)
-        fond.fill((*melanger((12, 0, 30), couleur, 0.12 if choisie else 0.04), 225))
+        pygame.draw.rect(fond, (*melanger((12, 0, 30), couleur, 0.12 if choisie else 0.04), 225),
+                         fond.get_rect(), border_radius=10)    # coins arrondis comme le cadre
         image.blit(fond, rect.topleft)
         if choisie:
             lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=12, epaisseur=4)
@@ -192,7 +193,8 @@ class EcranModes(EcranBase):
         rect.center = (config.LARGEUR // 2 + (-decalage if code == "defi" else decalage), 622)
         self.zones.append(rect)
         fond = pygame.Surface(rect.size, pygame.SRCALPHA)
-        fond.fill((*melanger((12, 0, 30), couleur, 0.14 if choisi else 0.05), 225))
+        pygame.draw.rect(fond, (*melanger((12, 0, 30), couleur, 0.14 if choisi else 0.05), 225),
+                         fond.get_rect(), border_radius=10)
         image.blit(fond, rect.topleft)
         if choisi:
             lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=12, epaisseur=4)

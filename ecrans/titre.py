@@ -138,7 +138,9 @@ class EcranTitre(EcranBase):
         image.blit(sombre, (0, 0))
 
         # Logo : ombre rose décalée + texte cyan qui respire.
-        pulse = 0.85 + 0.15 * math.sin(self.temps * 2.4)
+        # Pulsation en 7 paliers : chaque couleur du logo n'est floutée qu'une fois (cache),
+        # au lieu d'un flou complet par image (chutes à 20 FPS sur l'écran titre).
+        pulse = round((0.85 + 0.15 * math.sin(self.temps * 2.4)) * 20) / 20
         y_logo = 140 + math.sin(self.temps * 1.3) * 6
         dessiner_texte(image, "NEON", config.LARGEUR / 2 + 6, y_logo - 50 + 6, 12,
                        attenuer(config.ROSE, 0.9), lueur=False, ombre=False)
