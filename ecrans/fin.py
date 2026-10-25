@@ -44,7 +44,7 @@ class EcranFin(EcranBase):
         self.effets = GestionnaireEffets()
         self.prochain_feu = 0.0
         self.menu = MenuVertical([("REJOUER", self._rejouer),
-                                  ("MENU PRINCIPAL", self._menu)],
+                                  ("ACCUEIL", self._menu)],
                                  config.LARGEUR / 2, 610, 3, 46)
 
     def entrer(self):

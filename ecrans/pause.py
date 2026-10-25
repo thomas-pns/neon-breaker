@@ -38,7 +38,7 @@ class EcranPause(EcranBase):
             ("RECOMMENCER", self.partie.recommencer),
             ("AIDE", self._aide),
             ("OPTIONS", self._options),
-            ("MENU PRINCIPAL", self._menu),
+            ("ACCUEIL", self._menu),
             ("QUITTER", self._quitter),
         ], config.LARGEUR / 2, 290, 3, 50)
 

@@ -133,7 +133,8 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   défi de la semaine (60), partie en ligne (5) et victoire (15), succès (25), rang (30),
   participation plafonnée à 60 par jour. Cadeau de bienvenue aux anciens joueurs. Solde affiché
   dans le menu EN LIGNE.
-- [ ] Top 3 du jour et de la semaine payés en NEONS par le serveur (150 / 100 / 50).
+- [x] **(fait en 2.1)** Top 3 du jour (50 / 30 / 20) et de la semaine (150 / 100 / 50) payés
+  automatiquement par le serveur, avec un message au joueur.
 - [x] **(fait en 2.0, 8 skins premium et 3 nouveaux motifs : vagues, étoiles, glitch)**
   **Boutique** (menu EN LIGNE) : des skins **premium**, en plus de ceux qui se débloquent avec
   le rang et les succès, qui ne s'achètent qu'avec des NEONS :
@@ -156,7 +157,7 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   (commune 50 %, rare 30 %, épique 15 %, légendaire 5 %).
 - [x] **(fait en 2.0)** Côté serveur : solde et objets en base, achats atomiques, gains calculés
   par le serveur.
-- [ ] Historique des mouvements de NEONS (une ligne par gain et par achat).
+- [x] **(fait en 2.1)** Historique des mouvements de NEONS (touche H dans la boutique).
 
 ## Campagne
 
@@ -178,7 +179,8 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 - [x] **(fait en 2.0)** Cote **Elo** (1000 au départ, 10 parties de placement).
 - [x] **(fait en 2.0)** Divisions BRONZE, ARGENT, OR, PLATINE, NEON ; onglet CLASSEE dans les
   classements mondiaux ; cote sur le profil.
-- [ ] Course classée ; saisons avec récompenses en NEONS.
+- [x] **(fait en 2.1)** Course classée ; saisons mensuelles (NEONS selon la division, bannières
+  GLADIATEUR / TITAN / LEGENDE NEON, cote rapprochée de 1000).
 
 ## Duel en ligne
 
@@ -241,3 +243,12 @@ la production ».
 - [x] **(fait en 2.0)** Commandes configurables, manettes (J1 et J2 sur deux manettes).
 - [x] **(fait en 2.0)** Fantôme du meilleur joueur du jour dans les défis.
 - [ ] Chat (pas pour l'instant).
+
+## Menus (2.1)
+
+- [x] **(fait en 2.1)** Barre d'onglets (ACCUEIL, JOUER, CLASSEMENTS, CASIER, BOUTIQUE), roue des
+  réglages, accueil avec REPRENDRE, carrousel JOUER, CASIER, boutique en vedette.
+- [x] **(fait en 2.1)** Skins complets (balle, traînée, son) et bannières de boss.
+- [x] **(fait en 2.1)** Mode admin (NEON_ADMINS sur le serveur) et bot de test (F8).
+- [ ] Liste d'amis et classement entre amis.
+- [ ] Version navigateur (pygbag) du solo, puis du jeu en ligne.

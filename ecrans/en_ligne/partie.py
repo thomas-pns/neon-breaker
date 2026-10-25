@@ -122,7 +122,9 @@ class EcranPartieEnLigne(EcranTempsReel):
             self.app.en_ligne.annoncer_gains(gains)
             if self.app.en_ligne.niveau > ancien:
                 self.app.notifier(f"RANG {self.app.en_ligne.niveau} !", "AMBRE")
-        self.app.remplacer(EcranFinEnLigne(self.app, message["resultat"], gains))
+        fin = EcranFinEnLigne(self.app, message["resultat"], gains,
+                              classee=self.code if self.classee else None)
+        self.app.remplacer(fin)
 
     # --- Boucle -------------------------------------------------------------------------
 
@@ -495,7 +497,7 @@ class EcranPartieEnLigne(EcranTempsReel):
 class EcranFinEnLigne(EcranFin):
     """Fin d'une partie en ligne : résultat, XP gagnée, retour aux parties."""
 
-    def __init__(self, app, resultat, gains):
+    def __init__(self, app, resultat, gains, classee=None):
         resultat = {**resultat, "lignes": [tuple(l) for l in resultat.get("lignes", [])]}
         if "couleur" in resultat:
             resultat["couleur"] = en_tuples(resultat["couleur"])
@@ -503,8 +505,17 @@ class EcranFinEnLigne(EcranFin):
         resultat.setdefault("victoire", False)
         super().__init__(app, resultat, fabrique=None)
         self.gains = gains or {}
-        self.menu.options = [("RETOUR AUX PARTIES", self._parties),
-                             ("MENU EN LIGNE", self._hub)]
+        self.classee = classee
+        premier = ("NOUVELLE CLASSEE", self._reclasser) if classee else ("RETOUR AUX PARTIES", self._parties)
+        self.menu.options = [premier, ("ACCUEIL", self._accueil)]
+
+    def _reclasser(self):
+        from ecrans.en_ligne.salons import EcranFileClassee
+        self.app.remplacer(EcranFileClassee(self.app, self.classee))
+
+    def _accueil(self):
+        from ecrans.titre import EcranTitre
+        self.app.remplacer(EcranTitre(self.app))
 
     def _parties(self):
         from ecrans.en_ligne.salons import EcranSalons
