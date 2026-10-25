@@ -247,9 +247,11 @@ class TestNouveautes11(unittest.TestCase):
         self.assertIn("cryo", skins_debloques(5, set()))
         self.assertNotIn("cryo", skins_debloques(4, set()))
         self.assertIn("noyau", skins_debloques(1, {"boss_core"}))
-        self.assertEqual(len(skins_debloques(99, {s["condition"][1] for s in SKINS
-                                                  if s["condition"] and s["condition"][0] == "succes"})),
-                         len(SKINS))
+        tous_succes = {s["condition"][1] for s in SKINS
+                       if s["condition"] and s["condition"][0] == "succes"}
+        premium = {s["code"] for s in SKINS if s["condition"] and s["condition"][0] == "boutique"}
+        self.assertEqual(len(skins_debloques(99, tous_succes)), len(SKINS) - len(premium))
+        self.assertEqual(len(skins_debloques(99, tous_succes, premium)), len(SKINS))
         from jeu.joueur import Joueur
         joueur = Joueur(2, "j2", "J2")
         bord = joueur.couleur_bord

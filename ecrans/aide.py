@@ -159,7 +159,8 @@ class EcranAide(EcranBase):
             rect = pygame.Rect(x - 20, 110, 370, 310)
             panneau(image, rect, couleur)
             dessiner_texte(image, titre, rect.centerx, 150, 3, couleur)
-            for i, (touche, action) in enumerate(config.AIDE_TOUCHES[profil]):
+            from moteur.entrees import libelles_touches
+            for i, (touche, action) in enumerate(libelles_touches(self.app, profil)):
                 y = 184 + i * 25
                 dessiner_texte(image, touche, rect.x + 24, y, 2, config.BLANC,
                                ancrage="gauche", lueur=False)

@@ -143,6 +143,26 @@ def capturer_joueur(joueur):
             "briques": joueur.stats["briques"], "meilleur_combo": joueur.stats["meilleur_combo"]}
 
 
+def fusionner_etats(ancien, nouveau):
+    """
+    But : remplacer un état pas encore envoyé par un plus récent sans rien perdre :
+    les briques (envoyées seulement quand elles changent) de l'ancien sont gardées si
+    le nouveau n'en a pas, et les effets des deux sont mis bout à bout.
+    Entrées : ancien, nouveau (dict « etat »). Sortie : (dict) état fusionné.
+    """
+    fusion = dict(nouveau)
+    terrains_anciens = ancien.get("terrains", [])
+    terrains = []
+    for i, terrain in enumerate(nouveau.get("terrains", [])):
+        if "briques" not in terrain and i < len(terrains_anciens) and "briques" in terrains_anciens[i]:
+            terrain = dict(terrain, briques=terrains_anciens[i]["briques"])
+        terrains.append(terrain)
+    if "terrains" in nouveau:
+        fusion["terrains"] = terrains
+    fusion["fx"] = (list(ancien.get("fx", [])) + list(nouveau.get("fx", [])))[-60:]
+    return fusion
+
+
 def capturer(mode, fond, signatures, forcer=False):
     """
     But : instantané complet d'une partie.

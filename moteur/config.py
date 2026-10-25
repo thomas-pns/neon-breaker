@@ -194,6 +194,33 @@ TOUCHES = {
     },
 }
 
+# Manettes (2.0) : boutons standard (disposition Xbox, la PlayStation suit la même place).
+# Les profils "solo", "j1" et "j2" utilisent "jeu" ; J1 = première manette, J2 = deuxième.
+MANETTE = {
+    "menu": {"haut": ["haut", "stick_haut"], "bas": ["bas", "stick_bas"],
+             "gauche": ["gauche", "stick_gauche"], "droite": ["droite", "stick_droite"],
+             "valider": ["a", "start"], "retour": ["b", "back"], "pause": ["start"]},
+    "jeu": {"gauche": ["gauche", "stick_gauche"], "droite": ["droite", "stick_droite"],
+            "action": ["a"], "changer": ["x", "lb"], "activer": ["y", "rb"],
+            "overdrive": ["b", "rt", "lt"]},
+}
+AIDE_MANETTE = [("STICK", "BOUGER"), ("A", "LANCER"), ("X LB", "CHOISIR"), ("Y RB", "POUVOIR"),
+                ("B RT", "OVERDRIVE"), ("START", "PAUSE")]
+
+# Commandes qu'on peut changer dans OPTIONS > COMMANDES, avec leur nom par défaut (AZERTY).
+COMMANDES = {
+    "solo": [("gauche", "GAUCHE", "\u2190 Q"), ("droite", "DROITE", "\u2192 D"),
+             ("action", "LANCER", "ESPACE"), ("changer", "CHOISIR", "A TAB"),
+             ("activer", "POUVOIR", "E"), ("overdrive", "OVERDRIVE", "MAJ"),
+             ("pouvoir1", "POUVOIR 1", "1"), ("pouvoir2", "POUVOIR 2", "2"),
+             ("pouvoir3", "POUVOIR 3", "3")],
+    "j1": [("gauche", "GAUCHE", "Q"), ("droite", "DROITE", "D"), ("action", "LANCER", "Z"),
+           ("changer", "CHOISIR", "A"), ("activer", "POUVOIR", "E"), ("overdrive", "OVERDRIVE", "S")],
+    "j2": [("gauche", "GAUCHE", "\u2190"), ("droite", "DROITE", "\u2192"),
+           ("action", "LANCER", "\u2191"), ("changer", "CHOISIR", "CTRL D"),
+           ("activer", "POUVOIR", "MAJ D"), ("overdrive", "OVERDRIVE", "\u2193")],
+}
+
 # Libellés affichés (clavier AZERTY).
 AIDE_TOUCHES = {
     "solo": [("\u2190 \u2192 Q D", "BOUGER"), ("SOURIS", "BOUGER"),

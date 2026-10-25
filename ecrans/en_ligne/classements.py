@@ -16,11 +16,12 @@ import time
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
+from moteur.bannieres import dessiner_banniere
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, NOMS_MODES, GRIS
 
-ONGLETS = ["defi", "semaine", "series", "campagne", "arcade", "hardcore", "coop", "duel",
-           "course"]
+ONGLETS = ["defi", "semaine", "series", "classe", "campagne", "arcade", "hardcore", "coop",
+           "duel", "course"]
 COULEURS_RANGS = [config.AMBRE, (220, 220, 240), (230, 140, 80)]
 
 
@@ -83,8 +84,8 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
     def dessiner(self, image):
         self.dessiner_fond(image)
         for i, mode in enumerate(ONGLETS):
-            rect = pygame.Rect(0, 0, 130, 40)
-            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 138), 116)
+            rect = pygame.Rect(0, 0, 118, 40)
+            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 124), 116)
             choisi = i == self.onglet
             pygame.draw.rect(image, config.CYAN if choisi else (60, 30, 90), rect,
                              0 if choisi else 2, border_radius=8)
@@ -99,7 +100,8 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
             dessiner_texte(image, self.erreur or "CHARGEMENT...", cadre.centerx, cadre.centery, 3,
                            config.ROUGE if self.erreur else config.CYAN, lueur=False)
             return
-        unite = {"victoires": "VICTOIRES", "series": "JOURS D'AFFILEE"}.get(donnees["type"], "SCORE")
+        unite = {"victoires": "VICTOIRES", "series": "JOURS D'AFFILEE",
+                 "classe": "COTE"}.get(donnees["type"], "SCORE")
         if mode == "defi":
             jour = "/".join(reversed(donnees.get("jour", "--").split("-")[1:]))
             dessiner_texte(image, f"DEFI DU {jour}", cadre.x + 40, cadre.y + 24, 2, config.AMBRE,
@@ -111,6 +113,9 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
         elif mode == "series":
             dessiner_texte(image, "SERIES DU DEFI DU JOUR", cadre.x + 40, cadre.y + 24, 2,
                            config.AMBRE, ancrage="gauche", lueur=False)
+        elif mode == "classe":
+            dessiner_texte(image, "PARTIES CLASSEES (DUEL)", cadre.x + 40, cadre.y + 24, 2,
+                           config.VIOLET, ancrage="gauche", lueur=False)
         dessiner_texte(image, unite, cadre.right - 40, cadre.y + 24, 2, GRIS, ancrage="droite",
                        lueur=False)
         if not donnees["lignes"]:
@@ -125,12 +130,22 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
                                  border_radius=6)
             dessiner_texte(image, f"{i + 1:2d}", cadre.x + 50, y, 3, teinte, ancrage="gauche",
                            lueur=i == 0)
+            dessiner_banniere(image, ligne.get("banniere", ""),
+                              pygame.Rect(cadre.x + 118, y - 15, 320, 30), self.temps, cadre=False,
+                              voile=130)
             pygame.draw.circle(image, couleur_profil(ligne["couleur"]), (cadre.x + 130, y), 8)
             dessiner_texte(image, ligne["pseudo"].upper(), cadre.x + 150, y, 3, teinte,
                            ancrage="gauche", lueur=i == 0)
-            dessiner_texte(image, f"RANG {ligne['niveau']}", cadre.x + 470, y, 2, GRIS,
-                           ancrage="gauche", lueur=False)
-            if donnees["type"] == "series":
+            if donnees["type"] == "classe":
+                from reseau.classee import division
+                nom, couleur, _, _ = division(ligne["valeur"])
+                dessiner_texte(image, nom, cadre.x + 470, y, 2, couleur, ancrage="gauche", lueur=False)
+            else:
+                dessiner_texte(image, f"RANG {ligne['niveau']}", cadre.x + 470, y, 2, GRIS,
+                               ancrage="gauche", lueur=False)
+            if donnees["type"] == "classe":
+                valeur = ligne["valeur"]
+            elif donnees["type"] == "series":
                 valeur = f"{ligne['valeur']} J"
                 dessiner_texte(image, f"MAX {ligne.get('record', 0)}", cadre.x + 580, y, 2, GRIS,
                                ancrage="gauche", lueur=False)

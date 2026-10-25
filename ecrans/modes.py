@@ -115,9 +115,9 @@ class EcranModes(EcranBase):
     def choisir(self, code):
         """But : lancer le mode, ou passer par la sélection de niveau."""
         from ecrans.partie import EcranPartie
-        if code in ("campagne", "coop") and self.app.niveau_debloque(code) > 0:
-            from ecrans.niveaux import EcranNiveaux
-            self.app.remplacer(EcranNiveaux(self.app, code))
+        if code in ("campagne", "coop"):
+            from ecrans.carte import EcranCarte
+            self.app.remplacer(EcranCarte(self.app, code))
         else:
             self.app.remplacer(EcranPartie(self.app, fabrique_mode(code)))
 

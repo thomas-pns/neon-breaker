@@ -122,6 +122,7 @@ class Application:
         self.debug = debug
         self.donnees = sauvegarde.charger()
         self.reglages = self.donnees["reglages"]
+        self.entrees.appliquer_perso(self.reglages.get("touches"))
         self.audio.volume_effets = self.reglages["volume_effets"]
         self.audio.volume_musique = self.reglages["volume_musique"]
         from reseau.client import ServiceEnLigne

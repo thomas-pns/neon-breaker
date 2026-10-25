@@ -25,13 +25,16 @@ def lancer(app):
     from ecrans.titre import EcranTitre
     from ecrans.modes import EcranModes, fabrique_mode
     from ecrans.aide import EcranAide
+    from ecrans.carte import EcranCarte
     from ecrans.nouveautes import EcranNouveautes
     from ecrans.scores import EcranScores
     from ecrans.partie import EcranPartie
     from ecrans.options import EcranOptions
+    from ecrans.commandes import EcranCommandes
     from ecrans.pause import EcranPause
     from ecrans.en_ligne.connexion import EcranConnexion
     from ecrans.en_ligne.hub import EcranHub
+    from ecrans.en_ligne.boutique import EcranBoutique
     from ecrans.en_ligne.salons import EcranSalons
     from ecrans.en_ligne.joueurs import EcranJoueurs, EcranProfil
     from ecrans.en_ligne.classements import EcranClassementsMondiaux
@@ -44,11 +47,14 @@ def lancer(app):
         ("titre", lambda: EcranTitre(app)),
         ("modes", lambda: EcranModes(app)),
         ("aide", lambda: EcranAide(app)),
+        ("carte", lambda: EcranCarte(app, "campagne")),
         ("nouveautes", lambda: EcranNouveautes(app)),
         ("scores", lambda: EcranScores(app)),
         ("options", lambda: EcranOptions(app)),
+        ("commandes", lambda: EcranCommandes(app)),
         ("connexion", lambda: EcranConnexion(app)),
         ("hub", lambda: EcranHub(app)),
+        ("boutique", lambda: EcranBoutique(app)),
         ("salons", lambda: EcranSalons(app)),
         ("joueurs", lambda: EcranJoueurs(app)),
         ("profil", lambda: EcranProfil(app, "personne")),

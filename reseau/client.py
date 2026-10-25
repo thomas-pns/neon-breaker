@@ -76,8 +76,11 @@ class TempsReel:
         try:
             self.boucle.run_until_complete(self._session())
         except Exception as erreur:            # serveur injoignable, coupure...
-            self.erreur = str(erreur)[:80]
+            self.erreur = (type(erreur).__name__ + " " + str(erreur))[:120]
         finally:
+            if self.etat != "ferme":
+                journaliser(f"coupure : {self.erreur or 'fermee sans raison'} "
+                            f"(ping {self.ping:.0f} ms)")
             if self.etat != "ferme":
                 self.etat = "erreur"
             self.boucle.close()
@@ -121,9 +124,15 @@ class TempsReel:
                     self._poster({"t": "ping", "c": time.monotonic()})
 
             taches = [asyncio.ensure_future(t()) for t in (recevoir, envoyer, pinger)]
-            await asyncio.wait(taches, return_when=asyncio.FIRST_COMPLETED)
+            finies, _ = await asyncio.wait(taches, return_when=asyncio.FIRST_COMPLETED)
             for tache in taches:
                 tache.cancel()
+            for tache in finies:
+                if not tache.cancelled() and tache.exception() is not None:
+                    raise tache.exception()
+            code = getattr(socket, "close_code", None)
+            if code is not None and code != 1000:
+                self.erreur = f"fermee par le serveur, code {code} {getattr(socket, 'close_reason', '')}"
 
     def _poster(self, message):
         """Dans la boucle réseau : mettre un message en file d'envoi (daté)."""
@@ -181,6 +190,11 @@ class ServiceEnLigne:
         self.xp = compte.get("xp", 0)
         self.skin = compte.get("skin", "neon")
         self.skins = compte.get("skins", ["neon"])
+        self.neons = compte.get("neons", 0)
+        self.banniere = compte.get("banniere", "")
+        self.bannieres = compte.get("bannieres", [])
+        self.elo = compte.get("elo", 1000)
+        self.classees = compte.get("classees", 0)
         self.connecte = False
         self.joignable = None
         self.temps_reel = None
@@ -260,10 +274,18 @@ class ServiceEnLigne:
                     if code in SKINS_PAR_CODE:
                         self.app.notifier("NOUVEAU SKIN !", "ROSE", SKINS_PAR_CODE[code]["nom"])
             self.skins = list(donnees["skins"])
+        self.neons = donnees.get("neons", self.neons)
+        self.banniere = donnees.get("banniere", self.banniere)
+        self.bannieres = list(donnees.get("bannieres", self.bannieres))
+        self.elo = donnees.get("elo", self.elo)
+        self.classees = donnees.get("classees", self.classees)
         self.connecte = True
         self.app.donnees["compte"] = {"jeton": self.jeton, "pseudo": self.pseudo,
                                       "couleur": self.couleur, "niveau": self.niveau,
-                                      "xp": self.xp, "skin": self.skin, "skins": self.skins}
+                                      "xp": self.xp, "skin": self.skin, "skins": self.skins,
+                                      "neons": self.neons, "banniere": self.banniere,
+                                      "bannieres": self.bannieres, "elo": self.elo,
+                                      "classees": self.classees}
         self.app.enregistrer()
 
     def se_connecter(self, pseudo, mdp, inscription, rappel):
@@ -294,6 +316,7 @@ class ServiceEnLigne:
         self.jeton = ""
         self.connecte = False
         self.skin, self.skins = "neon", ["neon"]
+        self.neons, self.banniere, self.bannieres = 0, "", []
         self.app.donnees["compte"] = {}
         self.app.enregistrer()
 
@@ -334,6 +357,40 @@ class ServiceEnLigne:
                 rappel(resultat)
         self.skin = skin
         self.appeler("PUT", "/api/moi/skin", {"skin": skin}, recu)
+
+    # --- Boutique (2.0) -------------------------------------------------------------
+
+    def banniere_active(self):
+        """But : bannière du joueur local ("" sans compte ou si elle n'est plus possédée)."""
+        return self.banniere if self.jeton and self.banniere in self.bannieres else ""
+
+    def changer_banniere(self, banniere, rappel=None):
+        def recu(resultat):
+            if resultat["ok"]:
+                self.memoriser({"banniere": banniere})
+            if rappel:
+                rappel(resultat)
+        self.banniere = banniere
+        self.appeler("PUT", "/api/moi/banniere", {"banniere": banniere}, recu)
+
+    def _rappel_profil(self, rappel):
+        """Rappel qui garde le nouveau solde (et les objets) renvoyés par le serveur."""
+        def recu(resultat):
+            if resultat["ok"] and isinstance(resultat["donnees"], dict) \
+                    and "neons" in resultat["donnees"]:
+                self.memoriser(resultat["donnees"])
+            if rappel:
+                rappel(resultat)
+        return recu
+
+    def charger_boutique(self, rappel):
+        self.appeler("GET", "/api/boutique", rappel=self._rappel_profil(rappel))
+
+    def acheter(self, code, rappel):
+        self.appeler("POST", "/api/boutique/acheter", {"code": code}, self._rappel_profil(rappel))
+
+    def ouvrir_boite(self, rappel):
+        self.appeler("POST", "/api/boutique/boite", {}, self._rappel_profil(rappel))
 
     # --- Scores ------------------------------------------------------------------
 
@@ -384,6 +441,16 @@ class ServiceEnLigne:
         """But : notifications des succès débloqués (réponse du serveur)."""
         if not gains:
             return
+        if gains.get("neons_gagnes"):
+            from reseau.boutique import MONNAIE
+            lignes = gains.get("detail_neons", [])
+            detail = (f"{lignes[0][0]} +{lignes[0][1]}" if lignes else "") \
+                + (f" (+{len(lignes) - 1} AUTRES)" if len(lignes) > 1 else "")
+            self.app.notifier(f"+{gains['neons_gagnes']} {MONNAIE}", "CYAN", detail)
+        if "neons" in gains:
+            self.neons = gains["neons"]
+        if "elo" in gains:
+            self.elo, self.classees = gains["elo"], gains.get("classees", self.classees)
         for succes in gains.get("nouveaux_succes", []):
             self.app.notifier("SUCCES : " + succes["nom"], "OR", succes["description"])
 
@@ -413,6 +480,22 @@ class ServiceEnLigne:
             return None
         from reseau.mise_a_jour import version_disponible
         return version_disponible(self.version_serveur)
+
+
+def journaliser(texte):
+    """
+    But : noter un incident réseau (date + texte) dans reseau.log, à côté de la
+    sauvegarde, pour comprendre les coupures. Le fichier ne dépasse pas 50 Ko.
+    """
+    try:
+        from moteur import config
+        chemin = os.path.join(config.DOSSIER_DATA, "reseau.log")
+        if os.path.exists(chemin) and os.path.getsize(chemin) > 50000:
+            os.replace(chemin, chemin + ".1")
+        with open(chemin, "a", encoding="utf-8") as fichier:
+            fichier.write(time.strftime("%Y-%m-%d %H:%M:%S ") + texte + "\n")
+    except OSError:
+        pass
 
 
 def requete_http(url, methode="GET", corps=None, jeton="", delai=8):

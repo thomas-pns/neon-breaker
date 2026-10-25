@@ -76,7 +76,7 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.coupure = None
         self.menu_quitter = False
         self.sons_a_ignorer = []         # instants des rebonds joués ici (sons du serveur en double)
-        self.diagnostic = {"intervalles": [], "lissages": 0, "sauts": 0}
+        self.diagnostic = {"intervalles": [], "lissages": 0, "sauts": 0, "trous": 0, "coupures": 0}
 
     def joueur_local(self):
         return self.mode.joueurs[self.numero - 1]
@@ -147,6 +147,7 @@ class EcranPartieEnLigne(EcranTempsReel):
             return
         if self.coupure is None:
             self.coupure = self.temps
+            self.diagnostic["coupures"] = self.diagnostic.get("coupures", 0) + 1
         elif self.temps - self.coupure > 35:
             from ecrans.en_ligne.salons import EcranSalons
             self.app.notifier("CONNEXION PERDUE", "ROUGE")
@@ -301,6 +302,12 @@ class EcranPartieEnLigne(EcranTempsReel):
             intervalles = self.diagnostic["intervalles"]
             intervalles.append(maintenant - precedent)
             del intervalles[:-120]
+            if maintenant - precedent > 0.4:              # trou réseau : noté pour comprendre
+                self.diagnostic["trous"] = self.diagnostic.get("trous", 0) + 1
+                if self.diagnostic["trous"] <= 30:
+                    from reseau.client import journaliser
+                    journaliser(f"trou de {(maintenant - precedent) * 1000:.0f} ms sans etat "
+                                f"(ping {self.temps_reel.ping:.0f} ms)")
         self.diagnostic["derniere"] = maintenant
 
     def _dessiner_diagnostic(self, image):
@@ -317,7 +324,9 @@ class EcranPartieEnLigne(EcranTempsReel):
                   f"GIGUE {gigue * 1000:.0f} MS",
                   f"MAX {max(intervalles, default=0) * 1000:.0f} MS",
                   f"LISSAGES {self.diagnostic['lissages']}",
-                  f"SAUTS {self.diagnostic['sauts']}"]
+                  f"SAUTS {self.diagnostic['sauts']}",
+                  f"TROUS {self.diagnostic.get('trous', 0)}",
+                  f"COUPURES {self.diagnostic.get('coupures', 0)}"]
         cadre = pygame.Rect(config.LARGEUR - 230, 60, 214, 30 + 24 * len(lignes))
         pygame.draw.rect(image, (10, 0, 24), cadre, border_radius=8)
         pygame.draw.rect(image, config.CYAN, cadre, 1, border_radius=8)
@@ -485,14 +494,29 @@ class EcranFinEnLigne(EcranFin):
             dessiner_texte(image, "PARTIE NON COMPTEE", cadre.centerx, cadre.centery, 2, GRIS,
                            lueur=False)
             return
-        dessiner_texte(image, f"+{self.gains.get('xp_gagnee', 0)} XP", cadre.centerx,
-                       cadre.y + 90, 5, config.AMBRE)
-        dessiner_texte(image, f"RANG {self.gains.get('niveau', 1)}", cadre.centerx,
-                       cadre.y + 140, 3, config.BLANC)
+        y = cadre.y + 80
+        if "xp_gagnee" in self.gains:
+            dessiner_texte(image, f"+{self.gains.get('xp_gagnee', 0)} XP", cadre.centerx, y, 4,
+                           config.AMBRE)
+            from moteur.bannieres import dessiner_piece
+            zone = dessiner_texte(image, f"+{self.gains.get('neons_gagnes', 0)}", cadre.centerx + 16,
+                                  y + 44, 4, config.CYAN)
+            dessiner_piece(image, (zone.x - 22, zone.centery), 12, self.temps)
+            dessiner_texte(image, f"RANG {self.gains.get('niveau', 1)}", cadre.centerx, y + 82, 2,
+                           config.BLANC, lueur=False)
+            y += 116
+        if self.gains.get("classee"):
+            from reseau.classee import division
+            delta = self.gains.get("elo_delta", 0)
+            nom, couleur, _, _ = division(self.gains.get("elo", 1000))
+            dessiner_texte(image, f"{'+' if delta >= 0 else ''}{delta} COTE", cadre.centerx, y, 3,
+                           config.VERT if delta >= 0 else config.ROUGE)
+            dessiner_texte(image, f"{nom}  {self.gains.get('elo', 1000)}", cadre.centerx, y + 32, 2,
+                           couleur, lueur=False)
+            y += 64
         succes = self.gains.get("nouveaux_succes", [])
         if succes:
-            dessiner_texte(image, "SUCCES DEBLOQUES", cadre.centerx, cadre.y + 190, 2,
-                           config.OR, lueur=False)
-        for i, entree in enumerate(succes[:5]):
-            dessiner_texte(image, entree["nom"], cadre.centerx, cadre.y + 222 + i * 26, 2,
+            dessiner_texte(image, "SUCCES DEBLOQUES", cadre.centerx, y, 2, config.OR, lueur=False)
+        for i, entree in enumerate(succes[:4]):
+            dessiner_texte(image, entree["nom"], cadre.centerx, y + 28 + i * 26, 2,
                            config.BLANC, lueur=False)

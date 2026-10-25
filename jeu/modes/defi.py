@@ -16,6 +16,8 @@ import datetime
 import hashlib
 import random
 
+import pygame
+
 from moteur import config
 from moteur.police_pixel import dessiner_texte
 from jeu.modes.arcade import ModeArcade, PANNEAU_D
@@ -110,6 +112,82 @@ class ModeDefi(ModeArcade):
             self.prochaine_vie = float("inf")
         self.servir()
         self.annoncer(self.annonce(), config.AMBRE, 2.6)
+        self.preparer_fantome()
+
+    # --- Fantôme du record (2.0) ---------------------------------------------------------
+
+    def preparer_fantome(self):
+        """
+        But : charger le fantôme à battre : le meilleur joueur du jour (en ligne),
+        sinon ton propre record de ce défi ; et commencer à enregistrer ta partie.
+        """
+        from reseau.fantome import Enregistreur, Fantome
+        self.enregistreur = Enregistreur()
+        self.fantome = None
+        local = self.app.donnees.get("fantomes", {}).get(self.code)
+        if local and local.get("jour") == self.jour:
+            try:
+                self.fantome = Fantome(local["donnees"], "TON RECORD", local.get("score", 0))
+            except (KeyError, ValueError):
+                self.fantome = None
+        en_ligne = getattr(self.app, "en_ligne", None)
+        if en_ligne is not None and getattr(en_ligne, "jeton", "") and not self.en_ligne:
+            en_ligne.appeler("GET", f"/api/fantome/{self.code}/{self.jour}",
+                             rappel=self._recu_fantome, authentifie=False)
+
+    def _recu_fantome(self, resultat):
+        from reseau.fantome import Fantome, valide
+        donnees = resultat.get("donnees") if resultat.get("ok") else None
+        if not donnees or not valide(donnees.get("fantome")):
+            return
+        if self.fantome is not None and self.fantome.score >= donnees.get("score", 0):
+            return                       # ton record local est meilleur
+        moi = getattr(self.app.en_ligne, "pseudo", "")
+        nom = "TON RECORD" if donnees.get("pseudo", "").lower() == moi.lower() \
+            else donnees.get("pseudo", "?").upper()
+        self.fantome = Fantome(donnees["fantome"], nom, donnees.get("score", 0))
+
+    def regles(self, dt, dt_jeu):
+        super().regles(dt, dt_jeu)
+        if self.etat in ("jeu", "pret") and getattr(self, "enregistreur", None) is not None:
+            terrain = self.terrains[0]
+            raquette = terrain.raquettes[0]
+            relatif = (raquette.x - terrain.rect.x) / max(1, terrain.rect.w)
+            self.enregistreur.avancer(dt, relatif, self.joueurs[0].score)
+
+    def dessiner_overlay(self, image):
+        super().dessiner_overlay(image)
+        fantome = getattr(self, "fantome", None)
+        if fantome is None or self.etat == "fin":
+            return
+        terrain = self.terrains[0]
+        temps = self.enregistreur.temps
+        relatif = fantome.x_a(temps)
+        raquette = terrain.raquettes[0]
+        if relatif is not None:
+            rect = pygame.Rect(0, 0, int(raquette.largeur), int(raquette.hauteur))
+            rect.midtop = (int(terrain.rect.x + relatif * terrain.rect.w), int(raquette.y))
+            voile = pygame.Surface(rect.size, pygame.SRCALPHA)
+            voile.fill((200, 220, 255, 60))
+            image.blit(voile, rect)
+            pygame.draw.rect(image, (200, 220, 255), rect, 1, border_radius=6)
+        ecart = self.joueurs[0].score - fantome.score_a(temps)
+        couleur = config.VERT if ecart >= 0 else config.ROSE
+        dessiner_texte(image, f"FANTOME {fantome.nom[:10]}   {'+' if ecart >= 0 else ''}{ecart}",
+                       terrain.rect.centerx, terrain.rect.y + 18, 2, couleur, lueur=False)
+
+    def _garder_fantome(self):
+        """But : envoyer ta partie comme fantôme, et la garder si c'est ton record du défi."""
+        enregistreur = getattr(self, "enregistreur", None)
+        if enregistreur is None or not enregistreur.positions:
+            return None
+        donnees = enregistreur.exporter()
+        fantomes = self.app.donnees.setdefault("fantomes", {})
+        local = fantomes.get(self.code)
+        score = self.joueurs[0].score
+        if not local or local.get("jour") != self.jour or score > local.get("score", 0):
+            fantomes[self.code] = {"jour": self.jour, "score": score, "donnees": donnees}
+        return donnees
 
     # --- Spécifique au défi du jour (redéfini pour la semaine) ------------------------
 
@@ -141,6 +219,9 @@ class ModeDefi(ModeArcade):
         self.resultat["rapports"] = self.rapports(
             victoire=False, vagues=self.vague, jour=self.jour,
             modificateur="+".join(m[0] for m in self.modificateurs))
+        fantome = self._garder_fantome()
+        if fantome is not None:
+            self.resultat["rapports"][0]["fantome"] = fantome
         joues = defis_joues(self.app, self.periode)
         if self.jour not in joues:
             joues.append(self.jour)

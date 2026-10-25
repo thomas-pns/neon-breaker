@@ -73,7 +73,7 @@ class TestAideBulles(unittest.TestCase):
         EcranOptions._revoir_bulles(ecran)
         self.assertEqual(app.donnees["bulles_vues"], [])
         self.assertTrue(ecran.bulles_reactivees)
-        self.assertEqual(ecran.menu.options[8][0], "BULLES D'AIDE : REACTIVEES")
+        self.assertIn("BULLES D'AIDE : REACTIVEES", [o[0] for o in ecran.menu.options])
 
     def test_ancienne_sauvegarde_et_pages_aide(self):
         """But : completer une sauvegarde ancienne et dessiner toutes les pages."""

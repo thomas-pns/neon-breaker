@@ -128,29 +128,35 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   deux règles spéciales combinées, avec son propre classement.
 - [x] **Séries hebdomadaires** : nombre de semaines d'affilée où l'on a joué le défi de la
   semaine (série en cours et record sur le profil, succès à 4 et 12 semaines).
-- [ ] **Monnaie du jeu**, les **NEONS** (nom à confirmer : NEONS, CREDITS, PIXELS…) :
-  - top 3 de la semaine : 150 / 100 / 50 NEONS, versés par le serveur à la fin de la semaine ;
-  - petits gains réguliers : un défi du jour joué (5), un top 3 du jour (10 / 6 / 3), un succès débloqué (20) ;
-  - solde affiché dans le menu EN LIGNE et sur le profil.
-- [ ] **Boutique** (menu EN LIGNE) : des skins **premium**, en plus de ceux qui se débloquent avec
+- [x] **(fait en 2.0)** **Monnaie du jeu**, les **NEONS** : niveaux (10, 20 en Hardcore) et
+  boss (50) réussis pour la première fois, étoiles (5), défi du jour (20 + 5 par jour de série),
+  défi de la semaine (60), partie en ligne (5) et victoire (15), succès (25), rang (30),
+  participation plafonnée à 60 par jour. Cadeau de bienvenue aux anciens joueurs. Solde affiché
+  dans le menu EN LIGNE.
+- [ ] Top 3 du jour et de la semaine payés en NEONS par le serveur (150 / 100 / 50).
+- [x] **(fait en 2.0, 8 skins premium et 3 nouveaux motifs : vagues, étoiles, glitch)**
+  **Boutique** (menu EN LIGNE) : des skins **premium**, en plus de ceux qui se débloquent avec
   le rang et les succès, qui ne s'achètent qu'avec des NEONS :
   - motifs animés (plasma, glitch VHS, matrice qui défile, flammes, aurore) ;
   - traînées de particules, étincelles propres au skin quand la balle rebondit ;
   - balle assortie au skin, son de rebond spécial ;
   - des « saisons » : quelques skins disponibles pour un temps limité.
-- [ ] **Gains en campagne** : NEONS à la première réussite de chaque niveau (plus pour les boss :
+- [x] **(fait en 2.0, sans le rétroactif par niveau : les boss déjà battus sont dans le cadeau)**
+  **Gains en campagne** : NEONS à la première réussite de chaque niveau (plus pour les boss :
   SUNSET, GRIDLOCK, CORE). Versement rétroactif pour les niveaux déjà réussis, d'après
   l'historique des parties sur le serveur.
-- [ ] **Bannières** affichées au-dessus du pseudo (salon, profil, liste des joueurs, classements) :
+- [x] **(fait en 2.0 : 19 bannières, dont 4 légendaires animées)** **Bannières** affichées
+  derrière le pseudo (salon, profil, liste des joueurs, classements). Restent à faire :
   - titres (« LE GOAT », « ZEUS », « LE MONSTRE »…) ;
   - bannières de boss offertes en récompense (« A ETEINT LE SOLEIL » pour SUNSET, etc.) ;
   - bannières animées : flammes, étincelles, éclairs, glitch.
-- [ ] **Boutique tournante** : une sélection aléatoire de bannières et de skins qui change chaque
-  semaine, en plus des articles fixes.
-- [ ] **Boîte mystère** : un peu plus chère qu'une bannière, elle donne un objet au hasard parmi
-  tout le catalogue. Un doublon rembourse une partie du prix.
-- [ ] Côté serveur : solde et skins achetés en base. Gains et achats calculés uniquement par
-  le serveur, et une ligne d'historique par mouvement.
+- [x] **(fait en 2.0)** **Boutique tournante** : 6 objets par jour (2 skins, 4 bannières), dont
+  un à -30 %. Les légendaires ne sortent que de la boîte mystère.
+- [x] **(fait en 2.0)** **Boîte mystère** (220 NEONS) : un objet au hasard, jamais en double
+  (commune 50 %, rare 30 %, épique 15 %, légendaire 5 %).
+- [x] **(fait en 2.0)** Côté serveur : solde et objets en base, achats atomiques, gains calculés
+  par le serveur.
+- [ ] Historique des mouvements de NEONS (une ligne par gain et par achat).
 
 ## Campagne
 
@@ -158,7 +164,8 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   nombre de joueurs (vie des boss, cadence de tir, nombre de vies) ; plus tard, campagne à 4
   avec la même règle. À 2, c'est le format le plus facile à remplir.
 
-- [ ] **Carte du monde** façon Geometry Dash / carte de jeu de plateforme :
+- [x] **(fait en 2.0, avec 3 étoiles par niveau ; le brouillard reste à faire)** **Carte du
+  monde** façon Geometry Dash / carte de jeu de plateforme :
   - un chemin 2D qui relie les niveaux 1, 2, 3… ;
   - un décor illustré pour chaque monde ;
   - le brouillard cache la suite de la carte tant qu'elle n'est pas atteinte ;
@@ -166,12 +173,12 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
 ## Parties classées (Elo)
 
-- [ ] File **CLASSEE** (Duel, puis Course) : on rejoint la file et le serveur forme les paires
-  par cote proche.
-- [ ] Cote **Elo** (1000 au départ) : on gagne ou on perd plus ou moins de points selon la cote
-  de l'adversaire.
-- [ ] Divisions (BRONZE, ARGENT, OR, NEON…), classement Elo dans les classements mondiaux, cote
-  visible sur le profil, saisons avec récompenses en NEONS.
+- [x] **(fait en 2.0, Duel)** File **CLASSEE** : on rejoint la file et le serveur forme les
+  paires par cote proche (l'écart accepté grandit avec l'attente). Abandon = défaite.
+- [x] **(fait en 2.0)** Cote **Elo** (1000 au départ, 10 parties de placement).
+- [x] **(fait en 2.0)** Divisions BRONZE, ARGENT, OR, PLATINE, NEON ; onglet CLASSEE dans les
+  classements mondiaux ; cote sur le profil.
+- [ ] Course classée ; saisons avec récompenses en NEONS.
 
 ## Duel en ligne
 
@@ -231,5 +238,6 @@ la production ».
 
 ## Déjà prévu avant
 
-- [ ] Commandes configurables, manettes.
+- [x] **(fait en 2.0)** Commandes configurables, manettes (J1 et J2 sur deux manettes).
+- [x] **(fait en 2.0)** Fantôme du meilleur joueur du jour dans les défis.
 - [ ] Chat (pas pour l'instant).

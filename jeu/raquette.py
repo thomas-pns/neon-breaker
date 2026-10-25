@@ -18,6 +18,7 @@ Réalisé le 20/10/2026
 
 import colorsys
 import math
+import random
 
 import pygame
 
@@ -165,7 +166,7 @@ class Raquette:
         corps, bord = self.couleurs()
         joueur = self.joueur
         skin = self._skin()
-        if skin["motif"] == "spectre":
+        if skin["motif"].startswith("spectre"):
             r, v, b = colorsys.hsv_to_rgb((temps * 0.25) % 1.0, 0.75, 1.0)
             corps = (int(r * 255), int(v * 255), int(b * 255))
             r, v, b = colorsys.hsv_to_rgb((temps * 0.25 + 0.5) % 1.0, 0.6, 1.0)
@@ -247,6 +248,8 @@ class Raquette:
         """Motif propre au skin, dessiné sur le corps de la raquette."""
         if motif in ("uni", "pulse", "spectre"):
             return
+        if motif == "spectre_etoiles":
+            motif = "etoiles"
         ancienne_zone = image.get_clip()
         image.set_clip(rect.inflate(-4, -4))
         trait = attenuer(bord, 0.55)
@@ -268,4 +271,21 @@ class Raquette:
             rayon = max(3, int(rect.h * (0.35 + 0.12 * math.sin(temps * 5))))
             pygame.draw.circle(image, config.BLANC, rect.center, rayon)
             pygame.draw.circle(image, bord, rect.center, rayon + 3, 2)
+        elif motif == "vagues":
+            points = [(x, rect.centery + math.sin(x * 0.12 + temps * 5) * rect.h * 0.28)
+                      for x in range(rect.x, rect.right + 4, 4)]
+            pygame.draw.lines(image, trait, False, points, 2)
+        elif motif == "etoiles":
+            for k in range(max(3, rect.w // 14)):
+                eclat = 0.5 + 0.5 * math.sin(temps * 4 + k * 2.3)
+                x = rect.x + 4 + (k * 37) % max(1, rect.w - 8)
+                y = rect.y + 3 + (k * 11) % max(1, rect.h - 6)
+                image.fill(melanger(corps, config.BLANC, eclat), (x, y, 2, 2))
+        elif motif == "glitch":
+            hasard = random.Random(int(temps * 12))
+            for _ in range(3):
+                bande = pygame.Rect(rect.x + hasard.randrange(max(1, rect.w - 20)),
+                                    rect.y + hasard.randrange(max(1, rect.h - 3)),
+                                    hasard.randrange(8, 24), 3)
+                image.fill(hasard.choice((bord, config.BLANC, (255, 40, 120))), bande)
         image.set_clip(ancienne_zone)

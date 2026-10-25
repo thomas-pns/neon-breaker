@@ -18,12 +18,14 @@ import pygame
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
+from moteur.bannieres import dessiner_banniere
 from moteur.rendu import halo_rect, attenuer
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, NOMS_MODES, GRIS
 
-MODES = ["coop", "duel", "course"]
-COULEURS_MODES = {"coop": config.VERT, "duel": config.VIOLET, "course": config.AMBRE}
+MODES = ["coop", "duel", "course", "classe"]
+COULEURS_MODES = {"coop": config.VERT, "duel": config.VIOLET, "course": config.AMBRE,
+                  "classe": config.ROSE}
 
 
 class EcranTempsReel(EcranEnLigneBase):
@@ -151,6 +153,9 @@ class EcranSalons(EcranTempsReel):
             self.erreur = ""
             if self.indice < len(self.salons):
                 self.temps_reel.envoyer({"t": "rejoindre", "id": self.salons[self.indice]["id"]})
+            elif MODES[self.mode_creation] == "classe":
+                self.temps_reel.envoyer({"t": "file", "v": True})
+                self.app.remplacer(EcranFileClassee(self.app), transition=False)
             else:
                 self.temps_reel.envoyer({"t": "creer", "mode": MODES[self.mode_creation],
                                          "niveau": self.niveau})
@@ -178,10 +183,17 @@ class EcranSalons(EcranTempsReel):
         mode = MODES[self.mode_creation]
         choisi = self.indice == len(self.salons)
         self._cadre(image, rect, choisi, COULEURS_MODES[mode])
-        dessiner_texte(image, "CREER :", rect.x + 24, rect.centery, 3, config.BLANC,
-                       ancrage="gauche", lueur=False)
+        dessiner_texte(image, "CHERCHER :" if mode == "classe" else "CREER :", rect.x + 24,
+                       rect.centery, 3, config.BLANC, ancrage="gauche", lueur=False)
         dessiner_texte(image, f"< {NOMS_MODES[mode]} >", rect.x + 360, rect.centery, 4,
                        COULEURS_MODES[mode], lueur=choisi)
+        if mode == "classe":
+            from reseau.classee import division
+            nom, couleur, _, _ = division(self.app.en_ligne.elo)
+            dessiner_texte(image, f"{nom}  {self.app.en_ligne.elo}", rect.right - 24, rect.centery,
+                           2, couleur, ancrage="droite", lueur=False)
+            dessiner_texte(image, "DUEL CONTRE UN JOUEUR DE TON NIVEAU, LA COTE MONTE OU DESCEND",
+                           rect.centerx, rect.bottom + 22, 2, GRIS, lueur=False)
         self.zones.append(rect)
         if mode == "coop":
             rect = pygame.Rect(liste.x + 20, y + 74, liste.w - 40, 56)
@@ -233,6 +245,82 @@ class EcranSalons(EcranTempsReel):
         dessiner_texte(image, statut, rect.right - 24, rect.centery, 2,
                        config.ROUGE if statut in ("EN JEU", "COMPLET") else config.VERT,
                        ancrage="droite", lueur=False)
+
+
+class EcranFileClassee(EcranTempsReel):
+    """
+    Recherche d'un adversaire classé. Attributs : attente (s), joueurs (int :
+    joueurs dans la file). Le serveur envoie « debut » dès qu'une paire est formée.
+    """
+
+    titre = "PARTIE CLASSEE"
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.attente = 0
+        self.joueurs = 1
+        self.debut = time.monotonic()
+
+    def sur_connexion(self):
+        self.temps_reel.envoyer({"t": "file", "v": True})
+
+    def sur_file(self, message):
+        if message.get("v"):
+            self.attente = message.get("attente", 0)
+            self.joueurs = message.get("joueurs", 1)
+
+    def _annuler(self):
+        self.temps_reel.envoyer({"t": "file", "v": False})
+        self.app.remplacer(EcranSalons(self.app), transition=False)
+
+    def mettre_a_jour(self, dt):
+        super().mettre_a_jour(dt)
+        self.traiter_reseau()
+        entrees = self.app.entrees
+        if pygame.KSCAN_ESCAPE in entrees.appuis or entrees.vient_d_appuyer("valider"):
+            self.app.audio.jouer("menu_ok")
+            self._annuler()
+
+    def dessiner(self, image):
+        from reseau.classee import division
+        self.dessiner_fond(image)
+        en_ligne = self.app.en_ligne
+        nom, couleur, minimum, suivante = division(en_ligne.elo)
+        cadre = pygame.Rect(0, 0, 640, 470)
+        cadre.center = (config.LARGEUR / 2, 380)
+        panneau(image, cadre, couleur)
+        # Écran radar : des cercles qui s'élargissent depuis l'écusson de division.
+        centre = (cadre.centerx, cadre.y + 150)
+        for k in range(3):
+            rayon = ((self.temps * 60 + k * 40) % 120) + 50
+            pygame.draw.circle(image, attenuer(couleur, 1 - (rayon - 50) / 120), centre, int(rayon), 2)
+        angle = self.temps * 3
+        pygame.draw.line(image, attenuer(couleur, 0.6), centre,
+                         (centre[0] + math.cos(angle) * 110, centre[1] + math.sin(angle) * 110), 2)
+        ecusson = [(centre[0], centre[1] - 52), (centre[0] + 44, centre[1] - 30),
+                   (centre[0] + 36, centre[1] + 30), (centre[0], centre[1] + 52),
+                   (centre[0] - 36, centre[1] + 30), (centre[0] - 44, centre[1] - 30)]
+        pygame.draw.polygon(image, (20, 8, 40), ecusson)
+        pygame.draw.polygon(image, couleur, ecusson, 3)
+        dessiner_texte(image, str(en_ligne.elo), centre[0], centre[1], 3, config.BLANC)
+        dessiner_texte(image, nom, cadre.centerx, cadre.y + 240, 5, couleur)
+        if suivante:
+            from ecrans.hud import barre
+            barre(image, pygame.Rect(cadre.x + 140, cadre.y + 276, cadre.w - 280, 8),
+                  (en_ligne.elo - minimum) / max(1, suivante - minimum), couleur)
+            dessiner_texte(image, f"{suivante - en_ligne.elo} POINTS AVANT LA DIVISION SUIVANTE",
+                           cadre.centerx, cadre.y + 300, 2, GRIS, lueur=False)
+        points = "." * (1 + int(self.temps * 2) % 3)
+        dessiner_texte(image, "RECHERCHE D'UN ADVERSAIRE" + points, cadre.centerx, cadre.y + 350, 3,
+                       config.BLANC)
+        attente = int(time.monotonic() - self.debut)
+        dessiner_texte(image, f"{attente // 60}:{attente % 60:02d}   -   {self.joueurs} DANS LA FILE",
+                       cadre.centerx, cadre.y + 390, 2, GRIS, lueur=False)
+        if en_ligne.classees < 10:
+            dessiner_texte(image, f"PLACEMENT : {en_ligne.classees} / 10 PARTIES", cadre.centerx,
+                           cadre.y + 424, 2, config.AMBRE, lueur=False)
+        self.dessiner_etat_connexion(image, 650)
+        self.pied(image, "ECHAP : ANNULER")
 
 
 class EcranSalon(EcranTempsReel):
@@ -315,6 +403,8 @@ class EcranSalon(EcranTempsReel):
                 panneau(image, rect, couleur)
                 dessiner_texte(image, f"J{place + 1}" + ("  HOTE" if place == 0 else ""),
                                rect.centerx, rect.y + 30, 2, GRIS, lueur=False)
+                dessiner_banniere(image, joueur.get("banniere", ""),
+                                  pygame.Rect(rect.x + 24, rect.y + 70, rect.w - 48, 60), self.temps)
                 dessiner_texte(image, joueur["pseudo"].upper(), rect.centerx, rect.y + 100, 5,
                                couleur)
                 dessiner_texte(image, f"RANG {joueur['niveau']}", rect.centerx, rect.y + 150,

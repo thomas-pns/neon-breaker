@@ -28,7 +28,7 @@ class EcranHub(EcranEnLigneBase):
 
     def __init__(self, app):
         super().__init__(app)
-        self.menu = MenuVertical([], config.LARGEUR / 2, 316, 3, 44)
+        self.menu = MenuVertical([], config.LARGEUR / 2, 300, 3, 36)
         self.statut = ""
         self.apercu = self._creer_apercu()
         self._construire()
@@ -56,12 +56,14 @@ class EcranHub(EcranEnLigneBase):
         indice = self.menu.indice
         self.menu.options = [
             ("PARTIES EN LIGNE", self._parties),
+            ("BOUTIQUE", self._boutique),
             ("JOUEURS", self._joueurs),
             ("CLASSEMENTS MONDIAUX", self._classements),
             ("MON PROFIL", self._profil),
             (f"COULEUR : {self.app.en_ligne.couleur.upper()}", self._couleur),
             (f"SKIN : {SKINS_PAR_CODE.get(self.app.en_ligne.skin_actif(), SKINS[0])['nom']}",
              lambda: self._skin(1), self._skin),
+            (f"BANNIERE : {self._nom_banniere()}", lambda: self._banniere(1), self._banniere),
             ("SE DECONNECTER", self._deconnecter),
             ("RETOUR", self._retour),
         ]
@@ -79,6 +81,28 @@ class EcranHub(EcranEnLigneBase):
             return
         from ecrans.en_ligne.salons import EcranSalons
         self.app.remplacer(EcranSalons(self.app))
+
+    def _boutique(self):
+        from ecrans.en_ligne.boutique import EcranBoutique
+        self.app.remplacer(EcranBoutique(self.app))
+
+    def _nom_banniere(self):
+        from reseau.boutique import BANNIERES_PAR_CODE
+        code = self.app.en_ligne.banniere_active()
+        return BANNIERES_PAR_CODE[code]["nom"] if code else "AUCUNE"
+
+    def _banniere(self, sens):
+        en_ligne = self.app.en_ligne
+        if not en_ligne.bannieres:
+            self.statut = "ACHETE DES BANNIERES EN BOUTIQUE !"
+            self.app.audio.jouer("metal")
+            return
+        liste = [""] + list(en_ligne.bannieres)
+        actuelle = en_ligne.banniere_active()
+        suivante = liste[(liste.index(actuelle) + sens) % len(liste)]
+        en_ligne.changer_banniere(suivante, lambda r: self._construire())
+        self.app.audio.jouer("menu_nav")
+        self._construire()
 
     def _joueurs(self):
         from ecrans.en_ligne.joueurs import EcranJoueurs
@@ -159,6 +183,9 @@ class EcranHub(EcranEnLigneBase):
         cadre = pygame.Rect(0, 0, 620, 170)
         cadre.midtop = (config.LARGEUR / 2, 100)
         panneau(image, cadre, couleur)
+        from moteur.bannieres import dessiner_banniere
+        dessiner_banniere(image, en_ligne.banniere_active(),
+                          pygame.Rect(cadre.x + 30, cadre.y + 16, cadre.w - 60, 60), self.temps)
         dessiner_texte(image, en_ligne.pseudo.upper(), cadre.centerx, cadre.y + 46, 6, couleur)
         niveau = niveau_pour(en_ligne.xp)
         debut, fin = xp_pour_niveau(niveau), xp_pour_niveau(niveau + 1)
