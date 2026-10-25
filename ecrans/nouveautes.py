@@ -50,10 +50,14 @@ class EcranNouveautes(EcranBase):
             from ecrans.titre import EcranTitre
             self.app.remplacer(EcranTitre(self.app))
             return
+        ancien = self.indice
         if self.versions and entrees.vient_d_appuyer("haut"):
             self.indice = (self.indice - 1) % len(self.versions)
         elif self.versions and entrees.vient_d_appuyer("bas"):
             self.indice = (self.indice + 1) % len(self.versions)
+        if self.indice != ancien:
+            self.ouvert = self.indice           # le volet suit la sélection
+            self.app.audio.jouer("menu_nav")
         if entrees.vient_d_appuyer("valider") and self.versions:
             self._basculer(self.indice)
         if 1 in entrees.clics:
@@ -87,7 +91,7 @@ class EcranNouveautes(EcranBase):
             dessiner_texte(image, version.get("titre", ""), rect.centerx, rect.y + 45,
                            4, config.AMBRE)
             for i, ligne in enumerate(version.get("lignes", [])):
-                dessiner_texte(image, ligne, rect.x + 36, rect.y + 115 + i * 42,
+                dessiner_texte(image, ligne, rect.x + 36, rect.y + 105 + i * 36,
                                2, config.BLANC, ancrage="gauche", lueur=False)
         dessiner_texte(image, "HAUT / BAS : VERSION    ENTREE / CLIC : OUVRIR    ECHAP : RETOUR",
                        config.LARGEUR / 2, config.HAUTEUR - 26, 2,

@@ -43,6 +43,7 @@ class AppTest:
         self.entrees = EntreesTest()
         self.fond = type("Fond", (), {"dessiner": lambda self, image: None})()
         self.remplace = None
+        self.audio = type("Audio", (), {"jouer": lambda self, *a, **k: None})()
 
     def remplacer(self, ecran):
         """But : memoriser l'ecran demande. Entree(s) : ecran. Sortie : aucune."""
@@ -55,8 +56,9 @@ class TestNouveautes(unittest.TestCase):
         """But : verifier la lecture du JSON via DOSSIER_RESSOURCES. Entree(s) : aucune. Sortie : aucune."""
         versions = charger_nouveautes()
         self.assertTrue(versions)
-        self.assertEqual(versions[0]["version"], "BETA")
-        self.assertEqual(len(versions[0]["lignes"]), 4)
+        self.assertTrue(versions[0]["version"][0].isdigit())      # la plus récente d'abord
+        self.assertTrue(versions[-1]["version"].startswith("BETA"))
+        self.assertTrue(all(v["lignes"] for v in versions))
         self.assertEqual(os.path.basename(config.DOSSIER_RESSOURCES), "data")
 
     def test_navigation_et_ouverture_fermeture(self):
@@ -66,12 +68,13 @@ class TestNouveautes(unittest.TestCase):
         app.entrees.actions.add("bas")
         ecran.mettre_a_jour(1 / 60)
         self.assertEqual(ecran.indice, 1)
-        app.entrees.actions.add("valider")
-        ecran.mettre_a_jour(1 / 60)
-        self.assertEqual(ecran.ouvert, 1)
+        self.assertEqual(ecran.ouvert, 1)                 # le volet suit la sélection
         app.entrees.actions.add("valider")
         ecran.mettre_a_jour(1 / 60)
         self.assertIsNone(ecran.ouvert)
+        app.entrees.actions.add("valider")
+        ecran.mettre_a_jour(1 / 60)
+        self.assertEqual(ecran.ouvert, 1)
         app.entrees.actions.add("haut")
         ecran.mettre_a_jour(1 / 60)
         self.assertEqual(ecran.indice, 0)

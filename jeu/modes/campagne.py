@@ -280,8 +280,7 @@ class ModeCampagne(ModeDeJeu):
         dessiner_texte(image, f"{record:07d}", PANNEAU_G.centerx, 72, 2,
                        config.BLANC, lueur=False)
         hud.bloc_joueur_vertical(image, PANNEAU_G, joueur, 104, self.temps,
-                                 touches_pouvoirs=["1", "2", "3"], touche_overdrive="MAJ",
-                                 aide_pouvoirs=True)
+                                 touches_pouvoirs=["1", "2", "3"], touche_overdrive="MAJ")
         hud.etiquette(image, "VIES", PANNEAU_G.centerx, 606)
         hud.dessiner_vies(image, PANNEAU_G.centerx, 636, self.vies)
         self.dessiner_panneau_droit(image)

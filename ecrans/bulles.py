@@ -50,7 +50,7 @@ def dessiner(mode, image):
     texte, reste = mode.bulle
     alpha = max(0, min(255, int((DUREE - reste) * 255 / 0.35), int(reste * 255 / 0.5)))
     cadre = pygame.Rect(0, 0, 700, 66)
-    cadre.center = (config.LARGEUR // 2, 112)
+    cadre.center = (config.LARGEUR // 2, 330)
     couche = pygame.Surface(cadre.size, pygame.SRCALPHA)
     panneau(couche, couche.get_rect(), config.AMBRE)
     couche.set_alpha(alpha)

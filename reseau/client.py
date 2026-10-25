@@ -220,7 +220,9 @@ class ServiceEnLigne:
         """But : exécuter les rappels arrivés (appelé à chaque image)."""
         if self.version_serveur is None and time.monotonic() >= self._prochaine_verification_version:
             self._prochaine_verification_version = time.monotonic() + 30
-            self.verifier_version(getattr(self.app, "_version_recue", lambda resultat: None))
+            # Vérification silencieuse : on mémorise la version, sans fenêtre pendant
+            # une partie ; l'accès au jeu en ligne proposera la mise à jour.
+            self.verifier_version(lambda resultat: None)
         while True:
             try:
                 rappel, resultat = self.reponses.get_nowait()
