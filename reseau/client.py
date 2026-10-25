@@ -181,6 +181,9 @@ class ServiceEnLigne:
         self.xp = compte.get("xp", 0)
         self.skin = compte.get("skin", "neon")
         self.skins = compte.get("skins", ["neon"])
+        self.neons = compte.get("neons", 0)
+        self.banniere = compte.get("banniere", "")
+        self.bannieres = compte.get("bannieres", [])
         self.connecte = False
         self.joignable = None
         self.temps_reel = None
@@ -260,10 +263,15 @@ class ServiceEnLigne:
                     if code in SKINS_PAR_CODE:
                         self.app.notifier("NOUVEAU SKIN !", "ROSE", SKINS_PAR_CODE[code]["nom"])
             self.skins = list(donnees["skins"])
+        self.neons = donnees.get("neons", self.neons)
+        self.banniere = donnees.get("banniere", self.banniere)
+        self.bannieres = list(donnees.get("bannieres", self.bannieres))
         self.connecte = True
         self.app.donnees["compte"] = {"jeton": self.jeton, "pseudo": self.pseudo,
                                       "couleur": self.couleur, "niveau": self.niveau,
-                                      "xp": self.xp, "skin": self.skin, "skins": self.skins}
+                                      "xp": self.xp, "skin": self.skin, "skins": self.skins,
+                                      "neons": self.neons, "banniere": self.banniere,
+                                      "bannieres": self.bannieres}
         self.app.enregistrer()
 
     def se_connecter(self, pseudo, mdp, inscription, rappel):
@@ -294,6 +302,7 @@ class ServiceEnLigne:
         self.jeton = ""
         self.connecte = False
         self.skin, self.skins = "neon", ["neon"]
+        self.neons, self.banniere, self.bannieres = 0, "", []
         self.app.donnees["compte"] = {}
         self.app.enregistrer()
 
@@ -334,6 +343,40 @@ class ServiceEnLigne:
                 rappel(resultat)
         self.skin = skin
         self.appeler("PUT", "/api/moi/skin", {"skin": skin}, recu)
+
+    # --- Boutique (2.0) -------------------------------------------------------------
+
+    def banniere_active(self):
+        """But : bannière du joueur local ("" sans compte ou si elle n'est plus possédée)."""
+        return self.banniere if self.jeton and self.banniere in self.bannieres else ""
+
+    def changer_banniere(self, banniere, rappel=None):
+        def recu(resultat):
+            if resultat["ok"]:
+                self.memoriser({"banniere": banniere})
+            if rappel:
+                rappel(resultat)
+        self.banniere = banniere
+        self.appeler("PUT", "/api/moi/banniere", {"banniere": banniere}, recu)
+
+    def _rappel_profil(self, rappel):
+        """Rappel qui garde le nouveau solde (et les objets) renvoyés par le serveur."""
+        def recu(resultat):
+            if resultat["ok"] and isinstance(resultat["donnees"], dict) \
+                    and "neons" in resultat["donnees"]:
+                self.memoriser(resultat["donnees"])
+            if rappel:
+                rappel(resultat)
+        return recu
+
+    def charger_boutique(self, rappel):
+        self.appeler("GET", "/api/boutique", rappel=self._rappel_profil(rappel))
+
+    def acheter(self, code, rappel):
+        self.appeler("POST", "/api/boutique/acheter", {"code": code}, self._rappel_profil(rappel))
+
+    def ouvrir_boite(self, rappel):
+        self.appeler("POST", "/api/boutique/boite", {}, self._rappel_profil(rappel))
 
     # --- Scores ------------------------------------------------------------------
 
@@ -384,6 +427,14 @@ class ServiceEnLigne:
         """But : notifications des succès débloqués (réponse du serveur)."""
         if not gains:
             return
+        if gains.get("neons_gagnes"):
+            from reseau.boutique import MONNAIE
+            lignes = gains.get("detail_neons", [])
+            detail = (f"{lignes[0][0]} +{lignes[0][1]}" if lignes else "") \
+                + (f" (+{len(lignes) - 1} AUTRES)" if len(lignes) > 1 else "")
+            self.app.notifier(f"+{gains['neons_gagnes']} {MONNAIE}", "CYAN", detail)
+        if "neons" in gains:
+            self.neons = gains["neons"]
         for succes in gains.get("nouveaux_succes", []):
             self.app.notifier("SUCCES : " + succes["nom"], "OR", succes["description"])
 

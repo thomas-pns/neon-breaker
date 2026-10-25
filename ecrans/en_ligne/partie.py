@@ -486,13 +486,17 @@ class EcranFinEnLigne(EcranFin):
                            lueur=False)
             return
         dessiner_texte(image, f"+{self.gains.get('xp_gagnee', 0)} XP", cadre.centerx,
-                       cadre.y + 90, 5, config.AMBRE)
+                       cadre.y + 80, 4, config.AMBRE)
+        from moteur.bannieres import dessiner_piece
+        zone = dessiner_texte(image, f"+{self.gains.get('neons_gagnes', 0)}", cadre.centerx + 16,
+                              cadre.y + 124, 4, config.CYAN)
+        dessiner_piece(image, (zone.x - 22, zone.centery), 12, self.temps)
         dessiner_texte(image, f"RANG {self.gains.get('niveau', 1)}", cadre.centerx,
-                       cadre.y + 140, 3, config.BLANC)
+                       cadre.y + 162, 2, config.BLANC, lueur=False)
         succes = self.gains.get("nouveaux_succes", [])
         if succes:
-            dessiner_texte(image, "SUCCES DEBLOQUES", cadre.centerx, cadre.y + 190, 2,
+            dessiner_texte(image, "SUCCES DEBLOQUES", cadre.centerx, cadre.y + 196, 2,
                            config.OR, lueur=False)
         for i, entree in enumerate(succes[:5]):
-            dessiner_texte(image, entree["nom"], cadre.centerx, cadre.y + 222 + i * 26, 2,
+            dessiner_texte(image, entree["nom"], cadre.centerx, cadre.y + 224 + i * 26, 2,
                            config.BLANC, lueur=False)

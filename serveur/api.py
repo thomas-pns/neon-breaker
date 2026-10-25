@@ -3,7 +3,8 @@
 Objectifs du fichier :
     Application web du serveur (FastAPI) :
       POST /api/inscription, /api/connexion, /api/deconnexion
-      GET  /api/moi                 PUT /api/moi/couleur
+      GET  /api/moi                 PUT /api/moi/couleur, /api/moi/skin, /api/moi/banniere
+      GET  /api/boutique            POST /api/boutique/acheter, /api/boutique/boite
       POST /api/parties             (scores des parties solo, en file d'attente)
       GET  /api/classements/{mode}  GET /api/joueurs   GET /api/joueurs/{pseudo}
       GET  /api/succes              GET /api/version   GET /api/sante
@@ -30,7 +31,8 @@ from pydantic import BaseModel
 
 from moteur.version import PROTOCOLE, comparer_versions
 from serveur import config, securite
-from serveur.base import Base, MODES_SCORE, MODES_VICTOIRES
+from reseau import boutique
+from serveur.base import Base, MODES_SCORE, MODES_VICTOIRES, aujourd_hui
 from serveur.salons import Gestionnaire
 from serveur.succes import SUCCES, niveau_pour
 
@@ -38,14 +40,6 @@ PLATEFORMES = {"windows": "exe", "mac_arm": "zip", "mac_intel": "zip"}
 MODES_SOLO = ("campagne", "arcade", "hardcore", "defi", "semaine")
 
 
-def aujourd_hui():
-    """But : date du jour à Paris (heure des joueurs), ou UTC si le fuseau manque."""
-    import datetime
-    try:
-        from zoneinfo import ZoneInfo
-        return datetime.datetime.now(ZoneInfo("Europe/Paris")).date()
-    except Exception:                   # pas de base de fuseaux horaires
-        return datetime.datetime.utcnow().date()
 MORCEAUX_ATTENDUS = {}          # fichier partiel -> numéro du prochain morceau
 
 app = FastAPI(title="NEON BREAKER", docs_url=None, redoc_url=None)
@@ -71,6 +65,14 @@ class EnvoiParties(BaseModel):
     rapports: list
 
 
+class Achat(BaseModel):
+    code: str
+
+
+class Banniere(BaseModel):
+    banniere: str
+
+
 # --- Outils -----------------------------------------------------------------------
 
 def adresse_ip(requete):
@@ -94,7 +96,8 @@ def joueur_connecte(autorisation):
 def presentation(joueur):
     return {"pseudo": joueur["pseudo"], "couleur": joueur["couleur"], "xp": joueur["xp"],
             "niveau": niveau_pour(joueur["xp"]), "skin": joueur["skin"],
-            "skins": base.skins_de(joueur)}
+            "skins": base.skins_de(joueur), "neons": joueur["neons"],
+            "banniere": joueur["banniere"], "bannieres": base.bannieres_de(joueur["id"])}
 
 
 def ouvrir_session(joueur):
@@ -164,6 +167,54 @@ def changer_skin(choix: Skin, authorization: str = Header(default="")):
     if connexion is not None:
         connexion.skin = choix.skin
     return {"ok": True, "skin": choix.skin}
+
+
+@app.put("/api/moi/banniere")
+def changer_banniere(choix: Banniere, authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    if choix.banniere and choix.banniere not in base.bannieres_de(joueur["id"]):
+        raise HTTPException(400, "Banniere non possedee")
+    base.changer_banniere(joueur["id"], choix.banniere)
+    connexion = gestionnaire.connexions.get(joueur["pseudo"])
+    if connexion is not None:
+        connexion.banniere = choix.banniere
+    return {"ok": True, "banniere": choix.banniere}
+
+
+# --- Boutique (2.0) -----------------------------------------------------------------------
+
+@app.get("/api/boutique")
+def voir_boutique(authorization: str = Header(default="")):
+    """Sélection du jour (la même pour tous), avec ce que le joueur possède déjà."""
+    joueur = joueur_connecte(authorization)
+    possedes = base.possessions_de(joueur["id"])
+    selection = [dict(o, possede=o["code"] in possedes)
+                 for o in boutique.selection_du_jour(aujourd_hui().isoformat())]
+    return {"jour": aujourd_hui().isoformat(), "selection": selection,
+            "prix_boite": boutique.PRIX_BOITE, "neons": joueur["neons"],
+            "possedes": sorted(possedes), "total_objets": len(boutique.tous_les_objets())}
+
+
+@app.post("/api/boutique/acheter")
+def acheter(achat: Achat, authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    offre = next((o for o in boutique.selection_du_jour(aujourd_hui().isoformat())
+                  if o["code"] == achat.code), None)
+    if offre is None:
+        raise HTTPException(400, "Objet pas en vente aujourd'hui")
+    erreur = base.acheter(joueur["id"], offre["code"], offre["prix"])
+    if erreur:
+        raise HTTPException(400, erreur)
+    return {"ok": True, "objet": offre, **presentation(base.joueur_par_id(joueur["id"]))}
+
+
+@app.post("/api/boutique/boite")
+def boite_mystere(authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    resultat = base.ouvrir_boite(joueur["id"])
+    if "erreur" in resultat:
+        raise HTTPException(400, resultat["erreur"])
+    return {"ok": True, "objet": resultat["objet"], **presentation(base.joueur_par_id(joueur["id"]))}
 
 
 # --- Parties, classements, profils ------------------------------------------------------

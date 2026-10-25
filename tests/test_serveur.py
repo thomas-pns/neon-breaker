@@ -239,6 +239,53 @@ class TestServeur(unittest.TestCase):
         self.assertEqual(ok.status_code, 200)
         self.assertEqual(self.client.get("/api/joueurs/Habille").json()["skin"], "cryo")
 
+    def test_boutique(self):
+        jeton = self.inscrire("Acheteur")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        moi = self.client.get("/api/moi", headers=entete).json()
+        self.assertEqual(moi["neons"], 100)                       # cadeau de bienvenue
+        # Gagner des NEONS : deux niveaux de campagne et un boss, payés une fois.
+        rapport = {"mode": "campagne", "indice_depart": 0, "victoire": False, "score": 0,
+                   "stats": {"niveaux_finis": 2, "boss_vaincus": ["sunset"]}}
+        reponse = self.client.post("/api/parties", headers=entete, json={"rapports": [
+            dict(rapport, uid="b1"), dict(rapport, uid="b2")]}).json()
+        gains = [r["neons_gagnes"] for r in reponse["resultats"]]
+        self.assertGreaterEqual(gains[0], 70)
+        self.assertEqual(gains[1], 0)
+        self.assertEqual(reponse["neons"], 100 + gains[0])
+        # Boutique du jour, achat, refus si déjà possédé ou trop cher.
+        vitrine = self.client.get("/api/boutique", headers=entete).json()
+        self.assertEqual(len(vitrine["selection"]), 6)
+        api.base.crediter(api.base.joueur_par_pseudo("Acheteur")["id"], 5000)
+        banniere = next(o for o in vitrine["selection"] if o["type"] == "banniere")
+        achat = self.client.post("/api/boutique/acheter", headers=entete,
+                                 json={"code": banniere["code"]})
+        self.assertEqual(achat.status_code, 200, achat.text)
+        self.assertIn(banniere["code"], achat.json()["bannieres"])
+        self.assertEqual(self.client.post("/api/boutique/acheter", headers=entete,
+                                          json={"code": banniere["code"]}).status_code, 400)
+        self.assertEqual(self.client.post("/api/boutique/acheter", headers=entete,
+                                          json={"code": "glitch"}).status_code, 400)
+        ok = self.client.put("/api/moi/banniere", headers=entete, json={"banniere": banniere["code"]})
+        self.assertEqual(ok.status_code, 200)
+        self.assertEqual(self.client.get("/api/joueurs/Acheteur").json()["banniere"], banniere["code"])
+        self.assertEqual(self.client.put("/api/moi/banniere", headers=entete,
+                                         json={"banniere": "couronne"}).status_code, 400)
+        # Boîte mystère : un objet nouveau, débité.
+        avant = self.client.get("/api/moi", headers=entete).json()["neons"]
+        boite = self.client.post("/api/boutique/boite", headers=entete).json()
+        self.assertNotEqual(boite["objet"]["code"], banniere["code"])
+        self.assertEqual(boite["neons"], avant - 220)
+        # Un skin premium possédé devient utilisable.
+        skin = next(o for o in vitrine["selection"] if o["type"] == "skin")
+        self.client.post("/api/boutique/acheter", headers=entete, json={"code": skin["code"]})
+        self.assertEqual(self.client.put("/api/moi/skin", headers=entete,
+                                         json={"skin": skin["code"]}).status_code, 200)
+        # Pauvre : refus.
+        pauvre = {"Authorization": f"Bearer {self.inscrire('Fauche')}"}
+        self.assertEqual(self.client.post("/api/boutique/acheter", headers=pauvre,
+                                          json={"code": skin["code"]}).status_code, 400)
+
     def test_migration_base_1_0(self):
         """Une base créée par la version 1.0 (sans skin ni jour) est mise à niveau."""
         import sqlite3
@@ -259,6 +306,7 @@ class TestServeur(unittest.TestCase):
         ancienne.close()
         base = Base(chemin)
         self.assertEqual(base.joueur_par_pseudo("Ancien")["skin"], "neon")
+        self.assertEqual(base.joueur_par_pseudo("Ancien")["neons"], 100)    # cadeau 2.0
         base.enregistrer_partie(1, {"uid": "m1", "mode": "defi", "score": 10, "jour": "2026-10-21"})
         self.assertEqual(base.classement_defi("2026-10-21")[0]["pseudo"], "Ancien")
 

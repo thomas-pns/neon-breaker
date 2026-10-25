@@ -68,7 +68,24 @@ CREATE TABLE IF NOT EXISTS cumuls (
     joueur_id INTEGER PRIMARY KEY REFERENCES joueurs(id) ON DELETE CASCADE,
     donnees TEXT NOT NULL DEFAULT '{}'
 );
+CREATE TABLE IF NOT EXISTS possessions (
+    joueur_id INTEGER NOT NULL REFERENCES joueurs(id) ON DELETE CASCADE,
+    code TEXT NOT NULL,
+    origine TEXT NOT NULL DEFAULT 'achat',
+    obtenu_le REAL NOT NULL,
+    PRIMARY KEY (joueur_id, code)
+);
 """
+
+
+def aujourd_hui():
+    """But : date du jour à Paris (heure des joueurs), ou UTC si le fuseau manque."""
+    import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.datetime.now(ZoneInfo("Europe/Paris")).date()
+    except Exception:                   # pas de base de fuseaux horaires
+        return datetime.datetime.utcnow().date()
 
 MODES_SCORE = ("campagne", "arcade", "hardcore", "coop", "defi")
 MODES_VICTOIRES = ("duel", "course")
@@ -98,7 +115,25 @@ class Base:
             if "skin" not in colonnes:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN skin TEXT NOT NULL DEFAULT 'neon'")
             self.connexion.execute("CREATE INDEX IF NOT EXISTS parties_jour ON parties(jour, score DESC)")
+            # Migration 2.0 : monnaie (NEONS) et bannière ; cadeau de bienvenue aux anciens.
+            if "neons" not in colonnes:
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN neons INTEGER NOT NULL DEFAULT 0")
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN banniere TEXT NOT NULL DEFAULT ''")
+                self._cadeaux_bienvenue()
             self.connexion.commit()
+
+    def _cadeaux_bienvenue(self):
+        """But : créditer les joueurs existants selon ce qu'ils ont déjà accompli (2.0)."""
+        from reseau.boutique import cadeau_bienvenue
+        for joueur in self.connexion.execute("SELECT id, xp FROM joueurs").fetchall():
+            ligne = self.connexion.execute("SELECT donnees FROM cumuls WHERE joueur_id = ?",
+                                           (joueur["id"],)).fetchone()
+            boss = json.loads(ligne["donnees"]).get("boss_vaincus", {}) if ligne else {}
+            nb_succes = self.connexion.execute("SELECT COUNT(*) FROM succes WHERE joueur_id = ?",
+                                               (joueur["id"],)).fetchone()[0]
+            montant = cadeau_bienvenue(boss, nb_succes, catalogue.niveau_pour(joueur["xp"]))
+            self.connexion.execute("UPDATE joueurs SET neons = ? WHERE id = ?",
+                                   (montant, joueur["id"]))
 
     def _executer(self, requete, parametres=(), commit=False):
         with self.verrou:
@@ -122,9 +157,11 @@ class Base:
         """But : créer un compte. Sortie : (int ou None) id, None si pseudo pris."""
         maintenant = time.time()
         try:
-            return self.ecrire("INSERT INTO joueurs (pseudo, mdp, couleur, cree_le, vu_le) "
-                               "VALUES (?, ?, ?, ?, ?)",
-                               (pseudo, mdp_hache, couleur, maintenant, maintenant))
+            from reseau.boutique import cadeau_bienvenue
+            return self.ecrire("INSERT INTO joueurs (pseudo, mdp, couleur, cree_le, vu_le, neons) "
+                               "VALUES (?, ?, ?, ?, ?, ?)",
+                               (pseudo, mdp_hache, couleur, maintenant, maintenant,
+                                cadeau_bienvenue({}, 0, 1)))
         except sqlite3.IntegrityError:
             return None
 
@@ -167,7 +204,74 @@ class Base:
     def skins_de(self, joueur):
         """But : skins débloqués par un joueur (niveau et succès)."""
         from reseau.profil import skins_debloques
-        return skins_debloques(catalogue.niveau_pour(joueur["xp"]), set(self.succes_de(joueur["id"])))
+        return skins_debloques(catalogue.niveau_pour(joueur["xp"]), set(self.succes_de(joueur["id"])),
+                               self.possessions_de(joueur["id"]))
+
+    # --- Monnaie et boutique (2.0) ---------------------------------------------------
+
+    def possessions_de(self, joueur_id):
+        """But : codes des objets de boutique d'un joueur. Sortie : (set)."""
+        return {l["code"] for l in
+                self.lire("SELECT code FROM possessions WHERE joueur_id = ?", (joueur_id,))}
+
+    def bannieres_de(self, joueur_id):
+        """But : bannières possédées, dans l'ordre du catalogue. Sortie : (list)."""
+        from reseau.boutique import BANNIERES
+        possedes = self.possessions_de(joueur_id)
+        return [b["code"] for b in BANNIERES if b["code"] in possedes]
+
+    def crediter(self, joueur_id, montant):
+        """But : ajouter (ou retirer) des NEONS. Sortie : (int) nouveau solde."""
+        self.ecrire("UPDATE joueurs SET neons = MAX(0, neons + ?) WHERE id = ?",
+                    (int(montant), joueur_id))
+        return self.joueur_par_id(joueur_id)["neons"]
+
+    def acheter(self, joueur_id, code, prix, origine="achat"):
+        """
+        But : acheter un objet : débit et ajout dans une seule transaction.
+        Sortie : (str ou None) message d'erreur, None si l'achat a réussi.
+        """
+        with self.verrou:
+            try:
+                deja = self.connexion.execute(
+                    "SELECT 1 FROM possessions WHERE joueur_id = ? AND code = ?",
+                    (joueur_id, code)).fetchone()
+                if deja:
+                    return "Deja possede"
+                debit = self.connexion.execute(
+                    "UPDATE joueurs SET neons = neons - ? WHERE id = ? AND neons >= ?",
+                    (int(prix), joueur_id, int(prix)))
+                if debit.rowcount != 1:
+                    self.connexion.rollback()
+                    return "Pas assez de NEONS"
+                self.connexion.execute(
+                    "INSERT INTO possessions (joueur_id, code, origine, obtenu_le) VALUES (?, ?, ?, ?)",
+                    (joueur_id, code, origine, time.time()))
+                self.connexion.commit()
+                return None
+            except sqlite3.Error:
+                self.connexion.rollback()
+                return "Erreur de la base"
+
+    def ouvrir_boite(self, joueur_id, hasard=None):
+        """
+        But : acheter et ouvrir une boîte mystère.
+        Sortie : (dict) {"erreur"} ou {"objet", "rembourse"}.
+        """
+        from reseau.boutique import PRIX_BOITE, REMBOURSEMENT_BOITE, tirer_boite
+        joueur = self.joueur_par_id(joueur_id)
+        if joueur["neons"] < PRIX_BOITE:
+            return {"erreur": "Pas assez de NEONS"}
+        gagne = tirer_boite(self.possessions_de(joueur_id), hasard)
+        if gagne is None:
+            return {"erreur": "Tu possedes deja tout !"}
+        erreur = self.acheter(joueur_id, gagne["code"], PRIX_BOITE, origine="boite")
+        if erreur:
+            return {"erreur": erreur}
+        return {"objet": gagne, "rembourse": 0}
+
+    def changer_banniere(self, joueur_id, code):
+        self.ecrire("UPDATE joueurs SET banniere = ? WHERE id = ?", (code, joueur_id))
 
     def changer_mdp(self, joueur_id, mdp_hache):
         self.ecrire("UPDATE joueurs SET mdp = ? WHERE id = ?", (mdp_hache, joueur_id))
@@ -210,7 +314,20 @@ class Base:
                          float(rapport.get("joue_le", time.time())), jour))
         except sqlite3.IntegrityError:
             return {"doublon": True, "nouveaux_succes": []}
-        cumul = catalogue.mettre_a_jour_cumul(self.cumul(joueur_id), rapport)
+        from reseau import boutique
+        from reseau.series import en_cours
+        cumul = self.cumul(joueur_id)
+        serie = 0
+        if mode == "defi" and jour:
+            import datetime
+            try:
+                serie = en_cours(set(cumul.get("jours_defi", [])) | {jour},
+                                 datetime.date.fromisoformat(jour))
+            except ValueError:
+                serie = 0
+        detail = boutique.gains_partie(rapport, cumul, aujourd_hui().isoformat(), serie)
+        ancien_niveau = catalogue.niveau_pour(self.joueur_par_id(joueur_id)["xp"])
+        cumul = catalogue.mettre_a_jour_cumul(cumul, rapport)
         self.ecrire("INSERT INTO cumuls (joueur_id, donnees) VALUES (?, ?) "
                     "ON CONFLICT(joueur_id) DO UPDATE SET donnees = excluded.donnees",
                     (joueur_id, json.dumps(cumul)))
@@ -222,8 +339,15 @@ class Base:
             self.ecrire("INSERT OR IGNORE INTO succes (joueur_id, code, obtenu_le) VALUES (?, ?, ?)",
                         (joueur_id, code, time.time()))
         xp = self.joueur_par_id(joueur_id)["xp"]
-        return {"doublon": False, "xp_gagnee": gain, "xp": xp,
-                "niveau": catalogue.niveau_pour(xp),
+        niveau = catalogue.niveau_pour(xp)
+        if nouveaux:
+            detail.append((f"SUCCES x{len(nouveaux)}", boutique.GAIN_SUCCES * len(nouveaux)))
+        if niveau > ancien_niveau:
+            detail.append((f"RANG {niveau}", boutique.GAIN_RANG * (niveau - ancien_niveau)))
+        gagnes = boutique.total(detail)
+        solde = self.crediter(joueur_id, gagnes) if gagnes else self.joueur_par_id(joueur_id)["neons"]
+        return {"doublon": False, "xp_gagnee": gain, "xp": xp, "niveau": niveau,
+                "neons_gagnes": gagnes, "detail_neons": detail, "neons": solde,
                 "nouveaux_succes": [catalogue.PAR_CODE[c].en_dict() for c in nouveaux]}
 
     # --- Lectures publiques ----------------------------------------------------------
@@ -236,28 +360,29 @@ class Base:
         """
         if mode in MODES_VICTOIRES:
             lignes = self.lire(
-                "SELECT j.pseudo, j.couleur, j.xp, SUM(p.victoire) AS valeur, COUNT(*) AS parties "
+                "SELECT j.pseudo, j.couleur, j.xp, j.banniere, SUM(p.victoire) AS valeur, COUNT(*) AS parties "
                 "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
                 "WHERE p.mode = ? AND j.banni = 0 GROUP BY p.joueur_id "
                 "ORDER BY valeur DESC, parties ASC LIMIT ?", (mode, limite))
         else:
             lignes = self.lire(
-                "SELECT j.pseudo, j.couleur, j.xp, MAX(p.score) AS valeur "
+                "SELECT j.pseudo, j.couleur, j.xp, j.banniere, MAX(p.score) AS valeur "
                 "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
                 "WHERE p.mode = ? AND j.banni = 0 GROUP BY p.joueur_id "
                 "ORDER BY valeur DESC LIMIT ?", (mode, limite))
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
-                 "niveau": catalogue.niveau_pour(l["xp"])} for l in lignes]
+                 "niveau": catalogue.niveau_pour(l["xp"]), "banniere": l["banniere"]} for l in lignes]
 
     def classement_defi(self, jour, limite=20, mode="defi"):
         """But : meilleur score de chaque joueur au défi d'un jour (ou d'une semaine)."""
         lignes = self.lire(
-            "SELECT j.pseudo, j.couleur, j.xp, MAX(p.score) AS valeur, COUNT(*) AS essais "
+            "SELECT j.pseudo, j.couleur, j.xp, j.banniere, MAX(p.score) AS valeur, COUNT(*) AS essais "
             "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
             "WHERE p.mode = ? AND p.jour = ? AND j.banni = 0 GROUP BY p.joueur_id "
             "ORDER BY valeur DESC LIMIT ?", (mode, jour, limite))
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
-                 "niveau": catalogue.niveau_pour(l["xp"]), "essais": l["essais"]} for l in lignes]
+                 "niveau": catalogue.niveau_pour(l["xp"]), "essais": l["essais"],
+                 "banniere": l["banniere"]} for l in lignes]
 
     def jours_joues(self, joueur_id, mode="defi"):
         """But : jours (ou semaines) où le joueur a fait ce défi."""
@@ -289,6 +414,7 @@ class Base:
             joueur = self.joueur_par_id(joueur_id)
             serie = resume(jours, aujourd_hui)
             lignes.append({"pseudo": joueur["pseudo"], "couleur": joueur["couleur"],
+                           "banniere": joueur["banniere"],
                            "niveau": catalogue.niveau_pour(joueur["xp"]),
                            "valeur": serie["en_cours"], "record": serie["record"]})
         lignes.sort(key=lambda l: (-l["valeur"], -l["record"], l["pseudo"].lower()))
@@ -296,13 +422,13 @@ class Base:
 
     def liste_joueurs(self):
         """But : tous les joueurs (non bannis), du plus haut niveau au plus bas."""
-        lignes = self.lire("SELECT id, pseudo, couleur, xp, vu_le FROM joueurs "
+        lignes = self.lire("SELECT id, pseudo, couleur, xp, vu_le, banniere FROM joueurs "
                            "WHERE banni = 0 ORDER BY xp DESC, pseudo")
         nb_succes = {l["joueur_id"]: l["n"] for l in
                      self.lire("SELECT joueur_id, COUNT(*) AS n FROM succes GROUP BY joueur_id")}
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "xp": l["xp"],
                  "niveau": catalogue.niveau_pour(l["xp"]), "vu_le": l["vu_le"],
-                 "succes": nb_succes.get(l["id"], 0)} for l in lignes]
+                 "banniere": l["banniere"], "succes": nb_succes.get(l["id"], 0)} for l in lignes]
 
     def profil(self, pseudo):
         """But : page de profil d'un joueur, ou None s'il n'existe pas."""
@@ -331,7 +457,8 @@ class Base:
                                         "WHERE joueur_id = ? ORDER BY joue_le DESC LIMIT 8", (jid,))]
         niveau = catalogue.niveau_pour(joueur["xp"])
         return {"pseudo": joueur["pseudo"], "couleur": joueur["couleur"], "xp": joueur["xp"],
-                "skin": joueur["skin"], "niveau": niveau, "xp_niveau": catalogue.xp_pour_niveau(niveau),
+                "skin": joueur["skin"], "banniere": joueur["banniere"],
+                "objets": len(self.possessions_de(jid)), "niveau": niveau, "xp_niveau": catalogue.xp_pour_niveau(niveau),
                 "xp_suivant": catalogue.xp_pour_niveau(niveau + 1),
                 "cree_le": joueur["cree_le"], "vu_le": joueur["vu_le"],
                 "stats": {"parties": cumul.get("parties", 0), "briques": cumul.get("briques", 0),

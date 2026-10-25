@@ -32,6 +32,7 @@ def lancer(app):
     from ecrans.pause import EcranPause
     from ecrans.en_ligne.connexion import EcranConnexion
     from ecrans.en_ligne.hub import EcranHub
+    from ecrans.en_ligne.boutique import EcranBoutique
     from ecrans.en_ligne.salons import EcranSalons
     from ecrans.en_ligne.joueurs import EcranJoueurs, EcranProfil
     from ecrans.en_ligne.classements import EcranClassementsMondiaux
@@ -49,6 +50,7 @@ def lancer(app):
         ("options", lambda: EcranOptions(app)),
         ("connexion", lambda: EcranConnexion(app)),
         ("hub", lambda: EcranHub(app)),
+        ("boutique", lambda: EcranBoutique(app)),
         ("salons", lambda: EcranSalons(app)),
         ("joueurs", lambda: EcranJoueurs(app)),
         ("profil", lambda: EcranProfil(app, "personne")),

@@ -51,6 +51,7 @@ class Connexion:
         self.pseudo = joueur["pseudo"]
         self.couleur = joueur["couleur"]
         self.skin = joueur["skin"] if "skin" in joueur.keys() else "neon"
+        self.banniere = joueur["banniere"] if "banniere" in joueur.keys() else ""
         self.niveau = niveau_pour(joueur["xp"])
         self.salon = None
         self.file = asyncio.Queue(maxsize=90)
@@ -199,6 +200,7 @@ class Gestionnaire:
             joueurs.append({"pseudo": pseudo, "pret": pseudo in salon.prets,
                             "couleur": connexion.couleur if connexion else "cyan",
                             "skin": connexion.skin if connexion else "neon",
+                            "banniere": connexion.banniere if connexion else "",
                             "niveau": connexion.niveau if connexion else 1})
         message = {"t": "salon", **salon.resume(), "joueurs": joueurs}
         for pseudo in salon.membres:

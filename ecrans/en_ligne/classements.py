@@ -16,6 +16,7 @@ import time
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
+from moteur.bannieres import dessiner_banniere
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, NOMS_MODES, GRIS
 
@@ -125,6 +126,9 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
                                  border_radius=6)
             dessiner_texte(image, f"{i + 1:2d}", cadre.x + 50, y, 3, teinte, ancrage="gauche",
                            lueur=i == 0)
+            dessiner_banniere(image, ligne.get("banniere", ""),
+                              pygame.Rect(cadre.x + 118, y - 15, 320, 30), self.temps, cadre=False,
+                              voile=130)
             pygame.draw.circle(image, couleur_profil(ligne["couleur"]), (cadre.x + 130, y), 8)
             dessiner_texte(image, ligne["pseudo"].upper(), cadre.x + 150, y, 3, teinte,
                            ancrage="gauche", lueur=i == 0)

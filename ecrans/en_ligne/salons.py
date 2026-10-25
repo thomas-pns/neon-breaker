@@ -18,6 +18,7 @@ import pygame
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
+from moteur.bannieres import dessiner_banniere
 from moteur.rendu import halo_rect, attenuer
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, NOMS_MODES, GRIS
@@ -315,6 +316,8 @@ class EcranSalon(EcranTempsReel):
                 panneau(image, rect, couleur)
                 dessiner_texte(image, f"J{place + 1}" + ("  HOTE" if place == 0 else ""),
                                rect.centerx, rect.y + 30, 2, GRIS, lueur=False)
+                dessiner_banniere(image, joueur.get("banniere", ""),
+                                  pygame.Rect(rect.x + 24, rect.y + 70, rect.w - 48, 60), self.temps)
                 dessiner_texte(image, joueur["pseudo"].upper(), rect.centerx, rect.y + 100, 5,
                                couleur)
                 dessiner_texte(image, f"RANG {joueur['niveau']}", rect.centerx, rect.y + 150,

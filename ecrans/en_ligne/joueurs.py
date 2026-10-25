@@ -16,6 +16,7 @@ import time
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
+from moteur.bannieres import dessiner_banniere
 from moteur.rendu import halo_rect, attenuer
 from reseau.profil import NOMBRE_SUCCES
 from ecrans.hud import panneau, barre
@@ -139,6 +140,9 @@ class EcranJoueurs(EcranEnLigneBase):
                 image.blit(lueur, (rect.x - 16, rect.y - 16), special_flags=pygame.BLEND_RGB_ADD)
             pygame.draw.rect(image, couleur if choisi else attenuer(couleur, 0.4), rect, 2,
                              border_radius=8)
+            dessiner_banniere(image, joueur.get("banniere", ""),
+                              pygame.Rect(rect.x + 44, rect.y + 7, 360, rect.h - 14), self.temps,
+                              cadre=False, voile=130)
             pygame.draw.circle(image, couleur, (rect.x + 26, rect.centery), 10)
             dessiner_texte(image, joueur["pseudo"].upper(), rect.x + 52, rect.centery, 3, couleur,
                            ancrage="gauche", lueur=choisi)
@@ -259,6 +263,8 @@ class EcranProfil(EcranEnLigneBase):
         # Carte d'identité.
         carte = pygame.Rect(30, 96, 400, 270)
         panneau(image, carte, couleur)
+        dessiner_banniere(image, p.get("banniere", ""),
+                          pygame.Rect(carte.x + 20, carte.y + 16, carte.w - 40, 60), self.temps)
         dessiner_texte(image, p["pseudo"].upper(), carte.centerx, carte.y + 46,
                        6 if len(p["pseudo"]) <= 8 else 4, couleur)
         dessiner_texte(image, f"RANG {p['niveau']}", carte.centerx, carte.y + 104, 4, config.AMBRE)

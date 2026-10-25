@@ -63,6 +63,11 @@ class EcranEnLigneBase(EcranBase):
             dessiner_texte(image, f"{en_ligne.pseudo.upper()}  RANG {en_ligne.niveau}",
                            config.LARGEUR - 20, 22, 2, couleur_profil(en_ligne.couleur),
                            ancrage="droite", lueur=False)
+            if self.titre != "BOUTIQUE":
+                from moteur.bannieres import dessiner_piece
+                zone = dessiner_texte(image, str(getattr(en_ligne, "neons", 0)), config.LARGEUR - 20,
+                                      46, 2, config.CYAN, ancrage="droite", lueur=False)
+                dessiner_piece(image, (zone.x - 12, zone.centery), 8, self.temps)
 
     def pied(self, image, texte):
         if math.sin(self.temps * 5) > -0.4:
