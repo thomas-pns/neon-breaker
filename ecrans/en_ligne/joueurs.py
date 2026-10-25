@@ -328,8 +328,12 @@ class EcranProfil(EcranEnLigneBase):
                 lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=6)
                 image.blit(lueur, (rect.x - 12, rect.y - 12), special_flags=pygame.BLEND_RGB_ADD)
             pygame.draw.rect(image, couleur, rect, 3 if choisi else 2, border_radius=8)
-            dessiner_texte(image, "?" if not obtenu else entree["nom"][:1], rect.centerx,
-                           rect.y + 18, 3, couleur, lueur=obtenu)
+            from moteur.icones import dessiner_icone, TROPHEE
+            secret_cache = entree.get("secret") and not obtenu
+            if secret_cache or not dessiner_icone(
+                    image, entree["code"], (rect.centerx, rect.y + 20),
+                    couleur if obtenu else (95, 75, 130), 2, lueur=obtenu, defaut=TROPHEE):
+                dessiner_texte(image, "?", rect.centerx, rect.y + 18, 3, couleur, lueur=False)
             nom = entree["nom"].upper()
             lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 12))
             echelle = 1 if any(len(l) * 12 > rect.w - 8 for l in lignes) else 2
@@ -350,6 +354,11 @@ class EcranProfil(EcranEnLigneBase):
             panneau(image, self.rect_fiche, config.CYAN)
             obtenu = bool(entree["obtenu_le"])
             couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN) if obtenu else GRIS
+            from moteur.icones import dessiner_icone, TROPHEE
+            if not (entree.get("secret") and not obtenu):
+                dessiner_icone(image, entree["code"],
+                               (self.rect_fiche.x + 60, self.rect_fiche.y + 60),
+                               couleur, 5, lueur=obtenu, defaut=TROPHEE)
             dessiner_texte(image, entree["nom"].upper(), self.rect_fiche.centerx,
                            self.rect_fiche.y + 42, 3, config.BLANC)
             dessiner_texte(image, entree["categorie"].upper(), self.rect_fiche.centerx,

@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.3.0",
+    "titre": "ICONES",
+    "lignes": [
+      "ICONES EN PIXEL ART POUR LES 19 CAPSULES",
+      "DANS LES CAPSULES QUI TOMBENT, L'INVENTAIRE",
+      "ET LES EFFETS EN COURS",
+      "AIDE : GRANDES ICONES POUR CHAQUE CAPSULE",
+      "UNE ICONE POUR CHACUN DES 28 SUCCES",
+      "EN COULEUR SI OBTENU, EN GRIS SINON"
+    ]
+  },
+  {
     "version": "1.2.0",
     "titre": "CONFORT",
     "lignes": [

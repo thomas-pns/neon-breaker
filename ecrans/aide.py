@@ -110,9 +110,12 @@ class EcranAide(EcranBase):
             effets = [e for e in CATALOGUE.values() if e.categorie == categorie]
             for ligne, effet in enumerate(effets):
                 y = 190 + ligne * 66
-                capsule = self.capsules[effet.code]
-                capsule.x, capsule.y = x + 34, y
-                capsule.dessiner(image)
+                from moteur.icones import dessiner_icone
+                case = pygame.Rect(0, 0, 40, 40)
+                case.center = (x + 30, y + 2)
+                pygame.draw.rect(image, (20, 4, 40), case, border_radius=8)
+                pygame.draw.rect(image, effet.couleur(), case, 2, border_radius=8)
+                dessiner_icone(image, effet.code, case.center, effet.couleur(), 3, lueur=True)
                 dessiner_texte(image, effet.nom, x + 72, y - 10, 2, config.BLANC,
                                ancrage="gauche", lueur=False)
                 dessiner_texte(image, effet.description, x + 72, y + 14, 2,

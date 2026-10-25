@@ -99,8 +99,11 @@ def dessiner_inventaire(image, cx, y, joueur, touches=None, taille=44):
             effet = CATALOGUE[joueur.inventaire[i]]
             lueur = halo_rect(rect.w, rect.h, attenuer(OR_POUVOIR, 0.5), rayon=5)
             image.blit(lueur, (rect.x - 10, rect.y - 10), special_flags=pygame.BLEND_RGB_ADD)
-            dessiner_texte(image, effet.lettre, rect.centerx, rect.centery, 3,
-                           config.BLANC, lueur=False)
+            from moteur.icones import dessiner_icone
+            if not dessiner_icone(image, effet.code, rect.center, OR_POUVOIR,
+                                  3 if taille >= 40 else 2):
+                dessiner_texte(image, effet.lettre, rect.centerx, rect.centery, 3,
+                               config.BLANC, lueur=False)
         selection = joueur.profil != "solo" and i == joueur.selection and plein
         pygame.draw.rect(image, config.BLANC if selection else couleur, rect,
                          3 if selection else 2, border_radius=5)
@@ -137,7 +140,7 @@ def dessiner_overdrive(image, rect, joueur, temps, touche=""):
 
 def lignes_effets(joueur):
     """
-    But : liste des effets à afficher : (lettre, nom, couleur, ratio restant).
+    But : liste des effets à afficher : (code de l'icône, nom, couleur, ratio restant).
     Entrée : joueur. Sortie : (list de tuples).
     """
     lignes = []
@@ -145,26 +148,31 @@ def lignes_effets(joueur):
         effet = CATALOGUE.get(code)
         if effet is None:
             continue
-        lignes.append((effet.lettre, effet.nom, effet.couleur(),
+        lignes.append((effet.code, effet.nom, effet.couleur(),
                        reste / max(0.1, effet.duree)))
     if joueur.aimant_prises:
-        lignes.append(("A", f"AIMANT x{joueur.aimant_prises}", (60, 255, 140), None))
+        lignes.append(("aimant", f"AIMANT x{joueur.aimant_prises}", (60, 255, 140), None))
     if joueur.filets:
-        lignes.append(("N", "FILET" + (" x2" if joueur.filets > 1 else ""),
+        lignes.append(("filet", "FILET" + (" x2" if joueur.filets > 1 else ""),
                        (60, 255, 140), None))
     if joueur.bombe_armee:
-        lignes.append(("K", "BOMBE ARMEE", OR_POUVOIR, None))
+        lignes.append(("bombe", "BOMBE ARMEE", OR_POUVOIR, None))
     return lignes
+
+
+def _pastille(image, rect, code, couleur):
+    """But : petite case sombre bordée de la couleur de l'effet, avec son icône."""
+    from moteur.icones import dessiner_icone
+    pygame.draw.rect(image, (20, 4, 40), rect, border_radius=6)
+    pygame.draw.rect(image, couleur, rect, 1, border_radius=6)
+    dessiner_icone(image, code, rect.center, couleur, 2)
 
 
 def dessiner_effets(image, x, y, largeur, joueur, max_lignes=4):
     """But : effets actifs, une ligne chacun (pastille, nom, barre de durée)."""
-    for i, (lettre, nom, couleur, ratio) in enumerate(lignes_effets(joueur)[:max_lignes]):
+    for i, (code, nom, couleur, ratio) in enumerate(lignes_effets(joueur)[:max_lignes]):
         ligne_y = y + i * 30
-        pastille = pygame.Rect(x, ligne_y - 9, 24, 18)
-        pygame.draw.rect(image, couleur, pastille, border_radius=8)
-        dessiner_texte(image, lettre, pastille.centerx, pastille.centery + 1, 2,
-                       (20, 0, 30), lueur=False, ombre=False)
+        _pastille(image, pygame.Rect(x, ligne_y - 11, 24, 22), code, couleur)
         nb_caracteres = max(4, (largeur - 40) // 12)
         dessiner_texte(image, nom[:nb_caracteres], x + 32, ligne_y - 3, 2,
                        couleur, ancrage="gauche", lueur=False, ombre=False)
@@ -257,8 +265,5 @@ def bloc_joueur_horizontal(image, rect, joueur, temps, gauche_texte="", droite_t
     if droite_texte:
         dessiner_texte(image, droite_texte, rect.right - 70, rect.y + 24, 3, config.BLANC)
     lignes = lignes_effets(joueur)
-    for i, (lettre, _, couleur, _) in enumerate(lignes[:4]):
-        pastille = pygame.Rect(rect.right - 124 + i * 28, rect.y + 46, 24, 18)
-        pygame.draw.rect(image, couleur, pastille, border_radius=8)
-        dessiner_texte(image, lettre, pastille.centerx, pastille.centery + 1, 2,
-                       (20, 0, 30), lueur=False, ombre=False)
+    for i, (code, _, couleur, _) in enumerate(lignes[:4]):
+        _pastille(image, pygame.Rect(rect.right - 124 + i * 28, rect.y + 44, 24, 22), code, couleur)

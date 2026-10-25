@@ -4,7 +4,7 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 
 ## Priorité 1 : à corriger
 
-- [ ] **Erreur « Failed to load Python DLL » après la mise à jour automatique (Windows).**
+- [x] **Erreur « Failed to load Python DLL » après la mise à jour automatique (Windows).**
   Après METTRE A JOUR, le jeu redémarre et affiche `Failed to load Python DLL ...\_MEIxxxx\python312.dll`.
   Il marche si on le relance à la main.
   Cause : le nouvel exécutable est lancé par l'ancien, dont il hérite les variables
@@ -17,7 +17,7 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 
 ## Noms des records
 
-- [ ] Ne plus demander les 3 lettres à chaque record :
+- [x] Ne plus demander les 3 lettres à chaque record :
   - un réglage **NOM DES RECORDS** dans OPTIONS ; par défaut, les 3 premières lettres du pseudo
     en ligne, sinon les dernières lettres saisies ;
   - à un nouveau record, le nom est déjà rempli : ENTREE valide tout de suite, ou on le modifie
@@ -51,9 +51,9 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
     2 joueurs, effets…) ;
   - la 1.0 : jeu en ligne ;
   - la 1.1 : musique, défi, skins…
-- [ ] Jeu pas à jour + clic sur **EN LIGNE** ou **PARTIES EN LIGNE** : bloquer l'accès et
+- [x] Jeu pas à jour + clic sur **EN LIGNE** ou **PARTIES EN LIGNE** : bloquer l'accès et
   proposer **METTRE A JOUR**. Ne pas interrompre une partie solo en cours.
-- [ ] Serveur injoignable (redémarrage du conteneur) : remplacer le code d'erreur brut affiché
+- [x] Serveur injoignable (redémarrage du conteneur) : remplacer le code d'erreur brut affiché
   sur l'écran titre par un message clair (« SERVEUR EN MAINTENANCE, JEU HORS LIGNE ») et se
   reconnecter tout seul quand il revient.
 - [ ] (plus tard, facultatif) Mode maintenance côté admin : annoncer une mise à jour, couper
@@ -61,7 +61,7 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
 ## Aide et lisibilité
 
-- [ ] Refaire l'écran **AIDE**, avec des explications claires sur :
+- [x] Refaire l'écran **AIDE**, avec des explications claires sur :
   - **OVERDRIVE** : jauge remplie en cassant des briques, en attrapant des capsules ou en
     touchant un boss. Pleine, elle déclenche la **SUPERNOVA** (MAJ ou clic droit) : 6 s de balle
     de feu qui traverse tout, balle +25 %, et un rayon qui détruit les briques au-dessus de la
@@ -69,34 +69,34 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   - **POUVOIRS** : inventaire de 3 places. En solo, 1, 2 ou 3 lancent directement un
     emplacement, et A (ou TAB) + E servent à choisir puis à lancer. À deux, chacun a sa
     touche pour changer et sa touche pour lancer.
-- [ ] **Explications dans le jeu**, car peu de joueurs ouvrent l'aide :
+- [x] **Explications dans le jeu**, car peu de joueurs ouvrent l'aide :
   - dans le HUD, à côté de l'inventaire, afficher les vraies touches de chaque joueur : 1 2 3,
     « A / TAB : CHOISIR », « E : LANCER » (en solo), et celles de J1 et de J2 à deux ;
   - la première fois qu'on attrape un pouvoir, une bulle explique comment le choisir et le lancer ;
   - la première fois que la jauge OVERDRIVE est pleine, une bulle indique « MAJ / CLIC DROIT : SUPERNOVA » ;
   - ces bulles ne s'affichent qu'une fois (mémorisé dans la sauvegarde) et se réactivent dans OPTIONS.
-- [ ] Vérifier pourquoi les touches 1 2 3 semblent parfois ne pas répondre
+- [x] Vérifier pourquoi les touches 1 2 3 semblent parfois ne pas répondre
   (pavé numérique, touches au-dessus des lettres en AZERTY sans MAJ).
-- [ ] **Icônes en pixel art** générées par le jeu pour toutes les capsules : bonus, malus,
+- [x] **Icônes en pixel art** générées par le jeu pour toutes les capsules : bonus, malus,
   pouvoirs et spéciales. Elles remplacent les lettres, en gardant le code couleur actuel.
   Les mêmes icônes servent dans l'inventaire et dans l'aide.
 
 ## Succès (page de profil)
 
-- [ ] Clic ou survol à la souris sur un succès : une fiche détaillée s'ouvre (nom complet,
+- [x] Clic ou survol à la souris sur un succès : une fiche détaillée s'ouvre (nom complet,
   description, date d'obtention). Aujourd'hui, la fiche n'apparaît qu'avec les flèches.
-- [ ] Les noms sont coupés sur les tuiles (« EN ROUT… ») : les écrire en entier sur deux lignes.
-- [ ] Une icône en pixel art par succès (x8, un soleil pour SUNSET, une bombe pour ARTIFICIER…),
+- [x] Les noms sont coupés sur les tuiles (« EN ROUT… ») : les écrire en entier sur deux lignes.
+- [x] Une icône en pixel art par succès (x8, un soleil pour SUNSET, une bombe pour ARTIFICIER…),
   en couleur une fois obtenu, en gris avant.
 
 ## Vocabulaire
 
-- [ ] « NIVEAU » veut dire deux choses (le niveau du joueur, gagné avec l'XP, et les 12 niveaux de
+- [x] « NIVEAU » veut dire deux choses (le niveau du joueur, gagné avec l'XP, et les 12 niveaux de
   la campagne) : c'est trompeur. Renommer le niveau du joueur en **RANG** (« RANG 5 »), partout :
   menu en ligne, profils, liste des joueurs, salon, conditions des skins, notifications.
-- [ ] Barre d'XP : le texte « 1009 / 1350 XP » (XP totale) ne correspond pas à la barre, qui
+- [x] Barre d'XP : le texte « 1009 / 1350 XP » (XP totale) ne correspond pas à la barre, qui
   montre la progression dans le rang en cours. Afficher plutôt « 409 / 750 XP AVANT LE RANG 4 ».
-- [ ] Aperçu des skins : « PROCHAIN : CRYO - NIVEAU 5 » se lit comme « vous êtes niveau 5 ».
+- [x] Aperçu des skins : « PROCHAIN : CRYO - NIVEAU 5 » se lit comme « vous êtes niveau 5 ».
   Écrire « CRYO SE DEBLOQUE AU RANG 5 ».
 
 ## Difficulté

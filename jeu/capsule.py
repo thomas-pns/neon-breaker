@@ -132,22 +132,26 @@ class Capsule:
     def dessiner(self, image):
         """
         But : pilule néon qui tourne (écrasement horizontal sinusoïdal)
-        avec la lettre de l'effet.
+        avec l'icône en pixel art de l'effet (moteur/icones.py).
         Entrée : image (Surface). Sortie : aucune.
         """
+        from moteur.icones import dessiner_icone
         effet = self.effet()
         couleur = effet.couleur()
-        rotation = abs(math.cos(self.temps * 4))
-        largeur = max(6, int(self.largeur * (0.35 + 0.65 * rotation)))
-        rect = pygame.Rect(0, 0, largeur, self.hauteur)
+        rotation = abs(math.cos(self.temps * 3))
+        # Dessin un peu plus grand que la zone de collision, pour que l'icône se lise.
+        largeur_dessin, hauteur_dessin = 46, 24
+        largeur = max(6, int(largeur_dessin * (0.3 + 0.7 * rotation)))
+        rect = pygame.Rect(0, 0, largeur, hauteur_dessin)
         rect.center = (int(self.x), int(self.y))
-        lueur = halo_rect(self.largeur, self.hauteur, attenuer(couleur, 0.7),
-                          rayon=6)
-        image.blit(lueur, (int(self.x - self.largeur / 2) - 12, rect.y - 12),
+        lueur = halo_rect(largeur_dessin, hauteur_dessin, attenuer(couleur, 0.7), rayon=6)
+        image.blit(lueur, (int(self.x - largeur_dessin / 2) - 12, rect.y - 12),
                    special_flags=pygame.BLEND_RGB_ADD)
-        pygame.draw.rect(image, melanger((20, 0, 40), couleur, 0.45), rect,
-                         border_radius=8)
-        pygame.draw.rect(image, couleur, rect, 2, border_radius=8)
-        if rotation > 0.45:
-            dessiner_texte(image, effet.lettre, rect.centerx, rect.centery + 1,
-                           2, config.BLANC, lueur=False, ombre=False)
+        pygame.draw.rect(image, melanger((20, 0, 40), couleur, 0.25), rect, border_radius=10)
+        pygame.draw.rect(image, couleur, rect, 2, border_radius=10)
+        if rotation > 0.35:
+            icone = melanger(couleur, (255, 255, 255), 0.35)
+            if not dessiner_icone(image, effet.code, rect.center, icone, 2,
+                                  largeur=int(20 * min(1.0, rotation * 1.3))):
+                dessiner_texte(image, effet.lettre, rect.centerx, rect.centery + 1,
+                               2, config.BLANC, lueur=False, ombre=False)
