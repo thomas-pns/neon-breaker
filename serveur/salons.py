@@ -204,6 +204,7 @@ class Gestionnaire:
             salon = connexion.salon
             if salon is not None:
                 if salon.etat == "jeu":
+                    journal.info("%s déconnecté pendant la partie %s", connexion.pseudo, salon.id)
                     salon.absents[connexion.pseudo] = time.monotonic() + config.ATTENTE_RECONNEXION
                 else:
                     self.quitter_salon(connexion)
@@ -495,8 +496,15 @@ class Gestionnaire:
             if "couleur" in public:
                 public["couleur"] = list(public["couleur"])
         else:
+            raison = "COUPURE TROP LONGUE" if abandon in salon.absents else "ABANDON"
             public = {"victoire": False, "titre": "PARTIE INTERROMPUE", "score": 0,
-                      "mode": salon.mode, "lignes": [("ABANDON", str(abandon or "?"))]}
+                      "mode": salon.mode, "lignes": [(raison, str(abandon or "?"))]}
+            if salon.classee and abandon in salon.membres:
+                public["titre"] = f"{abandon.upper()[:10]} ABANDONNE"
+                public["lignes"].append(("CLASSEE", "VICTOIRE A L'AUTRE"))
+        if abandon is not None:
+            journal.info("Partie %s (%s) interrompue : %s (%s)", salon.id, salon.mode, abandon,
+                         "coupure" if abandon in salon.absents else "abandon")
         if salon.classee:
             try:
                 self._resultat_classee(salon, resultat, abandon, gains)

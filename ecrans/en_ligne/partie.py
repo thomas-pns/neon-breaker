@@ -58,6 +58,7 @@ class EcranPartieEnLigne(EcranTempsReel):
         super().__init__(app)
         self.numero = debut["numero"]
         self.code = debut["mode"]
+        self.classee = bool(debut.get("classee"))
         self.effets = GestionnaireEffets()
         self.effets.qualite = app.reglages["particules"]
         self.mode = creer_mode_client(self.code, app, self.effets, debut.get("niveau", 0))
@@ -417,7 +418,10 @@ class EcranPartieEnLigne(EcranTempsReel):
         elif self.coupure is not None:
             self._bandeau(image, "CONNEXION PERDUE", "RECONNEXION EN COURS...")
         if self.menu_quitter:
-            self._bandeau(image, "QUITTER LA PARTIE ?", "ENTREE : OUI    ECHAP : NON")
+            if self.classee:
+                self._bandeau(image, "ABANDONNER ? = DEFAITE CLASSEE", "ENTREE : OUI    ECHAP : NON")
+            else:
+                self._bandeau(image, "QUITTER LA PARTIE ?", "ENTREE : OUI    ECHAP : NON")
 
     def _dessiner_retourne(self, image):
         """

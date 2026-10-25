@@ -60,6 +60,7 @@ class EcranTempsReel(EcranEnLigneBase):
 
     def sur_debut(self, message):
         from ecrans.en_ligne.partie import EcranPartieEnLigne
+        self.partie_lancee = True              # plus aucune touche ne compte sur cet écran
         self.app.remplacer(EcranPartieEnLigne(self.app, message), transition=True)
 
     def retour_hub(self):
@@ -276,8 +277,10 @@ class EcranFileClassee(EcranTempsReel):
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
         self.traiter_reseau()
+        if getattr(self, "partie_lancee", False):
+            return
         entrees = self.app.entrees
-        if pygame.KSCAN_ESCAPE in entrees.appuis or entrees.vient_d_appuyer("valider"):
+        if pygame.KSCAN_ESCAPE in entrees.appuis:   # pas Espace : on le tape par réflexe
             self.app.audio.jouer("menu_ok")
             self._annuler()
 
