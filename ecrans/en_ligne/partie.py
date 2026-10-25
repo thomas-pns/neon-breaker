@@ -106,6 +106,11 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.coupure = None
 
     def sur_fin(self, message):
+        resultat = message.get("resultat") or {}
+        if resultat.get("titre") == "PARTIE INTERROMPUE" or "ABANDONNE" in str(resultat.get("titre")):
+            from reseau.client import journaliser
+            journaliser(f"fin de partie {self.code} : {resultat.get('titre')} {resultat.get('lignes')} "
+                        f"(ping {self.temps_reel.ping:.0f} ms, coupures {self.diagnostic.get('coupures', 0)})")
         gains = message.get("gains")
         if gains:
             ancien = self.app.en_ligne.niveau
@@ -130,6 +135,8 @@ class EcranPartieEnLigne(EcranTempsReel):
             self.menu_quitter = not self.menu_quitter
         if self.menu_quitter:
             if pygame.KSCAN_RETURN in entrees.appuis or ("menu", "valider") in entrees.forcees:
+                from reseau.client import journaliser
+                journaliser(f"abandon volontaire ({self.code})")
                 self.temps_reel.envoyer({"t": "abandon"})
                 from ecrans.en_ligne.salons import EcranSalons
                 self.app.remplacer(EcranSalons(self.app))

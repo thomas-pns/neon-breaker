@@ -250,6 +250,11 @@ class Gestionnaire:
             connexion.envoyer({"t": "pong", "c": message.get("c")})
         elif nature == "lister":
             self.diffuser_liste()
+        elif nature in ("creer", "rejoindre") and salon is not None and salon.etat == "jeu":
+            # Un écran resté en arrière ne doit jamais faire quitter une partie en cours :
+            # seuls « abandon » et « quitter » y mettent fin.
+            journal.info("%s : « %s » ignoré pendant la partie %s", connexion.pseudo, nature, salon.id)
+            connexion.envoyer({"t": "erreur", "msg": "PARTIE EN COURS"})
         elif nature == "creer":
             self.creer_salon(connexion, message)
         elif nature == "rejoindre":
@@ -267,6 +272,7 @@ class Gestionnaire:
         elif nature == "file":
             self.file(connexion, bool(message.get("v", True)))
         elif nature == "abandon" and salon is not None and salon.etat == "jeu":
+            journal.info("%s abandonne la partie %s", connexion.pseudo, salon.id)
             asyncio.create_task(self.terminer(salon, abandon=connexion.pseudo))
 
     def creer_salon(self, connexion, message):

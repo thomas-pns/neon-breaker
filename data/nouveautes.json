@@ -1,5 +1,15 @@
 [
   {
+    "version": "2.0.1",
+    "titre": "CORRECTIFS",
+    "lignes": [
+      "CLASSEE : ESPACE N'ANNULE PLUS LA RECHERCHE",
+      "UNE PARTIE EN COURS NE SE COUPE PLUS PAR ERREUR",
+      "FIN DE PARTIE : ON SAIT QUI A ABANDONNE",
+      "JOURNAL RESEAU POUR COMPRENDRE LES COUPURES"
+    ]
+  },
+  {
     "version": "2.0.0",
     "titre": "NEON 2.0",
     "lignes": [

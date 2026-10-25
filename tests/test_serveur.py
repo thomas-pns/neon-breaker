@@ -196,6 +196,8 @@ class TestServeur(unittest.TestCase):
             self.assertTrue(debut["classee"])
             self.assertEqual(debut["elos"], [1000, 1000])
             recevoir_jusqua(b, "debut", essais=2000)
+            b.send_json({"t": "creer", "mode": "duel"})  # écran resté en arrière : ignoré
+            self.assertEqual(recevoir_jusqua(b, "erreur", essais=2000)["msg"], "PARTIE EN COURS")
             b.send_json({"t": "abandon"})                # abandonner = perdre
             fin = recevoir_jusqua(a, "fin", essais=2000)
             self.assertEqual(fin["gains"]["elo"], 1000 + 20)
