@@ -344,6 +344,7 @@ class TestServeur(unittest.TestCase):
         base = Base(chemin)
         self.assertEqual(base.joueur_par_pseudo("Ancien")["skin"], "neon")
         self.assertEqual(base.joueur_par_pseudo("Ancien")["neons"], 100)    # cadeau 2.0
+        self.assertEqual(base.joueur_par_pseudo("Ancien")["elo"], 1000)
         base.enregistrer_partie(1, {"uid": "m1", "mode": "defi", "score": 10, "jour": "2026-10-21"})
         self.assertEqual(base.classement_defi("2026-10-21")[0]["pseudo"], "Ancien")
 

@@ -1,5 +1,19 @@
 [
   {
+    "version": "2.0.0",
+    "titre": "NEON 2.0",
+    "lignes": [
+      "CARTE DU MONDE POUR LA CAMPAGNE ET LA COOP",
+      "3 ETOILES PAR NIVEAU A DECROCHER",
+      "NEONS : LA MONNAIE DU JEU",
+      "BOUTIQUE DU JOUR, PROMOS ET BOITE MYSTERE",
+      "19 BANNIERES ET 8 SKINS PREMIUM",
+      "PARTIES CLASSEES : COTE ELO ET DIVISIONS",
+      "FANTOME DU RECORD DANS LES DEFIS",
+      "MANETTES ET TOUCHES CONFIGURABLES"
+    ]
+  },
+  {
     "version": "1.5.0",
     "titre": "RESEAU",
     "lignes": [

@@ -67,7 +67,8 @@ def main():
                 "--collect-submodules", "websockets", "--collect-submodules", "jeu",
                 "--collect-submodules", "ecrans", "--exclude-module", "serveur",
                 "--exclude-module", "tests", "--exclude-module", "tkinter",
-                "--hidden-import", "outils.autotest", "--collect-submodules", "reseau"]
+                "--hidden-import", "outils.autotest", "--collect-submodules", "reseau",
+                "--hidden-import", "pygame._sdl2.controller"]
     for source, destination in donnees:
         commande += ["--add-data", f"{source}{separateur}{destination}"]
     if sys.platform == "darwin":

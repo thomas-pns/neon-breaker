@@ -147,6 +147,12 @@ class Base:
             montant = cadeau_bienvenue(boss, nb_succes, catalogue.niveau_pour(joueur["xp"]))
             self.connexion.execute("UPDATE joueurs SET neons = ? WHERE id = ?",
                                    (montant, joueur["id"]))
+            if ligne and boss:                  # boss déjà payés par le cadeau
+                from reseau.boutique import MODES_CAMPAGNE
+                cumul = json.loads(ligne["donnees"])
+                cumul["boss_payes"] = sorted(f"{m}:{b}" for b in boss for m in MODES_CAMPAGNE)
+                self.connexion.execute("UPDATE cumuls SET donnees = ? WHERE joueur_id = ?",
+                                       (json.dumps(cumul), joueur["id"]))
 
     def _executer(self, requete, parametres=(), commit=False):
         with self.verrou:

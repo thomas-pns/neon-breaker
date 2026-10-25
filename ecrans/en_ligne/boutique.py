@@ -136,7 +136,8 @@ class EcranBoutique(EcranEnLigneBase):
             self.app.audio.jouer("menu_ok")
             self.app.en_ligne.ouvrir_boite(self._recu_boite)
         else:
-            self.app.en_ligne.acheter(self._objet_courant()["code"], self._recu_achat)
+            self.objet_achete = self._objet_courant()
+            self.app.en_ligne.acheter(self.objet_achete["code"], self._recu_achat)
 
     def _recu_achat(self, resultat):
         self.en_attente = False
@@ -144,7 +145,7 @@ class EcranBoutique(EcranEnLigneBase):
         if not resultat["ok"]:
             self._refus(resultat["erreur"] or "ACHAT REFUSE")
             return
-        objet = self._objet_courant()
+        objet = self.objet_achete
         objet["possede"] = True
         self.app.audio.jouer("succes")
         self.message = f"{objet['nom']} EST A TOI !  ENTREE : EQUIPER"
@@ -192,7 +193,7 @@ class EcranBoutique(EcranEnLigneBase):
         if self.etat == "confirmer":
             if entrees.vient_d_appuyer("valider"):
                 self._confirmer()
-            elif entrees.vient_d_appuyer("retour"):
+            elif entrees.vient_d_appuyer("retour") and not self.en_attente:
                 self.etat = "vitrine"
             return
         if entrees.vient_d_appuyer("retour"):
