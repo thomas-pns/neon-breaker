@@ -14,11 +14,13 @@ Réalisé le 21/10/2026
 
 import os
 import sys
-import tempfile
 import time
 import unittest
 
-DOSSIER = tempfile.mkdtemp(prefix="neon_test_serveur_")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tests import dossier_temporaire  # noqa: E402
+
+DOSSIER = dossier_temporaire("neon_test_serveur_")
 os.environ["NEON_DONNEES_SERVEUR"] = DOSSIER
 os.environ["NEON_JETON_DEPLOIEMENT"] = "jeton-de-test"
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")

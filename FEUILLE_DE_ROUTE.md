@@ -45,8 +45,8 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
 ## Version et mises à jour
 
-- [ ] Afficher la version du jeu en bas à droite de l'écran titre.
-- [ ] Menu **NOUVEAUTES** avec l'historique des versions, chaque version en volet dépliable :
+- [x] Afficher la version du jeu en bas à droite de l'écran titre.
+- [x] Menu **NOUVEAUTES** avec l'historique des versions, chaque version en volet dépliable :
   - les bêtas avant la 1.0 : jalons du jeu solo (moteur, briques spéciales, boss, modes à
     2 joueurs, effets…) ;
   - la 1.0 : jeu en ligne ;

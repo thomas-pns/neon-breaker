@@ -29,12 +29,14 @@ RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def main():
     analyseur = argparse.ArgumentParser()
-    analyseur.add_argument("--version", required=True, help="X.Y.Z")
+    analyseur.add_argument("--version", required=True,
+                           help="X.Y.Z, ou X.Y.Z-dev.N pour un exe de test")
     analyseur.add_argument("--serveur", default="", help="adresse https du serveur")
     arguments = analyseur.parse_args()
     version = arguments.version.lstrip("v")
-    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+    if not re.fullmatch(r"\d+\.\d+\.\d+(-dev\.\d+)?", version):
         sys.exit(f"Version invalide : {version}")
+    canal = "dev" if "-dev" in version else "stable"
 
     # 1. Version dans le code (copie de travail de la fabrication seulement).
     chemin_version = os.path.join(RACINE, "moteur", "version.py")
@@ -48,10 +50,18 @@ def main():
     with open(os.path.join(RACINE, "data", "serveur.txt"), "w", encoding="utf-8") as fichier:
         fichier.write(arguments.serveur.strip())
 
-    # 3. PyInstaller.
+    # 3. Canal : "dev" = exe de test (sauvegarde séparée, pas de score envoyé au vrai
+    #    serveur, pas de mise à jour automatique ; voir moteur/config.py).
+    with open(os.path.join(RACINE, "data", "canal.txt"), "w", encoding="utf-8") as fichier:
+        fichier.write(canal)
+    print(f"Version {version}, canal {canal}")
+
+    # 4. PyInstaller.
     separateur = ";" if sys.platform == "win32" else ":"
     donnees = [("data/niveaux", "data/niveaux"), ("data/fond.png", "data"),
-               ("data/icone.png", "data"), ("data/serveur.txt", "data")]
+               ("data/icone.png", "data"),
+               ("data/nouveautes.json", "data"), ("data/serveur.txt", "data"),
+               ("data/canal.txt", "data")]
     commande = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowed",
                 "--name", "NeonBreaker", "--icon", os.path.join("outils", "icone.png"),
                 "--collect-submodules", "websockets", "--collect-submodules", "jeu",
@@ -68,7 +78,7 @@ def main():
     print(" ".join(commande))
     subprocess.run(commande, cwd=RACINE, check=True)
 
-    # 4. macOS : archive .zip qui garde les droits (ditto).
+    # 5. macOS : archive .zip qui garde les droits (ditto).
     if sys.platform == "darwin":
         subprocess.run(["ditto", "-c", "-k", "--keepParent", "dist/NeonBreaker.app",
                         "dist/NeonBreaker-mac.zip"], cwd=RACINE, check=True)

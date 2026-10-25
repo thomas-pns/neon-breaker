@@ -20,6 +20,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -35,11 +36,28 @@ def lancer(titre, commande, env):
     return resultat.returncode == 0
 
 
+def dossiers_temporaires():
+    """
+    But : choisir le dossier de données de la vérification et les variables TEMP.
+          Sous Windows, depuis Python 3.13, tempfile.mkdtemp pose une ACL réservée à
+          l'utilisateur, inutilisable par le jeton restreint du sandbox des agents :
+          on travaille donc dans .delegation/tmp (dans l'espace de travail), créé
+          avec os.makedirs, et les processus fils y écrivent aussi leurs fichiers
+          temporaires. Ailleurs (CI Linux), comportement inchangé.
+    Entrée : aucune. Sortie : (dict) variables d'environnement à ajouter.
+    """
+    if os.name != "nt":
+        return {"NEON_DONNEES": tempfile.mkdtemp(prefix="neon_verif_")}
+    tmp = os.path.join(RACINE, ".delegation", "tmp")
+    donnees = os.path.join(tmp, f"neon_verif_{time.strftime('%Y%m%d_%H%M%S')}_{os.getpid()}")
+    os.makedirs(donnees)
+    return {"NEON_DONNEES": donnees, "TEMP": tmp, "TMP": tmp, "TMPDIR": tmp}
+
+
 def main():
     """But : enchaîner les vérifications. Sortie : code de retour 0 si tout passe."""
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy",
-               PYGAME_HIDE_SUPPORT_PROMPT="1",
-               NEON_DONNEES=tempfile.mkdtemp(prefix="neon_verif_"))
+               PYGAME_HIDE_SUPPORT_PROMPT="1", **dossiers_temporaires())
     env.pop("NEON_SERVEUR", None)
     ok = lancer("TESTS UNITAIRES", [sys.executable, "-m", "unittest", "-q"], env)
     if ok and "--rapide" not in sys.argv:

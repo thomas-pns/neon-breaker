@@ -13,6 +13,8 @@ Réalisé le 21/10/2026
 
 import math
 
+NOMBRE_SUCCES = 28                   # doit suivre serveur/succes.py (vérifié par un test)
+
 COULEURS = ["cyan", "rose", "ambre", "violet", "vert", "bleu"]
 
 
@@ -68,12 +70,12 @@ def skins_debloques(niveau, succes):
 
 
 def condition_lisible(skin):
-    """But : texte « NIVEAU 5 » ou « SUCCES ... » pour un skin verrouillé."""
+    """But : condition lisible de deblocage d'un skin."""
     condition = skin["condition"]
     if condition is None:
         return ""
     if condition[0] == "niveau":
-        return f"NIVEAU {condition[1]}"
+        return f"SE DEBLOQUE AU RANG {condition[1]}"
     return "SUCCES " + {"combo_8": "x8", "boss_core": "COEUR BRISE",
                         "arcade_drone": "CHASSEUR DRONES",
                         "campagne": "LEGENDE NEON"}.get(condition[1], condition[1].upper())

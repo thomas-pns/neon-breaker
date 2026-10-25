@@ -13,20 +13,23 @@ Réalisé le 20/10/2026
 
 import math
 import os
+import shutil
 import sys
-import tempfile
 import unittest
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests import dossier_temporaire  # noqa: E402
 import pygame  # noqa: E402
 
 from structures.liste import Liste  # noqa: E402
 from structures.file import File  # noqa: E402
 from structures.pile import Pile  # noqa: E402
 from moteur import sauvegarde  # noqa: E402
+from moteur.version import VERSION  # noqa: E402
+from ecrans.titre import texte_version  # noqa: E402
 from jeu.balle import Balle  # noqa: E402
 from jeu.brique import BriqueNormale, BriqueMetal, BriqueSolide, fabriquer_brique  # noqa: E402
 from jeu.niveau import lire_niveau, charger_campagne, ErreurNiveau  # noqa: E402
@@ -203,18 +206,23 @@ class TestScoreEtSauvegarde(unittest.TestCase):
         self.assertEqual(multiplicateur_pour(99), 8)
 
     def test_sauvegarde_aller_retour_et_corruption(self):
-        with tempfile.TemporaryDirectory() as dossier:
-            chemin = os.path.join(dossier, "s.json")
-            donnees = sauvegarde.charger(chemin)            # absent -> défaut
-            donnees["meilleurs"]["campagne"] = 1234
-            self.assertTrue(sauvegarde.enregistrer(donnees, chemin))
-            self.assertEqual(sauvegarde.charger(chemin)["meilleurs"]["campagne"], 1234)
-            with open(chemin, "w", encoding="utf-8") as fichier:
-                fichier.write("{pas du json")
-            relu = sauvegarde.charger(chemin)
-            self.assertEqual(relu["meilleurs"], {})
-            self.assertIn("crt", relu["reglages"])
+        dossier = dossier_temporaire("neon_test_sauvegarde_")
+        self.addCleanup(shutil.rmtree, dossier, True)
+        chemin = os.path.join(dossier, "s.json")
+        donnees = sauvegarde.charger(chemin)            # absent -> défaut
+        donnees["meilleurs"]["campagne"] = 1234
+        self.assertTrue(sauvegarde.enregistrer(donnees, chemin))
+        self.assertEqual(sauvegarde.charger(chemin)["meilleurs"]["campagne"], 1234)
+        with open(chemin, "w", encoding="utf-8") as fichier:
+            fichier.write("{pas du json")
+        relu = sauvegarde.charger(chemin)
+        self.assertEqual(relu["meilleurs"], {})
+        self.assertIn("crt", relu["reglages"])
 
+
+class TestEcranTitre(unittest.TestCase):
+    def test_texte_version(self):
+        self.assertEqual(texte_version(), "V" + VERSION)
 
 
 class TestNouveautes11(unittest.TestCase):
@@ -251,6 +259,9 @@ class TestNouveautes11(unittest.TestCase):
         joueur.appliquer_skin("inconnu")
         self.assertEqual(joueur.skin, "neon")
 
+    def test_condition_skin_emploie_rang(self):
+        from reseau.profil import condition_lisible, SKINS_PAR_CODE
+        self.assertEqual(condition_lisible(SKINS_PAR_CODE["cryo"]), "SE DEBLOQUE AU RANG 5")
     def test_musique_boucle(self):
         try:
             import numpy as np

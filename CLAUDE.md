@@ -21,6 +21,20 @@ remplir le contexte :
 codex2 exec --sandbox workspace-write "CONSIGNE" > .delegation/codex2.log 2>&1
 ```
 
+**Windows** : sans réglage, Codex retombe en sandbox « lecture seule ». Chaque compte
+(`CODEX_HOME` défini dans `%USERPROFILE%\.agents-bin\codexN.cmd`) doit avoir dans son
+`config.toml` :
+
+```
+[windows]
+sandbox = "unelevated"
+```
+
+Test rapide d'écriture : `codex1 sandbox --permission-profile :workspace -- cmd.exe /d /c
+"echo test > .delegation\ecriture.txt"`. Dans ce sandbox, `outils/verifier.py` range ses
+fichiers temporaires dans `.delegation/tmp/` (à vider de temps en temps) ; dans les tests,
+utiliser `tests.dossier_temporaire()` plutôt que `tempfile.mkdtemp`.
+
 Ensuite, lire seulement :
 1. la fin du log (le résumé de l'agent) ;
 2. `git diff --stat` ;

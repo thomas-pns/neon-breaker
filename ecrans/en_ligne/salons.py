@@ -12,6 +12,7 @@ Réalisé le 21/10/2026
 """
 
 import math
+import time
 
 import pygame
 
@@ -33,6 +34,7 @@ class EcranTempsReel(EcranEnLigneBase):
         self.temps_reel = app.en_ligne.ouvrir_temps_reel()
         self.erreur = ""
         self.etat_precedent = None
+        self.prochaine_tentative = 0.0
 
     def traiter_reseau(self):
         """But : réagir aux messages reçus (méthodes sur_<type>)."""
@@ -67,7 +69,7 @@ class EcranTempsReel(EcranEnLigneBase):
         if etat == "connexion":
             texte, couleur = "CONNEXION AU SERVEUR...", config.CYAN
         elif etat == "erreur":
-            texte, couleur = "SERVEUR INJOIGNABLE  -  ENTREE : REESSAYER", config.ROUGE
+            texte, couleur = "SERVEUR EN MAINTENANCE  -  RECONNEXION...", config.ROUGE
         elif self.erreur:
             texte, couleur = self.erreur, config.ROUGE
         else:
@@ -120,9 +122,10 @@ class EcranSalons(EcranTempsReel):
             self.retour_hub()
             return
         if self.temps_reel.etat in ("erreur", "ferme"):
-            if entrees.vient_d_appuyer("valider"):
+            if entrees.vient_d_appuyer("valider") or time.monotonic() >= self.prochaine_tentative:
                 self.erreur = ""
                 self.temps_reel = self.app.en_ligne.ouvrir_temps_reel()
+                self.prochaine_tentative = time.monotonic() + 5
             return
         ancien = self.indice
         if entrees.vient_d_appuyer("haut"):
@@ -314,7 +317,7 @@ class EcranSalon(EcranTempsReel):
                                rect.centerx, rect.y + 30, 2, GRIS, lueur=False)
                 dessiner_texte(image, joueur["pseudo"].upper(), rect.centerx, rect.y + 100, 5,
                                couleur)
-                dessiner_texte(image, f"NIVEAU {joueur['niveau']}", rect.centerx, rect.y + 150,
+                dessiner_texte(image, f"RANG {joueur['niveau']}", rect.centerx, rect.y + 150,
                                2, config.AMBRE, lueur=False)
                 pret = joueur["pret"]
                 dessiner_texte(image, "PRET !" if pret else "PAS PRET", rect.centerx,

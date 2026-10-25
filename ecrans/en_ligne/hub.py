@@ -68,6 +68,15 @@ class EcranHub(EcranEnLigneBase):
         self.menu.indice = indice
 
     def _parties(self):
+        infos = self.app.en_ligne.mise_a_jour_requise()
+        if infos:
+            from ecrans.mise_a_jour import EcranMiseAJour
+            self.app.empiler(EcranMiseAJour(self.app, infos))
+            return
+        if self.app.en_ligne.protege():
+            self.statut = "VERSION DE TEST : PAS DE PARTIE EN LIGNE SUR LE VRAI SERVEUR"
+            self.app.audio.jouer("metal")
+            return
         from ecrans.en_ligne.salons import EcranSalons
         self.app.remplacer(EcranSalons(self.app))
 
@@ -153,10 +162,11 @@ class EcranHub(EcranEnLigneBase):
         dessiner_texte(image, en_ligne.pseudo.upper(), cadre.centerx, cadre.y + 46, 6, couleur)
         niveau = niveau_pour(en_ligne.xp)
         debut, fin = xp_pour_niveau(niveau), xp_pour_niveau(niveau + 1)
-        dessiner_texte(image, f"NIVEAU {niveau}", cadre.centerx, cadre.y + 100, 3, config.AMBRE)
+        dessiner_texte(image, f"RANG {niveau}", cadre.centerx, cadre.y + 100, 3, config.AMBRE)
         barre(image, pygame.Rect(cadre.x + 80, cadre.y + 126, cadre.w - 160, 10),
               (en_ligne.xp - debut) / max(1, fin - debut), config.AMBRE)
-        dessiner_texte(image, f"{en_ligne.xp} / {fin} XP", cadre.centerx, cadre.y + 150, 2,
+        dessiner_texte(image, f"{en_ligne.xp - debut} / {fin - debut} XP AVANT LE RANG {niveau + 1}",
+                       cadre.centerx, cadre.y + 150, 2,
                        GRIS, lueur=False)
         self.menu.dessiner(image)
         self._dessiner_apercu(image)

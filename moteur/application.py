@@ -297,6 +297,8 @@ class Application:
 
     def _version_recue(self, resultat):
         """Une version plus récente existe : proposer la mise à jour."""
+        if config.EST_TEST:
+            return                  # un exe de test ne se remplace jamais tout seul
         from reseau.mise_a_jour import version_disponible
         infos = version_disponible(resultat.get("donnees"))
         if infos is not None:

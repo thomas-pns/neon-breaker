@@ -60,7 +60,7 @@ class EcranEnLigneBase(EcranBase):
         dessiner_texte(image, titre or self.titre, config.LARGEUR / 2, 50, 5, config.CYAN)
         en_ligne = self.app.en_ligne
         if en_ligne.connecte:
-            dessiner_texte(image, f"{en_ligne.pseudo.upper()}  NIV {en_ligne.niveau}",
+            dessiner_texte(image, f"{en_ligne.pseudo.upper()}  RANG {en_ligne.niveau}",
                            config.LARGEUR - 20, 22, 2, couleur_profil(en_ligne.couleur),
                            ancrage="droite", lueur=False)
 

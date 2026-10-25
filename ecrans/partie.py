@@ -95,5 +95,7 @@ class EcranPartie(EcranBase):
         self.mode.dessiner(image)
         self.effets.dessiner(image)
         self.mode.dessiner_overlay(image)
+        from ecrans.bulles import dessiner
+        dessiner(self.mode, image)
         self.mode.dessiner_message(image)
         self.effets.dessiner_flash(image)

@@ -26,10 +26,12 @@ CHEMIN = os.path.join(config.DOSSIER_DATA, "sauvegarde.json")
 DEFAUT = {
     "version": 1,
     "reglages": {"crt": True, "tremblement": True, "particules": "haut",
-                 "volume_effets": 0.7, "volume_musique": 0.5},
+                 "volume_effets": 0.7, "volume_musique": 0.5,
+                 "nom_j1": "", "nom_j2": ""},
     "meilleurs": {},          # mode -> meilleur score
     "classements": {},        # mode -> top 10 [{"nom", "score"}]
     "progression": {},        # "campagne" / "coop" -> dernier niveau débloqué
+    "bulles_vues": [],         # codes des bulles d'aide déjà affichées
 }
 
 

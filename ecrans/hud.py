@@ -198,7 +198,7 @@ def dessiner_commandes(image, rect, profil, y):
 # --- Blocs complets -----------------------------------------------------------------
 
 def bloc_joueur_vertical(image, rect, joueur, y, temps, titre=None, touches_pouvoirs=None,
-                         touche_overdrive="", score=True):
+                         touche_overdrive="", score=True, aide_pouvoirs=False):
     """
     But : bloc complet d'un joueur dans un panneau latéral, à partir de y.
     Sortie : (int) ordonnée sous le bloc.
@@ -220,6 +220,10 @@ def bloc_joueur_vertical(image, rect, joueur, y, temps, titre=None, touches_pouv
         dessiner_inventaire(image, cx, y + 34, joueur, touches_pouvoirs,
                             44 if rect.w >= 210 else 40)
         y += 94 if touches_pouvoirs else 74
+        if aide_pouvoirs:
+            dessiner_texte(image, "A/TAB CHOISIR  E LANCER", cx, y - 12, 1,
+                           config.BLANC, lueur=False)
+            y += 16
     etiquette(image, "OVERDRIVE", cx, y)
     dessiner_overdrive(image, pygame.Rect(rect.x + 18, y + 16, rect.w - 36, 14),
                        joueur, temps, touche_overdrive)

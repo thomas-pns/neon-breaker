@@ -20,9 +20,9 @@ from moteur.police_pixel import dessiner_texte
 from jeu.brique import fabriquer_brique
 from jeu.capsule import CATALOGUE, Capsule, COULEURS_CATEGORIE
 from ecrans.base import EcranBase, voile
-from ecrans.hud import panneau
+from ecrans.hud import panneau, dessiner_inventaire, dessiner_overdrive
 
-PAGES = ["CAPSULES", "BRIQUES", "COMMANDES"]
+PAGES = ["CAPSULES", "POUVOIRS ET OVERDRIVE", "BRIQUES", "COMMANDES"]
 BRIQUES_AIDE = [
     ("a", "NORMALE", "1 COUP"),
     ("R", "SOLIDE", "2 A 5 COUPS, SE FISSURE"),
@@ -44,6 +44,15 @@ class EcranAide(EcranBase):
         self.page = 0
         self.capsules = {code: Capsule(0, 0, code) for code in CATALOGUE}
         self.briques = []
+        self.joueur_demo = type("JoueurDemo", (), {})()
+        self.joueur_demo.inventaire = [next(code for code, effet in CATALOGUE.items()
+                                            if effet.categorie == "pouvoir")]
+        self.joueur_demo.profil = "solo"
+        self.joueur_demo.selection = 0
+        self.joueur_demo.avec_overdrive = True
+        self.joueur_demo.overdrive = 1.0
+        self.joueur_demo.supernova = 0.0
+        self.joueur_demo.overdrive_pret = lambda: True
         for i, (caractere, nom, texte) in enumerate(BRIQUES_AIDE):
             colonne, ligne = divmod(i, 5)
             brique = fabriquer_brique(caractere, 150 + colonne * 520, 160 + ligne * 96, 70, 26)
@@ -83,7 +92,8 @@ class EcranAide(EcranBase):
         for i in range(len(PAGES)):
             couleur = config.AMBRE if i == self.page else (90, 60, 120)
             pygame.draw.circle(image, couleur, (config.LARGEUR // 2 - 20 + i * 20, 86), 5)
-        [self._page_capsules, self._page_briques, self._page_commandes][self.page](image)
+        [self._page_capsules, self._page_pouvoirs, self._page_briques,
+         self._page_commandes][self.page](image)
         dessiner_texte(image, "← → : PAGE    ECHAP : RETOUR", config.LARGEUR / 2,
                        config.HAUTEUR - 24, 2, (150, 120, 200), lueur=False)
 
@@ -120,15 +130,34 @@ class EcranAide(EcranBase):
             dessiner_texte(image, texte, x, brique.y + 32, 2, (190, 170, 230),
                            ancrage="gauche", lueur=False, ombre=False)
 
+    def _page_pouvoirs(self, image):
+        """But : expliquer l'inventaire et illustrer la jauge OVERDRIVE."""
+        rect = pygame.Rect(90, 120, 1100, 500)
+        panneau(image, rect, config.AMBRE)
+        dessiner_texte(image, "3 CASES : UNE CAPSULE DOREE ATTRAPEE VA DANS LA PREMIERE CASE LIBRE",
+                       640, 154, 2, config.BLANC)
+        dessiner_inventaire(image, 640, 208, self.joueur_demo, ["1", "2", "3"], 44)
+        lignes = ["SOLO : 1 2 3 LANCENT LA CASE 1 2 OU 3",
+                  "A OU TAB : CHOISIR UNE CASE   E : LANCER LA CASE CHOISIE",
+                  "A DEUX : J1 A CHOISIR / E LANCER   J2 CTRL D CHOISIR / MAJ D LANCER",
+                  "OVERDRIVE : LA JAUGE SE REMPLIT EN CASSANT DES BRIQUES",
+                  "PLUS VITE AVEC UN GROS MULTIPLICATEUR",
+                  "JAUGE PLEINE : MAJ (J1 S, J2 FLECHE BAS) DECLENCHE LA SUPERNOVA",
+                  "QUELQUES SECONDES DE PUISSANCE, PUIS LA JAUGE REPART DE ZERO"]
+        for i, texte in enumerate(lignes):
+            dessiner_texte(image, texte, 640, 276 + i * 34, 2,
+                           config.AMBRE if i == 5 else config.BLANC)
+        dessiner_overdrive(image, pygame.Rect(490, 536, 300, 16), self.joueur_demo, self.temps, "MAJ")
+
     def _page_commandes(self, image):
         blocs = [("SOLO", "solo", config.CYAN, 60), ("JOUEUR 1", "j1", config.ROSE, 470),
                  ("JOUEUR 2", "j2", config.AMBRE, 880)]
         for titre, profil, couleur, x in blocs:
-            rect = pygame.Rect(x - 20, 120, 370, 280)
+            rect = pygame.Rect(x - 20, 110, 370, 310)
             panneau(image, rect, couleur)
             dessiner_texte(image, titre, rect.centerx, 150, 3, couleur)
             for i, (touche, action) in enumerate(config.AIDE_TOUCHES[profil]):
-                y = 200 + i * 30
+                y = 184 + i * 25
                 dessiner_texte(image, touche, rect.x + 24, y, 2, config.BLANC,
                                ancrage="gauche", lueur=False)
                 dessiner_texte(image, action, rect.right - 24, y, 2, (190, 170, 230),

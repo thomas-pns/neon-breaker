@@ -14,13 +14,14 @@ Réalisé le 21/10/2026
 import json
 import os
 import sys
-import tempfile
 import unittest
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
-os.environ["NEON_DONNEES"] = tempfile.mkdtemp(prefix="neon_test_client_")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from tests import dossier_temporaire  # noqa: E402
+
+os.environ["NEON_DONNEES"] = dossier_temporaire("neon_test_client_")
 
 import pygame  # noqa: E402
 
@@ -142,6 +143,73 @@ class TestVersions(unittest.TestCase):
         reponse = {"plateformes": {plateforme(): {"version": "0.0.1", "url": "/x"}}}
         self.assertIsNone(version_disponible(reponse))
         self.assertIsNone(version_disponible(None))
+
+
+
+class TestVersionDeTest(unittest.TestCase):
+    """Lot 0 : exe de test (canal dev) et relance propre après mise à jour."""
+
+    def test_canal(self):
+        from moteur import config
+        ancien = os.environ.get("NEON_CANAL")
+        try:
+            os.environ["NEON_CANAL"] = "dev"
+            self.assertEqual(config._lire_canal(), "dev")
+            del os.environ["NEON_CANAL"]
+            self.assertIn(config._lire_canal(), ("stable", "dev"))
+        finally:
+            if ancien is not None:
+                os.environ["NEON_CANAL"] = ancien
+
+    def test_version_dev_plus_recente(self):
+        from moteur.version import comparer_versions
+        self.assertEqual(comparer_versions("1.1.0-dev.12", "1.1.0"), 1)
+        self.assertEqual(comparer_versions("1.1.0", "1.1.0"), 0)
+
+    def test_environnement_propre(self):
+        from reseau.mise_a_jour import environnement_propre
+        os.environ["_PYI_APPLICATION_HOME_DIR"] = "C:/Temp/_MEI123"
+        os.environ["_MEIPASS2"] = "C:/Temp/_MEI123"
+        try:
+            env = environnement_propre()
+        finally:
+            del os.environ["_PYI_APPLICATION_HOME_DIR"], os.environ["_MEIPASS2"]
+        self.assertNotIn("_PYI_APPLICATION_HOME_DIR", env)
+        self.assertNotIn("_MEIPASS2", env)
+        self.assertEqual(env["PYINSTALLER_RESET_ENVIRONMENT"], "1")
+        self.assertIn("PATH", env)
+
+    def test_aucun_score_envoye_en_test(self):
+        from moteur import config
+        from reseau.client import ServiceEnLigne
+
+        class FausseApp:
+            donnees = {"compte": {"jeton": "x", "pseudo": "t"}}
+            notes = []
+
+            def notifier(self, *a, **k):
+                self.notes.append(a)
+
+            def enregistrer(self):
+                pass
+
+        app = FausseApp()
+        service = ServiceEnLigne.__new__(ServiceEnLigne)
+        service.app, service.jeton, service.envoi_en_cours = app, "x", False
+        ancien, ancien_serveur = config.EST_TEST, os.environ.pop("NEON_SERVEUR", None)
+        try:
+            config.EST_TEST = True
+            self.assertTrue(service.protege())
+            service.ajouter_rapports([{"mode": "arcade", "score": 10}])
+            self.assertEqual(app.donnees.get("a_envoyer", []), [])
+            self.assertTrue(app.notes)
+            os.environ["NEON_SERVEUR"] = "http://localhost:8765"
+            self.assertFalse(service.protege())         # serveur de test : autorisé
+        finally:
+            config.EST_TEST = ancien
+            os.environ.pop("NEON_SERVEUR", None)
+            if ancien_serveur is not None:
+                os.environ["NEON_SERVEUR"] = ancien_serveur
 
 
 if __name__ == "__main__":

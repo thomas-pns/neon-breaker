@@ -21,7 +21,16 @@ import pygame
 from moteur import config
 from moteur.police_pixel import dessiner_texte
 from moteur.rendu import attenuer
+from moteur.version import VERSION
 from ecrans.base import EcranBase, MenuVertical
+
+
+def texte_version():
+    """
+    But : texte de la version affichée en bas à droite de l'écran titre.
+    Entrée : aucune. Sortie : (str) ex. « V1.1.0 ».
+    """
+    return f"V{VERSION}"
 
 
 class EcranTitre(EcranBase):
@@ -48,6 +57,7 @@ class EcranTitre(EcranBase):
             ("JOUER", self._jouer),
             (self._libelle_en_ligne(), self._en_ligne),
             ("MEILLEURS SCORES", self._scores),
+            ("NOUVEAUTES", self._nouveautes),
             ("AIDE", self._aide),
             ("OPTIONS", self._options),
             ("QUITTER", self._quitter),
@@ -61,6 +71,11 @@ class EcranTitre(EcranBase):
         return "EN LIGNE"
 
     def _en_ligne(self):
+        infos = self.app.en_ligne.mise_a_jour_requise()
+        if infos:
+            from ecrans.mise_a_jour import EcranMiseAJour
+            self.app.empiler(EcranMiseAJour(self.app, infos))
+            return
         if self.app.en_ligne.jeton:
             from ecrans.en_ligne.hub import EcranHub
             self.app.remplacer(EcranHub(self.app))
@@ -79,6 +94,11 @@ class EcranTitre(EcranBase):
     def _aide(self):
         from ecrans.aide import EcranAide
         self.app.remplacer(EcranAide(self.app))
+
+    def _nouveautes(self):
+        """But : ouvrir l'ecran des nouveautes. Entree(s) : aucune. Sortie : aucune."""
+        from ecrans.nouveautes import EcranNouveautes
+        self.app.remplacer(EcranNouveautes(self.app))
 
     def _options(self):
         from ecrans.options import EcranOptions
@@ -134,7 +154,13 @@ class EcranTitre(EcranBase):
                          (config.LARGEUR / 2 + largeur_ligne / 2, y_logo + 125), 3)
 
         self.menu.dessiner(image)
+        if config.EST_TEST:
+            dessiner_texte(image, "VERSION DE TEST", config.LARGEUR - 16,
+                           config.HAUTEUR - 78, 2, config.AMBRE, ancrage="droite", lueur=False)
+            dessiner_texte(image, "SCORES NON ENVOYES", config.LARGEUR - 16, config.HAUTEUR - 56,
+                           2, config.AMBRE, ancrage="droite", lueur=False)
+        dessiner_texte(image, texte_version(), config.LARGEUR - 16, config.HAUTEUR - 30,
+                       2, (150, 120, 200), ancrage="droite", lueur=False)
         dessiner_texte(image, "THOMAS CHASSANIS PONS & CAMIL BOUZIRI  -  CPE 3A",
                        config.LARGEUR / 2, config.HAUTEUR - 30, 2,
                        (150, 120, 200), lueur=False)
-

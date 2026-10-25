@@ -12,10 +12,12 @@ Réalisé le 21/10/2026
 """
 
 import pygame
+import time
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
 from moteur.rendu import halo_rect, attenuer
+from reseau.profil import NOMBRE_SUCCES
 from ecrans.hud import panneau, barre
 from ecrans.en_ligne.commun import (EcranEnLigneBase, couleur_profil, date_courte,
                                     duree_lisible, NOMS_MODES, GRIS)
@@ -27,6 +29,28 @@ COULEURS_CATEGORIES = {"debuts": config.CYAN, "campagne": config.ROSE, "habilete
 COLONNES_SUCCES = 7
 
 
+def couper_en_lignes(texte, largeur_max_caracteres, max_lignes=2):
+    """
+    But : couper un texte sur des espaces en lignes d'au plus largeur_max_caracteres.
+    Entree(s) : texte (str), largeur_max_caracteres (int), max_lignes (int) : au-dela,
+                le reste est ajoute a la derniere ligne.
+    Sortie : tuple de max_lignes lignes (vides si inutiles).
+    """
+    mots = str(texte).split()
+    if not mots:
+        return ("", "")
+    lignes = [""]
+    for mot in mots:
+        candidat = (lignes[-1] + " " + mot).strip()
+        if len(candidat) <= largeur_max_caracteres:
+            lignes[-1] = candidat
+        elif len(lignes) < max_lignes:
+            lignes.append(mot)
+        else:
+            lignes[-1] += " " + mot
+    return tuple((lignes + [""] * max_lignes)[:max_lignes])
+
+
 class EcranJoueurs(EcranEnLigneBase):
     """Tous les joueurs du serveur."""
 
@@ -36,21 +60,35 @@ class EcranJoueurs(EcranEnLigneBase):
         super().__init__(app)
         self.joueurs = None
         self.erreur = ""
+        self.chargement = False
+        self.prochaine_tentative = 0.0
         self.indice = 0
         self.zones = []
-        app.en_ligne.appeler("GET", "/api/joueurs", rappel=self._recu)
+        self._charger()
+
+    def _charger(self):
+        """But : demander les donnees au serveur, une requete a la fois. Entree(s) : aucune. Sortie : aucune."""
+        if self.chargement:
+            return
+        self.chargement = True
+        self.app.en_ligne.appeler("GET", "/api/joueurs", rappel=self._recu)
 
     def _recu(self, resultat):
+        self.chargement = False
         if resultat["ok"]:
             self.joueurs = resultat["donnees"]["joueurs"]
             moi = self.app.en_ligne.pseudo.lower()
             self.indice = next((i for i, j in enumerate(self.joueurs)
                                 if j["pseudo"].lower() == moi), 0)
         else:
-            self.erreur = resultat["erreur"]
+            self.erreur = "SERVEUR EN MAINTENANCE" if resultat.get("maintenance") else resultat["erreur"]
+            if resultat.get("maintenance"):
+                self.prochaine_tentative = time.monotonic() + 5
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
+        if self.erreur == "SERVEUR EN MAINTENANCE" and time.monotonic() >= self.prochaine_tentative:
+            self._charger()
         entrees = self.app.entrees
         if entrees.vient_d_appuyer("retour"):
             from ecrans.en_ligne.hub import EcranHub
@@ -103,9 +141,10 @@ class EcranJoueurs(EcranEnLigneBase):
             pygame.draw.circle(image, couleur, (rect.x + 26, rect.centery), 10)
             dessiner_texte(image, joueur["pseudo"].upper(), rect.x + 52, rect.centery, 3, couleur,
                            ancrage="gauche", lueur=choisi)
-            dessiner_texte(image, f"NIV {joueur['niveau']}", rect.x + 430, rect.centery, 2,
+            dessiner_texte(image, f"RANG {joueur['niveau']}", rect.x + 430, rect.centery, 2,
                            config.AMBRE, ancrage="gauche", lueur=False)
-            dessiner_texte(image, f"SUCCES {joueur['succes']}/24", rect.x + 560, rect.centery, 2,
+            total_succes = joueur.get("total_succes", NOMBRE_SUCCES)
+            dessiner_texte(image, f"SUCCES {joueur['succes']}/{total_succes}", rect.x + 560, rect.centery, 2,
                            config.OR, ancrage="gauche", lueur=False)
             if joueur.get("en_ligne"):
                 dessiner_texte(image, "EN LIGNE", rect.right - 20, rect.centery, 2, config.VERT,
@@ -127,24 +166,64 @@ class EcranProfil(EcranEnLigneBase):
         self.retour = retour
         self.profil = None
         self.erreur = ""
+        self.chargement = False
+        self.prochaine_tentative = 0.0
         self.choix = 0
-        app.en_ligne.appeler("GET", f"/api/joueurs/{pseudo}", rappel=self._recu)
+        self.fiche_ouverte = False
+        self.zones_succes = []
+        self.rect_fiche = pygame.Rect(0, 0, 650, 360)
+        self.rect_fiche.center = (850, 447)
+        self._charger()
+
+    def _charger(self):
+        """But : demander les donnees au serveur, une requete a la fois. Entree(s) : aucune. Sortie : aucune."""
+        if self.chargement:
+            return
+        self.chargement = True
+        self.app.en_ligne.appeler("GET", f"/api/joueurs/{self.pseudo}", rappel=self._recu)
 
     def _recu(self, resultat):
+        self.chargement = False
         if resultat["ok"]:
             self.profil = resultat["donnees"]
         else:
-            self.erreur = resultat["erreur"]
+            self.erreur = "SERVEUR EN MAINTENANCE" if resultat.get("maintenance") else resultat["erreur"]
+            if resultat.get("maintenance"):
+                self.prochaine_tentative = time.monotonic() + 5
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
+        if self.erreur == "SERVEUR EN MAINTENANCE" and time.monotonic() >= self.prochaine_tentative:
+            self._charger()
         entrees = self.app.entrees
-        if entrees.vient_d_appuyer("retour") or entrees.vient_d_appuyer("valider"):
-            if self.retour == "joueurs":
-                self.app.remplacer(EcranJoueurs(self.app))
+        retour = entrees.vient_d_appuyer("retour")
+        valider = entrees.vient_d_appuyer("valider")
+        if retour:
+            if self.fiche_ouverte:
+                self.fiche_ouverte = False
             else:
-                from ecrans.en_ligne.hub import EcranHub
-                self.app.remplacer(EcranHub(self.app))
+                self._retour_ecran()
+                return
+        if self.fiche_ouverte and 1 in entrees.clics:
+            if not self.rect_fiche.collidepoint(entrees.souris):
+                self.fiche_ouverte = False
+            return
+        if not self.fiche_ouverte and self.profil and entrees.souris_bougee:
+            for i, zone in enumerate(self.zones_succes):
+                if zone.collidepoint(entrees.souris):
+                    self.choix = i
+                    break
+        clic = 1 in entrees.clics
+        if clic and not self.fiche_ouverte:
+            for i, zone in enumerate(self.zones_succes):
+                if zone.collidepoint(entrees.souris):
+                    self.choix = i
+                    valider = True
+                    break
+        if valider and self.profil:
+            self.fiche_ouverte = not self.fiche_ouverte
+            if self.fiche_ouverte:
+                self.app.audio.jouer("menu_ok")
             return
         ancien = self.choix
         total = min(COLONNES_SUCCES * 4, len(self.profil["succes"])) if self.profil else 1
@@ -160,6 +239,14 @@ class EcranProfil(EcranEnLigneBase):
         if self.choix != ancien:
             self.app.audio.jouer("menu_nav")
 
+    def _retour_ecran(self):
+        """But : revenir a la liste ou au hub. Entree(s) : aucune. Sortie : aucune."""
+        if self.retour == "joueurs":
+            self.app.remplacer(EcranJoueurs(self.app))
+        else:
+            from ecrans.en_ligne.hub import EcranHub
+            self.app.remplacer(EcranHub(self.app))
+
     def dessiner(self, image):
         self.dessiner_fond(image, "PROFIL")
         if self.profil is None:
@@ -173,10 +260,11 @@ class EcranProfil(EcranEnLigneBase):
         panneau(image, carte, couleur)
         dessiner_texte(image, p["pseudo"].upper(), carte.centerx, carte.y + 46,
                        6 if len(p["pseudo"]) <= 8 else 4, couleur)
-        dessiner_texte(image, f"NIVEAU {p['niveau']}", carte.centerx, carte.y + 104, 4, config.AMBRE)
+        dessiner_texte(image, f"RANG {p['niveau']}", carte.centerx, carte.y + 104, 4, config.AMBRE)
         barre(image, pygame.Rect(carte.x + 40, carte.y + 134, carte.w - 80, 10),
               (p["xp"] - p["xp_niveau"]) / max(1, p["xp_suivant"] - p["xp_niveau"]), config.AMBRE)
-        dessiner_texte(image, f"{p['xp']} / {p['xp_suivant']} XP", carte.centerx, carte.y + 160,
+        dessiner_texte(image, f"{p['xp'] - p['xp_niveau']} / {p['xp_suivant'] - p['xp_niveau']} "
+                       f"XP AVANT LE RANG {p['niveau'] + 1}", carte.centerx, carte.y + 160,
                        2, GRIS, lueur=False)
         etat = "EN LIGNE" if p.get("en_ligne") else f"VU LE {date_courte(p['vu_le'])}"
         dessiner_texte(image, etat, carte.centerx, carte.y + 192, 2,
@@ -217,16 +305,19 @@ class EcranProfil(EcranEnLigneBase):
         self._grille_succes(image, pygame.Rect(450, 222, 800, 450))
 
     def _grille_succes(self, image, cadre):
+        """But : dessiner la grille et sa fiche. Entree(s) : image, cadre. Sortie : aucune."""
         succes = self.profil["succes"]
         obtenus = sum(1 for s in succes if s["obtenu_le"])
         panneau(image, cadre, config.OR)
         dessiner_texte(image, f"SUCCES  {obtenus} / {len(succes)}", cadre.centerx, cadre.y + 24,
                        2, config.OR, lueur=False)
         largeur = (cadre.w - 40) // COLONNES_SUCCES
+        self.zones_succes = []
         for i, entree in enumerate(succes[:COLONNES_SUCCES * 4]):
             ligne, colonne = divmod(i, COLONNES_SUCCES)
             rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 48 + ligne * 82,
                                largeur - 8, 72)
+            self.zones_succes.append(rect.copy())
             obtenu = bool(entree["obtenu_le"])
             couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN)
             if not obtenu:
@@ -237,14 +328,37 @@ class EcranProfil(EcranEnLigneBase):
                 lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=6)
                 image.blit(lueur, (rect.x - 12, rect.y - 12), special_flags=pygame.BLEND_RGB_ADD)
             pygame.draw.rect(image, couleur, rect, 3 if choisi else 2, border_radius=8)
-            initiale = entree["nom"][:2] if obtenu else "?"
-            dessiner_texte(image, initiale, rect.centerx, rect.y + 26, 4, couleur, lueur=obtenu)
-            dessiner_texte(image, entree["nom"][:8], rect.centerx, rect.bottom - 14, 2,
-                           config.BLANC if obtenu else (110, 90, 140), lueur=False, ombre=False)
-        entree = succes[self.choix] if self.choix < len(succes) else None
-        if entree:
-            texte = entree["nom"] + " : " + entree["description"].upper()
-            if entree["obtenu_le"]:
-                texte += f"  ({date_courte(entree['obtenu_le'])})"
-            dessiner_texte(image, texte[:62], cadre.centerx, cadre.bottom - 20, 2, config.BLANC,
-                           lueur=False)
+            dessiner_texte(image, "?" if not obtenu else entree["nom"][:1], rect.centerx,
+                           rect.y + 18, 3, couleur, lueur=obtenu)
+            nom = entree["nom"].upper()
+            lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 12))
+            echelle = 1 if any(len(l) * 12 > rect.w - 8 for l in lignes) else 2
+            if echelle == 1:
+                lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 6))
+            lignes = [l for l in lignes if l]
+            pas = 9 * echelle
+            haut = rect.y + 52 - pas * (len(lignes) - 1) / 2
+            for n, ligne_texte in enumerate(lignes):
+                dessiner_texte(image, ligne_texte, rect.centerx, haut + n * pas,
+                               echelle, config.BLANC if obtenu else (110, 90, 140),
+                               lueur=False, ombre=False)
+        dessiner_texte(image, "CLIC / ENTREE : DETAIL", cadre.centerx, cadre.bottom - 20,
+                       2, config.BLANC, lueur=False)
+        if self.fiche_ouverte and succes:
+            entree = succes[self.choix]
+            pygame.draw.rect(image, (12, 2, 28), self.rect_fiche, border_radius=10)
+            panneau(image, self.rect_fiche, config.CYAN)
+            obtenu = bool(entree["obtenu_le"])
+            couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN) if obtenu else GRIS
+            dessiner_texte(image, entree["nom"].upper(), self.rect_fiche.centerx,
+                           self.rect_fiche.y + 42, 3, config.BLANC)
+            dessiner_texte(image, entree["categorie"].upper(), self.rect_fiche.centerx,
+                           self.rect_fiche.y + 88, 2, couleur, lueur=False)
+            description = entree["description"].upper()
+            lignes = couper_en_lignes(description, 50, 5)
+            for i, ligne_texte in enumerate(lignes):
+                dessiner_texte(image, ligne_texte, self.rect_fiche.centerx,
+                               self.rect_fiche.y + 150 + i * 32, 2, config.BLANC, lueur=False)
+            etat = f"OBTENU LE {date_courte(entree['obtenu_le'])}" if obtenu else "PAS ENCORE OBTENU"
+            dessiner_texte(image, etat, self.rect_fiche.centerx, self.rect_fiche.bottom - 42,
+                           2, couleur, lueur=False)
