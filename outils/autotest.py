@@ -46,12 +46,20 @@ def lancer(app):
     import websockets  # noqa: F401
     import certifi  # noqa: F401
 
+    def casier(categorie, indice):
+        ecran = EcranCasier(app)
+        ecran.categorie = categorie
+        ecran.indice = min(indice, len(ecran.objets()) - 1)
+        return ecran
+
     etapes = [
         ("titre", lambda: EcranTitre(app)),
         ("modes", lambda: EcranModes(app)),
         ("jouer en ligne", lambda: EcranJouer(app, "en_ligne")),
         ("jouer defis", lambda: EcranJouer(app, "defis")),
         ("casier", lambda: EcranCasier(app)),
+        ("casier bannieres (fin de liste)", lambda: casier(1, 99)),
+        ("casier couleur", lambda: casier(2, 5)),
         ("reglages", lambda: EcranReglages(app)),
         ("admin", lambda: __import__("ecrans.en_ligne.admin", fromlist=["EcranAdmin"]).EcranAdmin(app)),
         ("aide", lambda: EcranAide(app)),

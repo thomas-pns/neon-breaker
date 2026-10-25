@@ -85,6 +85,13 @@ class TestBoutique(unittest.TestCase):
         self.assertIsNone(b.objet("soleil_eteint"))                      # jamais en vente
         self.assertNotIn("noyau_brise", [o["code"] for o in b.tous_les_objets()])
 
+    def test_casier_toutes_les_bannieres(self):
+        """Chaque bannière (boutique, boss, saison) a un sous-titre dans le casier (bug 2.1.0)."""
+        from ecrans.casier import comment_obtenir
+        for banniere in b.BANNIERES:
+            self.assertTrue(comment_obtenir(banniere))
+        self.assertEqual(comment_obtenir(b.BANNIERES_PAR_CODE["saison_neon"]), "SAISON EN NEON")
+
     def test_selection_du_jour(self):
         jour = b.selection_du_jour("2026-10-25")
         self.assertEqual(jour, b.selection_du_jour("2026-10-25"))     # même pour tous

@@ -30,6 +30,18 @@ CASE = (200, 136)
 X_GRILLE, Y_GRILLE = 370, 96
 
 
+def comment_obtenir(banniere):
+    """But : sous-titre d'une bannière : sa rareté, ou comment la gagner (boss, saison)."""
+    recompense = banniere.get("recompense") or ""
+    if recompense.startswith("boss_"):
+        return "BATTRE LE BOSS " + recompense[5:].upper()
+    if recompense == "saison":
+        division = {"saison_or": "OR", "saison_platine": "PLATINE", "saison_neon": "NEON"}.get(
+            banniere["code"], "OR")
+        return f"SAISON EN {division}"
+    return NOMS_RARETES[banniere["rarete"]]
+
+
 class EcranCasier(EcranMenu):
     """Attributs : categorie (int), indice (int), dans_liste (bool : focus sur les catégories)."""
 
@@ -62,9 +74,7 @@ class EcranCasier(EcranMenu):
             actif = en_ligne.banniere_active() if en_ligne.jeton else ""
             liste = [("", "AUCUNE", True, actif == "", "")]
             return liste + [(b["code"], b["nom"], b["code"] in possedes, b["code"] == actif,
-                             ("BATTRE LE BOSS " + b["recompense"].split("_")[1].upper())
-                             if b.get("recompense") else NOMS_RARETES[b["rarete"]])
-                            for b in BANNIERES]
+                             comment_obtenir(b)) for b in BANNIERES]
         return [(c, c.upper(), True, c == en_ligne.couleur, "") for c in COULEURS]
 
     def _apercu(self, code):
@@ -237,7 +247,7 @@ class EcranCasier(EcranMenu):
         if equipe:
             dessiner_texte(image, "EQUIPE", r.centerx, r.y + 114, 2, config.VERT, lueur=False)
         elif not possede:
-            texte = sous_titre if sous_titre.startswith("BATTRE") else "VERROUILLE"
+            texte = sous_titre if sous_titre.startswith(("BATTRE", "SAISON")) else "VERROUILLE"
             dessiner_texte(image, texte, r.centerx, r.y + 114, 2 if len(texte) <= 14 else 1, (150, 90, 120),
                            lueur=False)
         elif sous_titre and categorie == "bannieres":

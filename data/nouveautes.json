@@ -1,5 +1,14 @@
 [
   {
+    "version": "2.1.1",
+    "titre": "CORRECTIFS",
+    "lignes": [
+      "CASIER : PLUS DE PLANTAGE SUR LES BANNIERES",
+      "DEFIS : RAQUETTE FANTOME CACHEE PAR DEFAUT",
+      "OPTION FANTOME : ECART SEUL, RAQUETTE OU NON"
+    ]
+  },
+  {
     "version": "2.1.0",
     "titre": "NOUVEAUX MENUS",
     "lignes": [
