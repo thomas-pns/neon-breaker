@@ -528,7 +528,7 @@ DIVERS = {
     "vitesse_mode": ["X...X....", "XX..XX...", ".XX..XX..", "..XX..XX.", "...XX..XX", "..XX..XX.",
                      ".XX..XX..", "XX..XX...", "X...X...."],
 }
-GRILLES = {**CAPSULES, **SUCCES, **DIVERS}
+GRILLES = {**CAPSULES, **SUCCES, **DIVERS, "TROPHEE": TROPHEE}
 _CACHE = {}
 
 

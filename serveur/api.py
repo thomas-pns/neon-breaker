@@ -150,7 +150,37 @@ def deconnexion(authorization: str = Header(default="")):
 def moi(authorization: str = Header(default="")):
     joueur = joueur_connecte(authorization)
     base.toucher(joueur["id"])
-    return presentation(joueur)
+    return {**presentation(joueur), "messages": base.messages_non_lus(joueur["id"])}
+
+
+class MessagesLus(BaseModel):
+    ids: list
+
+
+@app.post("/api/moi/messages")
+def messages_lus(lus: MessagesLus, authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    base.marquer_lus(joueur["id"], [i for i in lus.ids if isinstance(i, int)])
+    return {"ok": True}
+
+
+@app.get("/api/moi/historique")
+def historique(authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    return {"mouvements": base.historique(joueur["id"]), "neons": joueur["neons"]}
+
+
+@app.on_event("startup")
+async def demarrer_recompenses():
+    """Récompenses des défis et des saisons : vérifiées au démarrage puis toutes les 10 minutes."""
+    import asyncio
+    from serveur.recompenses import verser_tout
+
+    async def boucle():
+        while True:
+            verser_tout(base, aujourd_hui())
+            await asyncio.sleep(600)
+    app.state.tache_recompenses = asyncio.create_task(boucle())
 
 
 @app.put("/api/moi/couleur")
@@ -222,7 +252,7 @@ def admin_action(pseudo: str, action: ActionAdmin, authorization: str = Header(d
     elif action.action == "retablir":
         base.bannir(cible["id"], False)
     elif action.action == "neons":
-        base.crediter(cible["id"], max(-100000, min(100000, action.valeur)))
+        base.crediter(cible["id"], max(-100000, min(100000, action.valeur)), "CADEAU ADMIN")
     elif action.action == "cote":
         base.ecrire("UPDATE joueurs SET elo = 1000, classees = 0, classees_victoires = 0, "
                     "classees_recents = '' WHERE id = ?", (cible["id"],))

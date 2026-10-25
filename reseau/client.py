@@ -287,6 +287,8 @@ class ServiceEnLigne:
         self.classees_victoires = donnees.get("classees_victoires", getattr(self, "classees_victoires", 0))
         self.classees_recents = donnees.get("classees_recents", getattr(self, "classees_recents", ""))
         self.admin = bool(donnees.get("admin", getattr(self, "admin", False)))
+        if donnees.get("messages"):
+            self.annoncer_messages(donnees["messages"])
         self.connecte = True
         self.app.donnees["compte"] = {"jeton": self.jeton, "pseudo": self.pseudo,
                                       "couleur": self.couleur, "niveau": self.niveau,
@@ -448,6 +450,17 @@ class ServiceEnLigne:
             if self.niveau > ancien_niveau:
                 self.app.notifier(f"RANG {self.niveau} !", "AMBRE")
         self.appeler("POST", "/api/parties", {"rapports": lot}, recu)
+
+    def annoncer_messages(self, messages):
+        """But : récompenses du serveur (top 3, fin de saison) : notification puis « lu »."""
+        deja = getattr(self, "messages_vus", set())
+        nouveaux = [m for m in messages if m.get("id") not in deja]
+        for message in nouveaux:
+            self.app.notifier(message.get("titre", ""), "OR", message.get("texte", ""))
+            deja.add(message.get("id"))
+        self.messages_vus = deja
+        if nouveaux:
+            self.appeler("POST", "/api/moi/messages", {"ids": [m["id"] for m in nouveaux]})
 
     def annoncer_gains(self, gains):
         """But : notifications des succès débloqués (réponse du serveur)."""

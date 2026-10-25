@@ -162,6 +162,34 @@ class EcranBoutique(EcranEnLigneBase):
         self.message = f"{objet['nom']} EST A TOI !  ENTREE : EQUIPER"
         self.minuteur = 4.0
 
+    def _recu_historique(self, resultat):
+        if resultat["ok"] and self.historique is not None:
+            self.historique = resultat["donnees"]["mouvements"] or [{"montant": 0, "raison": "AUCUN MOUVEMENT",
+                                                                     "le": 0}]
+
+    def _dessiner_historique(self, image):
+        from ecrans.menus import carte
+        cadre = pygame.Rect(0, 0, 720, 500)
+        cadre.center = (config.LARGEUR / 2, 380)
+        voile = pygame.Surface(image.get_size(), pygame.SRCALPHA)
+        voile.fill((5, 0, 15, 190))
+        image.blit(voile, (0, 0))
+        carte(image, cadre, config.CYAN, True, alpha=245)
+        dessiner_texte(image, f"HISTORIQUE DES {MONNAIE}", cadre.centerx, cadre.y + 36, 4, config.CYAN)
+        if not self.historique:
+            dessiner_texte(image, "CHARGEMENT...", cadre.centerx, cadre.centery, 2, GRIS, lueur=False)
+        for k, ligne in enumerate(self.historique[:12]):
+            y = cadre.y + 86 + k * 32
+            date = datetime.datetime.fromtimestamp(ligne["le"]).strftime("%d/%m") if ligne["le"] else ""
+            dessiner_texte(image, date, cadre.x + 30, y, 2, GRIS, ancrage="gauche", lueur=False)
+            dessiner_texte(image, str(ligne["raison"])[:30], cadre.x + 110, y, 2, config.BLANC,
+                           ancrage="gauche", lueur=False)
+            montant = ligne["montant"]
+            if montant:
+                dessiner_texte(image, f"{'+' if montant > 0 else ''}{montant}", cadre.right - 30, y, 2,
+                               config.VERT if montant > 0 else config.ROSE, ancrage="droite", lueur=False)
+        dessiner_texte(image, "H OU ECHAP : FERMER", cadre.centerx, cadre.bottom - 24, 2, GRIS, lueur=False)
+
     def _recu_boite(self, resultat):
         self.en_attente = False
         if not resultat["ok"]:
@@ -207,10 +235,18 @@ class EcranBoutique(EcranEnLigneBase):
             elif entrees.vient_d_appuyer("retour") and not self.en_attente:
                 self.etat = "vitrine"
             return
+        if pygame.KSCAN_H in entrees.appuis and self.etat == "vitrine":
+            self.historique = None if getattr(self, "historique", None) is not None else []
+            if self.historique == []:
+                self.app.en_ligne.appeler("GET", "/api/moi/historique", rappel=self._recu_historique)
+            return
         if entrees.vient_d_appuyer("retour"):
+            if getattr(self, "historique", None) is not None:
+                self.historique = None
+                return
             self.retour_accueil()
             return
-        if self.etat != "vitrine":
+        if self.etat != "vitrine" or getattr(self, "historique", None) is not None:
             return
         ancien = self.indice
         if entrees.vient_d_appuyer("droite"):
@@ -403,4 +439,6 @@ class EcranBoutique(EcranEnLigneBase):
             dessiner_texte(image, self.gagne["nom"], cadre.centerx, cadre.y + 200, 4, config.BLANC)
             dessiner_texte(image, "ENTREE : EQUIPER      ECHAP : PLUS TARD", cadre.centerx,
                            cadre.bottom - 30, 2, GRIS, lueur=False)
-        self.pied(image, "FLECHES : CHOISIR    ENTREE : ACHETER / EQUIPER    TAB : ONGLET")
+        if getattr(self, "historique", None) is not None:
+            self._dessiner_historique(image)
+        self.pied(image, "FLECHES : CHOISIR    ENTREE : ACHETER / EQUIPER    H : HISTORIQUE    TAB : ONGLET")

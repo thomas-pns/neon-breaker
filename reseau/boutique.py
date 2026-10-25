@@ -87,7 +87,18 @@ BANNIERES += [
     {"code": "noyau_brise", "nom": "A BRISE LE NOYAU", "rarete": "legendaire", "motif": "glitch",
      "couleurs": ((20, 0, 40), (190, 90, 255)), "icone": "boss_core", "recompense": "boss_core"},
 ]
+# Bannières de saison classée (2.1) : gagnées en fin de saison selon la division atteinte.
+BANNIERES += [
+    {"code": "saison_or", "nom": "GLADIATEUR", "rarete": "epique", "motif": "rayures",
+     "couleurs": ((90, 60, 0), (255, 210, 60)), "icone": "TROPHEE", "recompense": "saison"},
+    {"code": "saison_platine", "nom": "TITAN", "rarete": "legendaire", "motif": "aurore",
+     "couleurs": ((0, 40, 40), (90, 240, 220)), "icone": "TROPHEE", "recompense": "saison"},
+    {"code": "saison_neon", "nom": "LEGENDE NEON", "rarete": "legendaire", "motif": "spectre",
+     "couleurs": ((40, 0, 40), (255, 60, 200)), "icone": "TROPHEE", "recompense": "saison"},
+]
 BANNIERES_PAR_CODE = {b["code"]: b for b in BANNIERES}
+RECOMPENSES_JOUR = [50, 30, 20]          # top 3 du défi du jour, versé le lendemain
+RECOMPENSES_SEMAINE = [150, 100, 50]     # top 3 du défi de la semaine, versé la semaine suivante
 
 
 def bannieres_recompenses(succes):

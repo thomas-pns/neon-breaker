@@ -76,6 +76,27 @@ CREATE TABLE IF NOT EXISTS fantomes (
     donnees TEXT NOT NULL,
     PRIMARY KEY (mode, jour, joueur_id)
 );
+CREATE TABLE IF NOT EXISTS recompenses (
+    periode TEXT PRIMARY KEY,
+    valeur TEXT NOT NULL DEFAULT '',
+    verse_le REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY,
+    joueur_id INTEGER NOT NULL REFERENCES joueurs(id) ON DELETE CASCADE,
+    titre TEXT NOT NULL,
+    texte TEXT NOT NULL DEFAULT '',
+    cree_le REAL NOT NULL,
+    lu INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS mouvements (
+    id INTEGER PRIMARY KEY,
+    joueur_id INTEGER NOT NULL REFERENCES joueurs(id) ON DELETE CASCADE,
+    montant INTEGER NOT NULL,
+    raison TEXT NOT NULL,
+    le REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS mouvements_joueur ON mouvements(joueur_id, le DESC);
 CREATE TABLE IF NOT EXISTS possessions (
     joueur_id INTEGER NOT NULL REFERENCES joueurs(id) ON DELETE CASCADE,
     code TEXT NOT NULL,
@@ -141,6 +162,8 @@ class Base:
             self.connexion.execute("UPDATE joueurs SET admin = 0")
             for pseudo in config.ADMINS:
                 self.connexion.execute("UPDATE joueurs SET admin = 1 WHERE pseudo = ?", (pseudo,))
+            if "saison_max" not in colonnes:
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN saison_max INTEGER NOT NULL DEFAULT 0")
             if "classees_victoires" not in colonnes:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_victoires INTEGER NOT NULL DEFAULT 0")
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_recents TEXT NOT NULL DEFAULT ''")
@@ -250,11 +273,55 @@ class Base:
         possedes = self.possessions_de(joueur_id) | bannieres_recompenses(set(self.succes_de(joueur_id)))
         return [b["code"] for b in BANNIERES if b["code"] in possedes]
 
-    def crediter(self, joueur_id, montant):
-        """But : ajouter (ou retirer) des NEONS. Sortie : (int) nouveau solde."""
+    def crediter(self, joueur_id, montant, raison="PARTIE"):
+        """But : ajouter (ou retirer) des NEONS, noté dans l'historique. Sortie : (int) solde."""
         self.ecrire("UPDATE joueurs SET neons = MAX(0, neons + ?) WHERE id = ?",
                     (int(montant), joueur_id))
+        if montant:
+            self.noter_mouvement(joueur_id, montant, raison)
         return self.joueur_par_id(joueur_id)["neons"]
+
+    def noter_mouvement(self, joueur_id, montant, raison):
+        self.ecrire("INSERT INTO mouvements (joueur_id, montant, raison, le) VALUES (?, ?, ?, ?)",
+                    (joueur_id, int(montant), str(raison)[:40], time.time()))
+
+    def historique(self, joueur_id, limite=20):
+        """But : derniers mouvements de NEONS. Sortie : (list de dict) {montant, raison, le}."""
+        return [dict(l) for l in self.lire("SELECT montant, raison, le FROM mouvements WHERE joueur_id = ? "
+                                           "ORDER BY le DESC, id DESC LIMIT ?", (joueur_id, limite))]
+
+    def envoyer_message(self, joueur_id, titre, texte=""):
+        self.ecrire("INSERT INTO messages (joueur_id, titre, texte, cree_le) VALUES (?, ?, ?, ?)",
+                    (joueur_id, str(titre)[:40], str(texte)[:60], time.time()))
+
+    def messages_non_lus(self, joueur_id):
+        return [dict(l) for l in self.lire("SELECT id, titre, texte FROM messages WHERE joueur_id = ? "
+                                           "AND lu = 0 ORDER BY id LIMIT 10", (joueur_id,))]
+
+    def marquer_lus(self, joueur_id, ids):
+        for identifiant in list(ids)[:50]:
+            self.ecrire("UPDATE messages SET lu = 1 WHERE id = ? AND joueur_id = ?",
+                        (int(identifiant), joueur_id))
+
+    def periode_versee(self, periode):
+        return bool(self.lire("SELECT 1 FROM recompenses WHERE periode = ?", (periode,)))
+
+    def marquer_versee(self, periode, valeur=""):
+        self.ecrire("INSERT OR REPLACE INTO recompenses (periode, valeur, verse_le) VALUES (?, ?, ?)",
+                    (periode, valeur, time.time()))
+
+    def valeur_periode(self, periode):
+        lignes = self.lire("SELECT valeur FROM recompenses WHERE periode = ?", (periode,))
+        return lignes[0]["valeur"] if lignes else None
+
+    def donner(self, joueur_id, code, origine):
+        """But : offrir un objet (sans le payer). Sortie : (bool) True s'il est nouveau."""
+        with self.verrou:
+            curseur = self.connexion.execute(
+                "INSERT OR IGNORE INTO possessions (joueur_id, code, origine, obtenu_le) VALUES (?, ?, ?, ?)",
+                (joueur_id, code, origine, time.time()))
+            self.connexion.commit()
+            return curseur.rowcount == 1
 
     def acheter(self, joueur_id, code, prix, origine="achat"):
         """
@@ -277,6 +344,10 @@ class Base:
                 self.connexion.execute(
                     "INSERT INTO possessions (joueur_id, code, origine, obtenu_le) VALUES (?, ?, ?, ?)",
                     (joueur_id, code, origine, time.time()))
+                self.connexion.execute(
+                    "INSERT INTO mouvements (joueur_id, montant, raison, le) VALUES (?, ?, ?, ?)",
+                    (joueur_id, -int(prix), ("BOITE MYSTERE" if origine == "boite" else "ACHAT") + " "
+                     + code.upper()[:20], time.time()))
                 self.connexion.commit()
                 return None
             except sqlite3.Error:
@@ -315,8 +386,9 @@ class Base:
             gagne = joueur["id"] == gagnant_id
             recents = (joueur["classees_recents"] + ("V" if gagne else "D"))[-10:]
             self.ecrire("UPDATE joueurs SET elo = ?, elo_max = MAX(elo_max, ?), classees = classees + 1, "
-                        "classees_victoires = classees_victoires + ?, classees_recents = ? WHERE id = ?",
-                        (cote, cote, int(gagne), recents, joueur["id"]))
+                        "classees_victoires = classees_victoires + ?, classees_recents = ?, "
+                        "saison_max = MAX(saison_max, ?) WHERE id = ?",
+                        (cote, cote, int(gagne), recents, cote, joueur["id"]))
             resultat[joueur["id"]] = {"elo": cote, "elo_delta": cote - joueur["elo"],
                                       "classees": joueur["classees"] + 1}
         return resultat
@@ -433,7 +505,8 @@ class Base:
         if niveau > ancien_niveau:
             detail.append((f"RANG {niveau}", boutique.GAIN_RANG * (niveau - ancien_niveau)))
         gagnes = boutique.total(detail)
-        solde = self.crediter(joueur_id, gagnes) if gagnes else self.joueur_par_id(joueur_id)["neons"]
+        solde = self.crediter(joueur_id, gagnes, "PARTIE " + mode.upper()) if gagnes \
+            else self.joueur_par_id(joueur_id)["neons"]
         return {"doublon": False, "xp_gagnee": gain, "xp": xp, "niveau": niveau,
                 "neons_gagnes": gagnes, "detail_neons": detail, "neons": solde,
                 "nouveaux_succes": [catalogue.PAR_CODE[c].en_dict() for c in nouveaux]}

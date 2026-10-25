@@ -59,6 +59,7 @@ class Connexion:
         self.file = []                    # messages à envoyer, dans l'ordre (texte JSON)
         self.etat_en_attente = None       # dernier état de partie pas encore envoyé (dict)
         self.signal = asyncio.Event()
+        self.boucle = asyncio.get_running_loop()
         self.ouverte = True
         self.tache_envoi = asyncio.create_task(self._envoyer_en_continu())
 
@@ -82,7 +83,18 @@ class Connexion:
                 self.etat_en_attente = None
             self.file.append(json.dumps(message, separators=(",", ":")))
             del self.file[:-200]
-        self.signal.set()
+        self._reveiller()
+
+    def _reveiller(self):
+        """But : réveiller la tâche d'envoi, même depuis une autre boucle (tests, fils)."""
+        try:
+            meme_boucle = asyncio.get_running_loop() is self.boucle
+        except RuntimeError:
+            meme_boucle = False
+        if meme_boucle:
+            self.signal.set()
+        else:
+            self.boucle.call_soon_threadsafe(self.signal.set)
 
     async def _envoyer_en_continu(self):
         try:
@@ -270,7 +282,8 @@ class Gestionnaire:
         elif nature == "lancer" and salon is not None:
             self.lancer(connexion, salon)
         elif nature == "file":
-            self.file(connexion, bool(message.get("v", True)))
+            mode = message.get("mode") if message.get("mode") in ("duel", "course") else "duel"
+            self.file(connexion, bool(message.get("v", True)), mode)
         elif nature == "abandon" and salon is not None and salon.etat == "jeu":
             journal.info("%s abandonne la partie %s", connexion.pseudo, salon.id)
             asyncio.create_task(self.terminer(salon, abandon=connexion.pseudo))
@@ -330,8 +343,8 @@ class Gestionnaire:
 
     # --- Parties classées (2.0) -----------------------------------------------------
 
-    def file(self, connexion, entrer):
-        """But : entrer dans la file des parties classées (Duel), ou en sortir."""
+    def file(self, connexion, entrer, mode="duel"):
+        """But : entrer dans la file des parties classées (Duel ou Course), ou en sortir."""
         if not entrer:
             self.file_classee.pop(connexion.pseudo, None)
             connexion.envoyer({"t": "file", "v": False})
@@ -341,48 +354,52 @@ class Gestionnaire:
         self.quitter_salon(connexion)
         joueur = self.base.joueur_par_id(connexion.joueur_id)
         connexion.elo = joueur["elo"]
-        self.file_classee[connexion.pseudo] = (connexion.elo, time.monotonic())
+        self.file_classee[connexion.pseudo] = (connexion.elo, time.monotonic(), mode)
         self._etat_file()
         if self.tache_file is None or self.tache_file.done():
             self.tache_file = asyncio.create_task(self._boucle_file())
 
     def _etat_file(self):
         maintenant = time.monotonic()
-        for pseudo, (cote, entree) in self.file_classee.items():
+        for pseudo, (cote, entree, mode) in self.file_classee.items():
             connexion = self.connexions.get(pseudo)
             if connexion is not None:
+                meme_mode = sum(1 for e in self.file_classee.values() if e[2] == mode)
                 connexion.envoyer({"t": "file", "v": True, "attente": round(maintenant - entree),
-                                   "joueurs": len(self.file_classee), "elo": cote})
+                                   "joueurs": meme_mode, "elo": cote, "mode": mode})
 
     async def _boucle_file(self):
         """But : toutes les secondes, former des paires et prévenir ceux qui attendent."""
         from reseau.classee import apparier
         while self.file_classee:
-            for a, b in apparier(self.file_classee, time.monotonic()):
-                self.file_classee.pop(a, None)
-                self.file_classee.pop(b, None)
-                if a in self.connexions and b in self.connexions:
-                    self._demarrer_classee(a, b)
-                else:                                   # l'un est parti entre-temps
-                    for pseudo in (a, b):
-                        if pseudo in self.connexions:
-                            self.file_classee[pseudo] = (self.connexions[pseudo].elo, time.monotonic())
+            for mode in ("duel", "course"):
+                file = {p: e[:2] for p, e in self.file_classee.items() if e[2] == mode}
+                for a, b in apparier(file, time.monotonic()):
+                    self.file_classee.pop(a, None)
+                    self.file_classee.pop(b, None)
+                    if a in self.connexions and b in self.connexions:
+                        self._demarrer_classee(a, b, mode)
+                    else:                               # l'un est parti entre-temps
+                        for pseudo in (a, b):
+                            if pseudo in self.connexions:
+                                self.file_classee[pseudo] = (self.connexions[pseudo].elo,
+                                                             time.monotonic(), mode)
             self._etat_file()
             await asyncio.sleep(1)
 
-    def _demarrer_classee(self, a, b):
+    def _demarrer_classee(self, a, b, mode="duel"):
         if len(self.salons) >= config.MAX_PARTIES:
             for pseudo in (a, b):
-                self.file_classee[pseudo] = (self.connexions[pseudo].elo, time.monotonic())
+                self.file_classee[pseudo] = (self.connexions[pseudo].elo, time.monotonic(), mode)
             return
-        salon = Salon("duel", 0, a)
+        salon = Salon(mode, 0, a)
         salon.classee = True
         salon.membres.append(b)
         salon.prets = {a, b}
         self.salons[salon.id] = salon
         for pseudo in (a, b):
             self.connexions[pseudo].salon = salon
-        journal.info("Partie classée : %s contre %s", a, b)
+        journal.info("Partie classée (%s) : %s contre %s", mode, a, b)
         self._demarrer(salon)
 
     def lancer(self, connexion, salon):

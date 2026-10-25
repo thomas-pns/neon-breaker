@@ -40,6 +40,7 @@ CARTES = {
     "en_ligne": [
         ("duel_en_ligne", "DUEL", config.VIOLET, "duel_7_0", ["CONTRE UN AMI", "PREMIER A 7"]),
         ("classee", "CLASSEE", config.ROSE, "TROPHEE", ["DUEL, COTE ELO", "DIVISIONS"]),
+        ("classee_course", "CLASSEE COURSE", config.AMBRE, "TROPHEE", ["COURSE, MEME COTE", "QUE LE DUEL"]),
         ("course_en_ligne", "COURSE", config.AMBRE, "vitesse_mode", ["A QUI VIDE LE PLUS", "VITE SON MUR"]),
         ("coop_en_ligne", "COOP", config.VERT, "coop_boss", ["LA CAMPAGNE", "A DEUX"]),
         ("parties", "PARTIES", config.CYAN, "premiere_en_ligne", ["REJOINDRE UNE", "PARTIE OUVERTE"]),
@@ -135,8 +136,9 @@ class EcranJouer(EcranMenu):
             app.audio.jouer("metal")
             return
         from ecrans.en_ligne.salons import EcranSalons, EcranFileClassee
-        if code == "classee":
-            app.remplacer(EcranFileClassee(app))      # il entre dans la file dès la connexion
+        if code in ("classee", "classee_course"):
+            # il entre dans la file dès la connexion
+            app.remplacer(EcranFileClassee(app, "course" if code == "classee_course" else "duel"))
         elif code == "parties":
             app.remplacer(EcranSalons(app))
         else:
@@ -233,7 +235,7 @@ class EcranJouer(EcranMenu):
             self._detail(image, rect, code, nom, couleur, code_icone)
             return
         icone(image, code_icone, (rect.centerx, rect.y + 95), couleur, 6)
-        dessiner_texte(image, nom, rect.centerx, rect.y + 180, 3, couleur)
+        dessiner_texte(image, nom, rect.centerx, rect.y + 180, 3 if len(nom) <= 11 else 2, couleur)
         for j, ligne in enumerate(self._lignes_petite(code, lignes)):
             dessiner_texte(image, ligne, rect.centerx, rect.y + 216 + j * 26, 2, GRIS, lueur=False)
 
@@ -256,7 +258,7 @@ class EcranJouer(EcranMenu):
         dessiner_texte(image, nom, r.centerx, r.y + 38, 5 if len(nom) <= 10 else 4, couleur)
         if code == "campagne":
             self._detail_campagne(image, r, couleur)
-        elif code == "classee":
+        elif code in ("classee", "classee_course"):
             self._detail_classee(image, r, couleur)
         elif code in ("defi", "semaine"):
             self._detail_defi(image, r, code, couleur)
@@ -305,6 +307,12 @@ class EcranJouer(EcranMenu):
             return
         nom_division, couleur_division, cote = division_joueur(self.app)
         _, _, minimum, suivante = division(cote)
+        import datetime
+        from reseau.classee import jours_avant_fin, nom_saison
+        aujourd_hui = datetime.date.today()
+        jours = jours_avant_fin(aujourd_hui)
+        dessiner_texte(image, f"{nom_saison(aujourd_hui)}  -  FIN DANS {jours} J", r.centerx, r.y + 72, 2,
+                       config.AMBRE if jours <= 3 else GRIS, lueur=False)
         ecusson(image, (r.x + 100, r.y + 150), 56, couleur_division, cote, 3)
         dessiner_texte(image, nom_division, r.x + 100, r.y + 228, 3 if len(nom_division) < 8 else 2,
                        couleur_division)
