@@ -228,6 +228,7 @@ class Simulation:
             joueur.nom = pseudo
         self.signatures = {}
         self.accumulateur = 0.0
+        self.rebonds = {"acceptes": 0, "refuses": 0}   # rebonds annoncés par les joueurs
         self.preparer_raquettes()
 
     def preparer_raquettes(self):
@@ -248,6 +249,11 @@ class Simulation:
                   (position de sa raquette) et "a" (actions appuyées).
         """
         joueur = self.mode.joueurs[numero - 1]
+        if message.get("rc") and joueur.raquette is not None:
+            # Jeu récent : il annonce lui-même les rebonds sur sa raquette.
+            ping = min(400.0, max(0.0, float(message.get("p", 0) or 0)))
+            joueur.raquette.rebond_client = True
+            joueur.raquette.delai_rebond = min(0.45, 0.12 + ping / 1000)
         if joueur.raquette is not None and "x" in message:
             try:
                 x, vx = float(message["x"]), float(message.get("vx", 0))
@@ -257,6 +263,43 @@ class Simulation:
             except (TypeError, ValueError):
                 pass
         self.app.entrees.recevoir(self.profil(numero), message.get("a", []))
+
+    def recevoir_rebond(self, numero, message):
+        """
+        But : rebond sur sa raquette annoncé par un joueur. Accepté s'il est
+        plausible (balle qui arrive sur cette raquette, position et vitesse proches).
+        Entrées : numero (int) ; message (dict) : n (identifiant de la balle), x, y,
+                  vx, vy (balle juste après le rebond), rx (raquette), p (ping en ms).
+        Sortie : (bool) True si le rebond a été appliqué.
+        """
+        joueur = self.mode.joueurs[numero - 1]
+        raquette, terrain = joueur.raquette, joueur.terrain
+        if raquette is None or terrain is None or not getattr(raquette, "rebond_client", False):
+            return False
+        try:
+            n = int(message["n"])
+            x, y, vx, vy = (float(message[c]) for c in ("x", "y", "vx", "vy"))
+            rx = float(message.get("rx", raquette.x))
+            ping = min(400.0, max(0.0, float(message.get("p", 0) or 0)))
+        except (KeyError, TypeError, ValueError):
+            return False
+        balle = next((b for b in terrain.balles if getattr(b, "nid", None) == n), None)
+        if balle is None or balle.collee:
+            return False
+        arrive = balle.vy * raquette.sens < 0 or getattr(balle, "sursis", None) is not None
+        proche = abs(balle.x - x) < 240 and abs(balle.y - raquette.face_y()) < 200 \
+            and abs(y - raquette.face_y()) < 60
+        vitesse = balle.vitesse()
+        coherente = vy * raquette.sens > 0 and 0.5 * vitesse <= (vx * vx + vy * vy) ** 0.5 \
+            <= 1.6 * vitesse + 1
+        if not (arrive and proche and coherente):
+            self.rebonds["refuses"] += 1
+            return False
+        self.rebonds["acceptes"] += 1
+        raquette.x = rx
+        raquette.contraindre()
+        terrain.rebond_client(balle, raquette, x, y, vx, vy, avance=ping / 2000)
+        return True
 
     def avancer(self, dt):
         """

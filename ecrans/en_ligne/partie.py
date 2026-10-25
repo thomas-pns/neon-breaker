@@ -72,6 +72,7 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.actions = set()
         self.coupure = None
         self.menu_quitter = False
+        self.sons_a_ignorer = []         # instants des rebonds joués ici (sons du serveur en double)
 
     def joueur_local(self):
         return self.mode.joueurs[self.numero - 1]
@@ -79,9 +80,11 @@ class EcranPartieEnLigne(EcranTempsReel):
     # --- Messages du serveur -------------------------------------------------------
 
     def sur_etat(self, message):
+        proteges = self._balles_protegees()
         appliquer(self.mode, message, self.app, self.numero)
         compenser_latence(self.mode, min(0.15, self.temps_reel.ping / 2000))
-        rejouer_effets(message.get("fx", []), self.app, self.effets)
+        self._restaurer_balles(proteges)
+        rejouer_effets(self._filtrer_sons(message.get("fx", [])), self.app, self.effets)
         self.recu = True
         self.pause = message.get("pause")
         # Un niveau Coop atteint en ligne se débloque aussi pour le joueur.
@@ -125,6 +128,8 @@ class EcranPartieEnLigne(EcranTempsReel):
             self._piloter(dt)
         prolonger(self.mode, dt)
         self._recaler_balles_collees()
+        if self.recu:
+            self._rebonds_locaux()
 
     def _surveiller_connexion(self):
         """Coupure : on retente toutes les 2 s, et on abandonne après 35 s."""
@@ -168,9 +173,106 @@ class EcranPartieEnLigne(EcranTempsReel):
             self.actions.add("action")
         if 3 in entrees.clics:
             self.actions.add("overdrive")
+        # « rc » : ce jeu annonce lui-même les rebonds sur sa raquette (voir _rebonds_locaux).
         self.temps_reel.envoyer({"t": "cmd", "x": round(raquette.x, 1), "vx": round(raquette.vx),
-                                 "a": sorted(self.actions), "p": round(self.temps_reel.ping)})
+                                 "a": sorted(self.actions), "p": round(self.temps_reel.ping),
+                                 "rc": 1})
         self.actions.clear()
+
+    # --- Rebonds décidés par ce PC --------------------------------------------------------
+
+    def _delai_protection(self):
+        """But : durée pendant laquelle un rebond local prime sur le serveur (s)."""
+        return max(0.5, 2 * self.temps_reel.ping / 1000 + 0.25)
+
+    def _rebonds_locaux(self):
+        """
+        But : la balle touche MA raquette sur mon écran : elle rebondit tout de suite
+        (même calcul que le jeu solo) et le serveur est prévenu. Il s'aligne s'il juge
+        le rebond plausible. Plus de rebond en retard ni de balle qui traverse.
+        """
+        from jeu.terrain import rebond_raquette
+        joueur = self.joueur_local()
+        raquette, terrain = joueur.raquette, joueur.terrain
+        if raquette is None or terrain is None:
+            for t in self.mode.terrains:
+                for balle in t.balles:
+                    balle.y_prec = balle.y
+            return
+        sens = raquette.sens
+        for t in self.mode.terrains:
+            for balle in t.balles:
+                precedente = getattr(balle, "y_prec", balle.y)
+                balle.y_prec = balle.y
+                if t is not terrain or balle.collee or balle.vy * sens >= 0:
+                    continue
+                if raquette.etourdie > 0 or raquette.gelee > 0:
+                    continue
+                face, r = raquette.face_y(), balle.rayon
+                dos = face - sens * raquette.hauteur       # arrière de la raquette
+                # Contact (comme dans le jeu solo) : la balle touche la raquette sans
+                # être passée derrière ; ou, après un saut dû au réseau, son centre
+                # vient de franchir la face entre deux images.
+                if sens < 0:
+                    contact = balle.y + r >= face and balle.y <= dos
+                    franchie = precedente <= face and balle.y > dos
+                else:
+                    contact = balle.y - r <= face and balle.y >= dos
+                    franchie = precedente >= face and balle.y < dos
+                if not (contact or franchie) or abs(balle.x - raquette.x) > raquette.largeur / 2 + r:
+                    continue
+                balle.y = face + sens * (r + 0.5)
+                rebond_raquette(balle, raquette.obtenir_boite(), sens=sens)
+                if joueur.aimant_prises > 0:
+                    balle.collee = True              # le serveur confirmera le collage
+                balle.y_prec = balle.y
+                balle.rebond_local = self.temps
+                raquette.frappee()
+                self.app.audio.jouer("raquette")
+                self.sons_a_ignorer.append(self.temps)
+                self.temps_reel.envoyer({
+                    "t": "rebond", "n": getattr(balle, "nid", -1), "x": round(balle.x, 1),
+                    "y": round(balle.y, 1), "vx": round(balle.vx, 1), "vy": round(balle.vy, 1),
+                    "rx": round(raquette.x, 1), "p": round(self.temps_reel.ping)})
+
+    def _balles_protegees(self):
+        """But : balles qui viennent de rebondir ici : leur état local, par identifiant."""
+        limite = self.temps - self._delai_protection()
+        return {balle.nid: (balle.x, balle.y, balle.vx, balle.vy, balle.collee)
+                for terrain in self.mode.terrains for balle in terrain.balles
+                if getattr(balle, "rebond_local", -1e9) > limite and getattr(balle, "nid", None)}
+
+    def _restaurer_balles(self, proteges):
+        """
+        But : tant que le serveur n'a pas encore traité mon rebond (sa balle arrive
+        toujours sur ma raquette), garder la balle de mon écran au lieu de la faire sauter.
+        """
+        if not proteges:
+            return
+        sens = self.joueur_local().raquette.sens if self.joueur_local().raquette else -1
+        for terrain in self.mode.terrains:
+            for balle in terrain.balles:
+                local = proteges.get(getattr(balle, "nid", None))
+                if local is None:
+                    continue
+                if balle.vy * sens < 0 and not balle.collee:
+                    balle.x, balle.y, balle.vx, balle.vy, balle.collee = local
+                else:
+                    balle.rebond_local = -1e9        # le serveur a suivi : il reprend la main
+                balle.y_prec = balle.y
+
+    def _filtrer_sons(self, effets):
+        """But : ne pas rejouer le son d'un rebond déjà joué sur ce PC."""
+        self.sons_a_ignorer = [t for t in self.sons_a_ignorer if self.temps - t < 1.0]
+        if not self.sons_a_ignorer:
+            return effets
+        resultat = []
+        for effet in effets:
+            if effet[0] == "son" and effet[1] and effet[1][0] == "raquette" and self.sons_a_ignorer:
+                self.sons_a_ignorer.pop(0)
+                continue
+            resultat.append(effet)
+        return resultat
 
     def _ecarter_des_autres(self, raquette):
         """Coop : ma raquette ne traverse pas celle de mon coéquipier."""
@@ -223,9 +325,9 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.mode.dessiner_message(image)
         self.effets.dessiner_flash(image)
         ping = self.temps_reel.ping
+        couleur_ping = config.VERT if ping < 80 else config.AMBRE if ping < 150 else config.ROUGE
         dessiner_texte(image, f"PING {ping:.0f} MS", config.LARGEUR - 14, config.HAUTEUR - 12, 2,
-                       config.VERT if ping < 80 else config.AMBRE, ancrage="droite", lueur=False,
-                       ombre=False)
+                       couleur_ping, ancrage="droite", lueur=False, ombre=False)
         if self.pause:
             pseudo, reste = next(iter(self.pause.items()))
             self._bandeau(image, f"EN ATTENTE DE {pseudo.upper()}", f"RETOUR POSSIBLE : {max(0, reste):.0f} S")

@@ -213,6 +213,10 @@ class Gestionnaire:
             if salon is not None and salon.etat == "jeu" and connexion.pseudo in salon.membres:
                 numero = salon.membres.index(connexion.pseudo) + 1
                 salon.simulation.recevoir_commande(numero, message)
+        elif nature == "rebond":
+            if salon is not None and salon.etat == "jeu" and connexion.pseudo in salon.membres:
+                numero = salon.membres.index(connexion.pseudo) + 1
+                salon.simulation.recevoir_rebond(numero, message)
         elif nature == "ping":
             connexion.envoyer({"t": "pong", "c": message.get("c")})
         elif nature == "lister":
@@ -363,6 +367,8 @@ class Gestionnaire:
         if salon.etat != "jeu":
             return
         salon.etat = "fini"
+        journal.info("Partie %s terminée, rebonds annoncés : %s", salon.mode,
+                     salon.simulation.rebonds)
         resultat = salon.simulation.resultat() if abandon is None else None
         gains = {}
         if resultat is not None:

@@ -31,7 +31,7 @@ tout de suite, mais la balle et l'autre joueur arrivent avec le retard du résea
 demi-ping, plus le temps entre deux images du serveur). C'est surtout sensible quand la balle
 touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
-- [ ] **(retenu en priorité)** **Rebond décidé par le joueur qui tient la raquette** : quand la balle touche votre
+- [x] **(fait en 1.3)** **Rebond décidé par le joueur qui tient la raquette** : quand la balle touche votre
   raquette sur votre écran, votre jeu fait rebondir la balle tout de suite et prévient le
   serveur, qui s'aligne (on fait confiance entre amis). Plus aucune balle « traversée » ni de
   rebond en retard sur sa propre raquette.
@@ -40,7 +40,7 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   Les deux joueurs peuvent voir de petites différences, ce qui est acceptable.
 - [ ] Monter à **60 images par seconde** côté serveur, ou n'envoyer que ce qui change pour
   garder le même débit.
-- [ ] Afficher le **ping** dans le HUD en ligne (vert / orange / rouge) pour savoir d'où vient
+- [x] Afficher le **ping** dans le HUD en ligne (vert / orange / rouge) pour savoir d'où vient
   la gêne. Si le ping est élevé, c'est le trajet Internet jusqu'au NAS, pas le jeu.
 
 ## Version et mises à jour

@@ -396,10 +396,26 @@ class Terrain:
             if balle.collee:
                 self._suivre_raquette(balle, dt)
                 continue
+            if getattr(balle, "sursis", None) is not None:
+                # En ligne : la balle a passé une raquette dont le joueur décide
+                # lui-même des rebonds ; on attend un peu son message avant de la perdre.
+                balle.sursis -= dt
+                facteur = dt * facteur_temps * balle.facteur_vitesse()
+                balle.x += balle.vx * facteur
+                balle.y += balle.vy * facteur
+                if balle.sursis <= 0:
+                    balle.sursis = None
+                    perdues.append((balle, balle.cote_sursis))
+                continue
             self._guider(balle, dt * facteur_temps)
             cote = self._deplacer_balle(balle, dt * facteur_temps * balle.facteur_vitesse())
             if cote:
-                perdues.append((balle, cote))
+                raquette = self._raquette_rebond_client(cote)
+                if raquette is not None:
+                    balle.sursis = getattr(raquette, "delai_rebond", 0.25)
+                    balle.cote_sursis = cote
+                else:
+                    perdues.append((balle, cote))
         for balle, cote in perdues:
             self.balles.supprimer(balle)
             self.evenements.enfiler(("balle_perdue", balle, cote))
@@ -547,6 +563,46 @@ class Terrain:
             else:
                 self.evenements.enfiler(("mur", balle))
 
+    def _raquette_rebond_client(self, cote):
+        """
+        But : raquette (pilotée en ligne) dont le joueur annonce lui-même les rebonds,
+        du côté où la balle vient de sortir. Sortie : (Raquette ou None).
+        """
+        sens = -1 if cote == "bas" else 1
+        for raquette in self.raquettes:
+            if raquette.sens == sens and getattr(raquette, "rebond_client", False):
+                return raquette
+        return None
+
+    def rebond_client(self, balle, raquette, x, y, vx, vy, avance=0.0):
+        """
+        But : appliquer un rebond annoncé par le joueur qui tient la raquette (jeu en
+        ligne : son écran fait foi pour sa propre raquette, ce qui supprime le retard).
+        Entrées : balle, raquette ; x, y, vx, vy (float) : balle juste après le rebond,
+                  vue par le joueur ; avance (float) : temps écoulé depuis (s).
+        Sortie : aucune.
+        """
+        balle.sursis = None
+        joueur = raquette.joueur
+        raquette.frappee()
+        balle.proprietaire = joueur or balle.proprietaire
+        self.evenements.enfiler(("raquette", balle, raquette))
+        if joueur is not None and joueur.aimant_prises > 0:
+            joueur.aimant_prises -= 1
+            decalage = max(-1.0, min(1.0, (x - raquette.x) / max(1.0, raquette.largeur / 2)))
+            balle.x = x
+            balle.y = raquette.face_y() + raquette.sens * (balle.rayon + 0.5)
+            balle.collee = True
+            balle.raquette_collage = raquette
+            balle.decalage_collage = decalage * raquette.largeur / 2
+            balle.temps_collage = DUREE_AIMANT
+            return
+        balle.x, balle.y, balle.vx, balle.vy = x, y, vx, vy
+        avance = max(0.0, min(0.2, avance)) * balle.facteur_vitesse()
+        balle.x += vx * avance
+        balle.y += vy * avance
+        self._collision_murs(balle)
+
     def _collision_raquettes(self, balle):
         """
         But : rebond sur la raquette que la balle rejoint.
@@ -555,6 +611,8 @@ class Terrain:
         for raquette in self.raquettes:
             if balle.vy * raquette.sens >= 0:        # elle s'éloigne de cette raquette
                 continue
+            if getattr(raquette, "rebond_client", False):
+                continue                             # c'est son joueur qui décide
             boite = raquette.obtenir_boite()
             if not disque_touche_boite(balle.x, balle.y, balle.rayon, boite):
                 continue
