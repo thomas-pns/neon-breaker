@@ -27,6 +27,7 @@ COULEURS_CATEGORIES = {"debuts": config.CYAN, "campagne": config.ROSE, "habilete
                        "endurance": config.BLEU, "secret": (200, 200, 255),
                        "defi": config.ROUGE}
 COLONNES_SUCCES = 7
+LIGNES_SUCCES = 5
 
 
 def couper_en_lignes(texte, largeur_max_caracteres, max_lignes=2):
@@ -226,7 +227,7 @@ class EcranProfil(EcranEnLigneBase):
                 self.app.audio.jouer("menu_ok")
             return
         ancien = self.choix
-        total = min(COLONNES_SUCCES * 4, len(self.profil["succes"])) if self.profil else 1
+        total = min(COLONNES_SUCCES * LIGNES_SUCCES, len(self.profil["succes"])) if self.profil else 1
         total = max(1, total)
         if entrees.vient_d_appuyer("droite"):
             self.choix = (self.choix + 1) % total
@@ -286,10 +287,15 @@ class EcranProfil(EcranEnLigneBase):
                   ("MEILLEUR COMBO", stats["meilleur_combo"]),
                   ("SUPERNOVAS", stats["supernovas"]),
                   ("BOSS VAINCUS", sum(boss.values())),
-                  ("DUELS GAGNES", victoires.get("duel", 0)),
-                  ("COURSES GAGNEES", victoires.get("course", 0))]
+                  ("DUELS / COURSES", f"{victoires.get('duel', 0)} / {victoires.get('course', 0)}")]
+        series = p.get("series")
+        if series:
+            jour, semaine = series.get("jour", {}), series.get("semaine", {})
+            lignes.append(("SERIE DEFI", f"{jour.get('en_cours', 0)} J  MAX {jour.get('record', 0)}"))
+            lignes.append(("SERIE SEMAINE",
+                           f"{semaine.get('en_cours', 0)} S  MAX {semaine.get('record', 0)}"))
         for i, (libelle, valeur) in enumerate(lignes):
-            y = bloc.y + 30 + i * 32
+            y = bloc.y + 26 + i * 29
             dessiner_texte(image, libelle, bloc.x + 24, y, 2, GRIS, ancrage="gauche", lueur=False)
             dessiner_texte(image, str(valeur), bloc.right - 24, y, 2, config.BLANC,
                            ancrage="droite", lueur=False)
@@ -313,10 +319,10 @@ class EcranProfil(EcranEnLigneBase):
                        2, config.OR, lueur=False)
         largeur = (cadre.w - 40) // COLONNES_SUCCES
         self.zones_succes = []
-        for i, entree in enumerate(succes[:COLONNES_SUCCES * 4]):
+        for i, entree in enumerate(succes[:COLONNES_SUCCES * LIGNES_SUCCES]):
             ligne, colonne = divmod(i, COLONNES_SUCCES)
-            rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 48 + ligne * 82,
-                               largeur - 8, 72)
+            rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 46 + ligne * 70,
+                               largeur - 8, 64)
             self.zones_succes.append(rect.copy())
             obtenu = bool(entree["obtenu_le"])
             couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN)
@@ -331,7 +337,7 @@ class EcranProfil(EcranEnLigneBase):
             from moteur.icones import dessiner_icone, TROPHEE
             secret_cache = entree.get("secret") and not obtenu
             if secret_cache or not dessiner_icone(
-                    image, entree["code"], (rect.centerx, rect.y + 20),
+                    image, entree["code"], (rect.centerx, rect.y + 17),
                     couleur if obtenu else (95, 75, 130), 2, lueur=obtenu, defaut=TROPHEE):
                 dessiner_texte(image, "?", rect.centerx, rect.y + 18, 3, couleur, lueur=False)
             nom = entree["nom"].upper()
@@ -341,7 +347,7 @@ class EcranProfil(EcranEnLigneBase):
                 lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 6))
             lignes = [l for l in lignes if l]
             pas = 9 * echelle
-            haut = rect.y + 52 - pas * (len(lignes) - 1) / 2
+            haut = rect.y + 45 - pas * (len(lignes) - 1) / 2
             for n, ligne_texte in enumerate(lignes):
                 dessiner_texte(image, ligne_texte, rect.centerx, haut + n * pas,
                                echelle, config.BLANC if obtenu else (110, 90, 140),

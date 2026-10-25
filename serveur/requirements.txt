@@ -3,3 +3,4 @@ fastapi==0.157.0
 uvicorn[standard]==0.54.0
 websockets==17.3
 pygame-ce==2.5.8
+tzdata

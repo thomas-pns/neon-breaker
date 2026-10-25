@@ -25,7 +25,7 @@ COULEURS_PROFIL = {"cyan": config.CYAN, "rose": config.ROSE, "ambre": config.AMB
                    "violet": config.VIOLET, "vert": config.VERT, "bleu": config.BLEU}
 NOMS_MODES = {"campagne": "CAMPAGNE", "arcade": "ARCADE", "hardcore": "HARDCORE",
               "coop": "COOP", "duel": "DUEL", "course": "COURSE",
-              "defi": "DEFI"}
+              "defi": "DEFI", "semaine": "SEMAINE", "series": "SERIES"}
 GRIS = (170, 140, 220)
 CARACTERES_PSEUDO = ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
                      "0123456789-_")

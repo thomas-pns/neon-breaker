@@ -54,7 +54,7 @@ def lancer(app):
         ("profil", lambda: EcranProfil(app, "personne")),
         ("classements", lambda: EcranClassementsMondiaux(app)),
     ] + [(code, lambda c=code: EcranPartie(app, fabrique_mode(c)))
-         for code in ("campagne", "arcade", "hardcore", "coop", "duel", "course", "defi")] + [
+         for code in ("campagne", "arcade", "hardcore", "coop", "duel", "course", "defi", "semaine")] + [
         ("boss", lambda: EcranPartie(app, fabrique_mode("campagne", 11))),
     ]
     app.charger()

@@ -110,16 +110,16 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
 ## Défi du jour
 
-- [ ] **Séries (streaks)** : nombre de jours d'affilée où l'on a joué le défi.
+- [x] **Séries (streaks)** : nombre de jours d'affilée où l'on a joué le défi.
   - Profil : série en cours, record de série, historique (calendrier).
   - Classement mondial : onglet « SERIES ».
   - Succès de série : 3, 7 et 30 jours.
 
 ## Défi de la semaine, monnaie et boutique
 
-- [ ] **Défi de la semaine** (du lundi au dimanche), en plus du défi du jour : un mur plus long et
+- [x] **Défi de la semaine** (du lundi au dimanche), en plus du défi du jour : un mur plus long et
   deux règles spéciales combinées, avec son propre classement.
-- [ ] **Séries hebdomadaires** : nombre de semaines d'affilée où l'on a joué le défi de la
+- [x] **Séries hebdomadaires** : nombre de semaines d'affilée où l'on a joué le défi de la
   semaine (série en cours et record sur le profil, succès à 4 et 12 semaines).
 - [ ] **Monnaie du jeu**, les **NEONS** (nom à confirmer : NEONS, CREDITS, PIXELS…) :
   - top 3 de la semaine : 150 / 100 / 50 NEONS, versés par le serveur à la fin de la semaine ;

@@ -19,6 +19,8 @@ ToDo List:
     Succès à paliers (bronze, argent, or).
 """
 
+from reseau.series import record  # noqa: E402  (partagé avec le jeu)
+
 # Codes de toutes les capsules et de tous les pouvoirs du jeu.
 TOUTES_CAPSULES = {"elargir", "multi", "feu", "ralenti", "aimant", "filet", "vie",
                    "retrecir", "vitesse", "inversion", "brouillard", "glace", "fantome",
@@ -117,6 +119,18 @@ SUCCES = [
            lambda r, c: len(c.get("jours_defi", [])) >= 7),
     Succes("defi_vague_20", "MUR DU JOUR", "Atteindre la vague 20 dans un defi", "defi",
            lambda r, c: r.get("mode") == "defi" and r.get("vagues", 0) >= 20),
+    Succes("serie_3", "EN RYTHME", "Jouer le defi 3 jours de suite", "defi",
+           lambda r, c: record(c.get("jours_defi", [])) >= 3),
+    Succes("serie_7", "SEMAINE PARFAITE", "Jouer le defi 7 jours de suite", "defi",
+           lambda r, c: record(c.get("jours_defi", [])) >= 7),
+    Succes("serie_30", "INFATIGABLE", "Jouer le defi 30 jours de suite", "defi",
+           lambda r, c: record(c.get("jours_defi", [])) >= 30),
+    Succes("semaine_1", "HEBDO", "Jouer un defi de la semaine", "defi",
+           lambda r, c: r.get("mode") == "semaine"),
+    Succes("semaine_4", "UN MOIS DE DEFIS", "Defi de la semaine 4 semaines de suite", "defi",
+           lambda r, c: record(c.get("semaines_defi", []), semaines=True) >= 4),
+    Succes("semaine_12", "SAISON COMPLETE", "Defi de la semaine 12 semaines de suite", "defi",
+           lambda r, c: record(c.get("semaines_defi", []), semaines=True) >= 12),
     Succes("secret_malus", "MASOCHISTE", "Finir un niveau en ayant attrape 5 malus",
            "secret", lambda r, c: bool(_stat(r, "niveau_5_malus")), secret=True),
 ]
@@ -145,6 +159,9 @@ def mettre_a_jour_cumul(cumul, rapport):
         victoires[mode] = victoires.get(mode, 0) + 1
     if mode == "defi" and rapport.get("jour"):
         cumul["jours_defi"] = sorted(set(cumul.get("jours_defi", [])) | {str(rapport["jour"])[:10]})
+    if mode == "semaine" and rapport.get("jour"):
+        cumul["semaines_defi"] = sorted(set(cumul.get("semaines_defi", []))
+                                        | {str(rapport["jour"])[:8]})
     boss = cumul.setdefault("boss_vaincus", {})
     for nom in stats.get("boss_vaincus", []):
         boss[nom] = boss.get(nom, 0) + 1

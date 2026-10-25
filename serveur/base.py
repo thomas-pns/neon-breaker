@@ -200,7 +200,8 @@ class Base:
         score = max(0, min(int(rapport.get("score_equipe", rapport.get("score", 0))), 10 ** 9))
         victoire = bool(rapport.get("victoire")) or rapport.get("gagnant") == rapport.get("numero")
         uid = rapport.get("uid")
-        jour = str(rapport.get("jour"))[:10] if mode == "defi" and rapport.get("jour") else None
+        jour = str(rapport.get("jour"))[:10] if mode in ("defi", "semaine") and rapport.get("jour") \
+            else None
         try:
             self.ecrire("INSERT INTO parties (uid, joueur_id, mode, score, victoire, en_ligne, "
                         "duree, details, joue_le, jour) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -248,15 +249,50 @@ class Base:
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
                  "niveau": catalogue.niveau_pour(l["xp"])} for l in lignes]
 
-    def classement_defi(self, jour, limite=20):
-        """But : meilleur score de chaque joueur au défi d'un jour donné."""
+    def classement_defi(self, jour, limite=20, mode="defi"):
+        """But : meilleur score de chaque joueur au défi d'un jour (ou d'une semaine)."""
         lignes = self.lire(
             "SELECT j.pseudo, j.couleur, j.xp, MAX(p.score) AS valeur, COUNT(*) AS essais "
             "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
-            "WHERE p.mode = 'defi' AND p.jour = ? AND j.banni = 0 GROUP BY p.joueur_id "
-            "ORDER BY valeur DESC LIMIT ?", (jour, limite))
+            "WHERE p.mode = ? AND p.jour = ? AND j.banni = 0 GROUP BY p.joueur_id "
+            "ORDER BY valeur DESC LIMIT ?", (mode, jour, limite))
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
                  "niveau": catalogue.niveau_pour(l["xp"]), "essais": l["essais"]} for l in lignes]
+
+    def jours_joues(self, joueur_id, mode="defi"):
+        """But : jours (ou semaines) où le joueur a fait ce défi."""
+        return [l["jour"] for l in self.lire(
+            "SELECT DISTINCT jour FROM parties WHERE joueur_id = ? AND mode = ? AND jour IS NOT NULL",
+            (joueur_id, mode))]
+
+    def series_de(self, joueur_id, aujourd_hui):
+        """But : séries du défi du jour et du défi de la semaine d'un joueur."""
+        from reseau.series import resume
+        return {"jour": resume(self.jours_joues(joueur_id, "defi"), aujourd_hui),
+                "semaine": resume(self.jours_joues(joueur_id, "semaine"), aujourd_hui,
+                                  semaines=True)}
+
+    def classement_series(self, aujourd_hui, limite=20):
+        """
+        But : séries du défi du jour de tous les joueurs, de la plus longue en cours
+        à la plus courte (le record départage).
+        Sortie : (list de dict) {"pseudo", "couleur", "niveau", "valeur", "record"}.
+        """
+        from reseau.series import resume
+        par_joueur = {}
+        for l in self.lire("SELECT p.joueur_id, p.jour FROM parties p JOIN joueurs j "
+                           "ON j.id = p.joueur_id WHERE p.mode = 'defi' AND p.jour IS NOT NULL "
+                           "AND j.banni = 0"):
+            par_joueur.setdefault(l["joueur_id"], set()).add(l["jour"])
+        lignes = []
+        for joueur_id, jours in par_joueur.items():
+            joueur = self.joueur_par_id(joueur_id)
+            serie = resume(jours, aujourd_hui)
+            lignes.append({"pseudo": joueur["pseudo"], "couleur": joueur["couleur"],
+                           "niveau": catalogue.niveau_pour(joueur["xp"]),
+                           "valeur": serie["en_cours"], "record": serie["record"]})
+        lignes.sort(key=lambda l: (-l["valeur"], -l["record"], l["pseudo"].lower()))
+        return lignes[:limite]
 
     def liste_joueurs(self):
         """But : tous les joueurs (non bannis), du plus haut niveau au plus bas."""

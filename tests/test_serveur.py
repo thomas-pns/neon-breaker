@@ -109,7 +109,7 @@ class TestServeur(unittest.TestCase):
         self.assertIn("Lea", [j["pseudo"] for j in self.client.get("/api/joueurs").json()["joueurs"]])
 
     def test_catalogue_succes(self):
-        self.assertEqual(len(SUCCES), 28)
+        self.assertEqual(len(SUCCES), 34)
         cumul = mettre_a_jour_cumul({}, {"mode": "duel", "numero": 1, "gagnant": 1,
                                          "points": [7, 0], "stats": {"briques": 3}})
         codes = evaluer({"mode": "duel", "numero": 1, "gagnant": 1, "points": [7, 0],
@@ -198,6 +198,29 @@ class TestServeur(unittest.TestCase):
         self.assertEqual(ligne["valeur"], 1500)          # meilleur score du jour seulement
         self.assertEqual(ligne["essais"], 2)
         self.assertEqual(self.client.get("/api/defi/n-importe").status_code, 400)
+
+    def test_series_et_semaine(self):
+        jeton = self.inscrire("Regulier")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        aujourd_hui = api.aujourd_hui()
+        import datetime
+        from reseau.series import id_semaine
+        jours = [(aujourd_hui - datetime.timedelta(days=k)).isoformat() for k in range(3)]
+        rapports = [{"uid": f"s{k}", "mode": "defi", "score": 10, "jour": j}
+                    for k, j in enumerate(jours)]
+        rapports.append({"uid": "w1", "mode": "semaine", "score": 77, "jour": id_semaine(aujourd_hui)})
+        reponse = self.client.post("/api/parties", json={"rapports": rapports}, headers=entete)
+        codes = {s["code"] for r in reponse.json()["resultats"] for s in r["nouveaux_succes"]}
+        self.assertIn("serie_3", codes)
+        self.assertIn("semaine_1", codes)
+        profil = self.client.get("/api/joueurs/Regulier").json()
+        self.assertEqual(profil["series"]["jour"], {"en_cours": 3, "record": 3})
+        self.assertEqual(profil["series"]["semaine"]["en_cours"], 1)
+        lignes = self.client.get("/api/series").json()["lignes"]
+        self.assertEqual(next(l for l in lignes if l["pseudo"] == "Regulier")["valeur"], 3)
+        semaine = self.client.get(f"/api/semaine/{id_semaine(aujourd_hui)}").json()
+        self.assertEqual(next(l for l in semaine["lignes"] if l["pseudo"] == "Regulier")["valeur"], 77)
+        self.assertEqual(self.client.get("/api/semaine/2026-43").status_code, 400)
 
     def test_skins(self):
         jeton = self.inscrire("Habille")

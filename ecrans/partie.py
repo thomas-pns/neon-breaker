@@ -77,7 +77,7 @@ class EcranPartie(EcranBase):
         from ecrans.fin import EcranFin
         from ecrans.saisie import EcranSaisieNom
         app = self.app
-        if self.mode.code in ("campagne", "arcade", "hardcore", "defi") and resultat.get("rapports"):
+        if self.mode.code in ("campagne", "arcade", "hardcore", "defi", "semaine") and resultat.get("rapports"):
             app.en_ligne.ajouter_rapports(resultat["rapports"])
         if self.mode.classement and app.entre_dans_classement(resultat["mode"], resultat["score"]):
             app.remplacer(EcranSaisieNom(app, resultat, self.fabrique))

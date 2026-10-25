@@ -35,7 +35,17 @@ from serveur.salons import Gestionnaire
 from serveur.succes import SUCCES, niveau_pour
 
 PLATEFORMES = {"windows": "exe", "mac_arm": "zip", "mac_intel": "zip"}
-MODES_SOLO = ("campagne", "arcade", "hardcore", "defi")
+MODES_SOLO = ("campagne", "arcade", "hardcore", "defi", "semaine")
+
+
+def aujourd_hui():
+    """But : date du jour à Paris (heure des joueurs), ou UTC si le fuseau manque."""
+    import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.datetime.now(ZoneInfo("Europe/Paris")).date()
+    except Exception:                   # pas de base de fuseaux horaires
+        return datetime.datetime.utcnow().date()
 MORCEAUX_ATTENDUS = {}          # fichier partiel -> numéro du prochain morceau
 
 app = FastAPI(title="NEON BREAKER", docs_url=None, redoc_url=None)
@@ -187,6 +197,22 @@ def defi(jour: str):
     return {"mode": "defi", "type": "score", "jour": jour, "lignes": base.classement_defi(jour)}
 
 
+@app.get("/api/semaine/{semaine}")
+def defi_semaine(semaine: str):
+    """Classement du défi d'une semaine (AAAA-Www)."""
+    from reseau.series import lundi_de
+    if lundi_de(semaine) is None:
+        raise HTTPException(400, "Semaine invalide")
+    return {"mode": "semaine", "type": "score", "jour": semaine,
+            "lignes": base.classement_defi(semaine, mode="semaine")}
+
+
+@app.get("/api/series")
+def series():
+    """Séries en cours du défi du jour (jours d'affilée), record en second critère."""
+    return {"mode": "series", "type": "series", "lignes": base.classement_series(aujourd_hui())}
+
+
 @app.get("/api/joueurs")
 def joueurs():
     en_ligne = set(gestionnaire.connexions)
@@ -199,6 +225,8 @@ def profil(pseudo: str):
     if donnees is None:
         raise HTTPException(404, "Joueur introuvable")
     donnees["en_ligne"] = donnees["pseudo"] in gestionnaire.connexions
+    joueur = base.joueur_par_pseudo(pseudo)
+    donnees["series"] = base.series_de(joueur["id"], aujourd_hui())
     return donnees
 
 

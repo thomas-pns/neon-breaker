@@ -19,7 +19,8 @@ from moteur.police_pixel import dessiner_texte
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, NOMS_MODES, GRIS
 
-ONGLETS = ["defi", "campagne", "arcade", "hardcore", "coop", "duel", "course"]
+ONGLETS = ["defi", "semaine", "series", "campagne", "arcade", "hardcore", "coop", "duel",
+           "course"]
 COULEURS_RANGS = [config.AMBRE, (220, 220, 240), (230, 140, 80)]
 
 
@@ -44,6 +45,11 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
             if mode == "defi":
                 from jeu.modes.defi import jour_du_defi
                 chemin = f"/api/defi/{jour_du_defi()}"
+            elif mode == "semaine":
+                from jeu.modes.defi import semaine_du_defi
+                chemin = f"/api/semaine/{semaine_du_defi()}"
+            elif mode == "series":
+                chemin = "/api/series"
             else:
                 chemin = f"/api/classements/{mode}"
             self.app.en_ligne.appeler("GET", chemin,
@@ -77,8 +83,8 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
     def dessiner(self, image):
         self.dessiner_fond(image)
         for i, mode in enumerate(ONGLETS):
-            rect = pygame.Rect(0, 0, 166, 40)
-            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 174), 116)
+            rect = pygame.Rect(0, 0, 130, 40)
+            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 138), 116)
             choisi = i == self.onglet
             pygame.draw.rect(image, config.CYAN if choisi else (60, 30, 90), rect,
                              0 if choisi else 2, border_radius=8)
@@ -93,11 +99,18 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
             dessiner_texte(image, self.erreur or "CHARGEMENT...", cadre.centerx, cadre.centery, 3,
                            config.ROUGE if self.erreur else config.CYAN, lueur=False)
             return
-        unite = "VICTOIRES" if donnees["type"] == "victoires" else "SCORE"
+        unite = {"victoires": "VICTOIRES", "series": "JOURS D'AFFILEE"}.get(donnees["type"], "SCORE")
         if mode == "defi":
             jour = "/".join(reversed(donnees.get("jour", "--").split("-")[1:]))
             dessiner_texte(image, f"DEFI DU {jour}", cadre.x + 40, cadre.y + 24, 2, config.AMBRE,
                            ancrage="gauche", lueur=False)
+        elif mode == "semaine":
+            semaine = donnees.get("jour", "-W--").split("-W")[-1]
+            dessiner_texte(image, f"DEFI DE LA SEMAINE {semaine}", cadre.x + 40, cadre.y + 24, 2,
+                           config.ROSE, ancrage="gauche", lueur=False)
+        elif mode == "series":
+            dessiner_texte(image, "SERIES DU DEFI DU JOUR", cadre.x + 40, cadre.y + 24, 2,
+                           config.AMBRE, ancrage="gauche", lueur=False)
         dessiner_texte(image, unite, cadre.right - 40, cadre.y + 24, 2, GRIS, ancrage="droite",
                        lueur=False)
         if not donnees["lignes"]:
@@ -117,7 +130,14 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
                            ancrage="gauche", lueur=i == 0)
             dessiner_texte(image, f"RANG {ligne['niveau']}", cadre.x + 470, y, 2, GRIS,
                            ancrage="gauche", lueur=False)
-            valeur = ligne["valeur"] if unite == "VICTOIRES" else f"{ligne['valeur']:07d}"
+            if donnees["type"] == "series":
+                valeur = f"{ligne['valeur']} J"
+                dessiner_texte(image, f"MAX {ligne.get('record', 0)}", cadre.x + 580, y, 2, GRIS,
+                               ancrage="gauche", lueur=False)
+            elif unite == "VICTOIRES":
+                valeur = ligne["valeur"]
+            else:
+                valeur = f"{ligne['valeur']:07d}"
             dessiner_texte(image, str(valeur), cadre.right - 40, y, 3, teinte, ancrage="droite",
                            lueur=i == 0)
         self.pied(image, "← → : MODE    ECHAP : RETOUR")

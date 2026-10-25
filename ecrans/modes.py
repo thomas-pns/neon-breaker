@@ -64,6 +64,9 @@ def fabrique_mode(code, indice=0):
         if code == "defi":
             from jeu.modes.defi import ModeDefi
             return ModeDefi(app, effets)
+        if code == "semaine":
+            from jeu.modes.defi import ModeDefiSemaine
+            return ModeDefiSemaine(app, effets)
         if code == "duel":
             return ModeDuel(app, effets)
         return ModeCourse(app, effets)
@@ -85,14 +88,15 @@ class EcranModes(EcranBase):
         super().mettre_a_jour(dt)
         entrees = self.app.entrees
         ancien = self.indice
+        # 0-5 : cartes ; 6 : défi du jour ; 7 : défi de la semaine.
         if entrees.vient_d_appuyer("gauche"):
-            self.indice = (self.indice - 1) % 7
+            self.indice = (self.indice - 1) % 8
         if entrees.vient_d_appuyer("droite"):
-            self.indice = (self.indice + 1) % 7
+            self.indice = (self.indice + 1) % 8
         if entrees.vient_d_appuyer("bas"):
-            self.indice = 6 if 3 <= self.indice < 6 else (self.indice + 3 if self.indice < 3 else 1)
+            self.indice = {0: 3, 1: 4, 2: 5, 3: 6, 4: 6, 5: 7, 6: 0, 7: 2}[self.indice]
         if entrees.vient_d_appuyer("haut"):
-            self.indice = 4 if self.indice == 6 else (self.indice - 3 if self.indice >= 3 else 6)
+            self.indice = {0: 6, 1: 6, 2: 7, 3: 0, 4: 1, 5: 2, 6: 3, 7: 5}[self.indice]
         if entrees.souris_bougee:
             for i, zone in enumerate(self.zones):
                 if zone.collidepoint(entrees.souris):
@@ -102,7 +106,8 @@ class EcranModes(EcranBase):
         clic = 1 in entrees.clics and any(z.collidepoint(entrees.souris) for z in self.zones)
         if entrees.vient_d_appuyer("valider") or clic:
             self.app.audio.jouer("menu_ok")
-            self.choisir(CARTES[self.indice][0] if self.indice < 6 else "defi")
+            self.choisir(CARTES[self.indice][0] if self.indice < 6
+                         else ("defi", "semaine")[self.indice - 6])
         elif entrees.vient_d_appuyer("retour"):
             from ecrans.titre import EcranTitre
             self.app.remplacer(EcranTitre(self.app))
@@ -134,7 +139,8 @@ class EcranModes(EcranBase):
                                (170, 140, 220), lueur=False)
             choisie = i == self.indice
             self.dessiner_carte(image, cx, cy, code, titre, couleur, lignes, choisie)
-        self.dessiner_defi(image, self.indice == 6)
+        self.dessiner_defi(image, "defi", self.indice == 6)
+        self.dessiner_defi(image, "semaine", self.indice == 7)
         dessiner_texte(image, "FLECHES : CHOISIR    ENTREE : JOUER    ECHAP : RETOUR",
                        config.LARGEUR / 2, config.HAUTEUR - 26, 2, (150, 120, 200), lueur=False)
 
@@ -163,15 +169,27 @@ class EcranModes(EcranBase):
             dessiner_texte(image, f"RECORD {record}", rect.centerx, rect.bottom - 16, 2,
                            config.AMBRE, lueur=False)
 
-    def dessiner_defi(self, image, choisi):
-        """But : bandeau du défi du jour (date, règle du jour, record du jour)."""
-        from jeu.modes.defi import jour_du_defi, defi_pour, record_du_jour
-        jour = jour_du_defi()
-        _, modificateur = defi_pour(jour)
-        couleur = config.AMBRE
+    def dessiner_defi(self, image, code, choisi):
+        """
+        But : bandeau d'un défi : titre (date ou semaine), règle(s) du jour, série et
+        record de ce PC. Entrées : image ; code ("defi" ou "semaine") ; choisi (bool).
+        """
+        from jeu.modes import defi as d
+        if code == "defi":
+            jour = d.jour_du_defi()
+            modificateurs = [d.defi_pour(jour)[1]]
+            titre = "DEFI DU " + "/".join(reversed(jour.split("-")[1:]))
+            couleur, periode, unite = config.AMBRE, "jour", "J"
+        else:
+            jour = d.semaine_du_defi()
+            modificateurs = d.defi_semaine_pour(jour)[1]
+            titre = "SEMAINE " + jour.split("-W")[-1]
+            couleur, periode, unite = config.ROSE, "semaine", "S"
+        largeur = (LARGEUR_CARTE * 3 + 60) // 2 - 10
         echelle = 1.03 + 0.01 * math.sin(self.temps * 6) if choisi else 1.0
-        rect = pygame.Rect(0, 0, int((LARGEUR_CARTE * 3 + 60) * echelle), int(70 * echelle))
-        rect.center = (config.LARGEUR // 2, 622)
+        rect = pygame.Rect(0, 0, int(largeur * echelle), int(70 * echelle))
+        decalage = largeur // 2 + 10
+        rect.center = (config.LARGEUR // 2 + (-decalage if code == "defi" else decalage), 622)
         self.zones.append(rect)
         fond = pygame.Surface(rect.size, pygame.SRCALPHA)
         fond.fill((*melanger((12, 0, 30), couleur, 0.14 if choisi else 0.05), 225))
@@ -181,18 +199,20 @@ class EcranModes(EcranBase):
             image.blit(lueur, (rect.x - 24, rect.y - 24), special_flags=pygame.BLEND_RGB_ADD)
         pygame.draw.rect(image, couleur if choisi else attenuer(couleur, 0.5), rect,
                          3 if choisi else 2, border_radius=10)
-        date = "/".join(reversed(jour.split("-")[1:]))
-        dessiner_texte(image, f"DEFI DU {date}", rect.x + 30, rect.centery, 4,
-                       couleur if choisi else attenuer(couleur, 0.7), ancrage="gauche",
+        dessiner_texte(image, titre, rect.x + 20, rect.centery - 14, 3,
+                       couleur if choisi else attenuer(couleur, 0.75), ancrage="gauche",
                        lueur=choisi)
-        dessiner_texte(image, modificateur[1], rect.centerx + 70, rect.centery - 12, 2,
-                       config.BLANC if choisi else (150, 130, 190), lueur=False)
-        dessiner_texte(image, modificateur[2], rect.centerx + 70, rect.centery + 12, 2,
-                       (170, 140, 220), lueur=False)
-        record = record_du_jour(self.app, jour)
-        texte = f"RECORD {record}" if record else "PAS ENCORE JOUE"
-        dessiner_texte(image, texte, rect.right - 30, rect.centery, 2, config.AMBRE,
-                       ancrage="droite", lueur=False)
+        regles = " + ".join(m[1] for m in modificateurs)
+        dessiner_texte(image, regles, rect.x + 20, rect.centery + 16, 2,
+                       config.BLANC if choisi else (150, 130, 190), ancrage="gauche", lueur=False)
+        record = d.record_du_jour(self.app, jour, code)
+        serie = d.serie_locale(self.app, periode)
+        infos = (f"SERIE {serie} {unite}  " if serie else "") + \
+            (f"RECORD {record}" if record else "A JOUER !")
+        # Sur la ligne du bas s'il y a la place à côté des règles, sinon sur celle du titre.
+        en_bas = (len(regles) + len(infos)) * 12 + 70 <= rect.w
+        dessiner_texte(image, infos, rect.right - 18, rect.centery + (16 if en_bas else -14), 2,
+                       couleur, ancrage="droite", lueur=False)
 
     def dessiner_icone(self, image, code, cx, cy, couleur):
         """But : petit pictogramme du mode (raquettes, briques, balle)."""
