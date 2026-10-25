@@ -62,7 +62,9 @@ class EcranCasier(EcranMenu):
             actif = en_ligne.banniere_active() if en_ligne.jeton else ""
             liste = [("", "AUCUNE", True, actif == "", "")]
             return liste + [(b["code"], b["nom"], b["code"] in possedes, b["code"] == actif,
-                             NOMS_RARETES[b["rarete"]]) for b in BANNIERES]
+                             ("BATTRE LE BOSS " + b["recompense"].split("_")[1].upper())
+                             if b.get("recompense") else NOMS_RARETES[b["rarete"]])
+                            for b in BANNIERES]
         return [(c, c.upper(), True, c == en_ligne.couleur, "") for c in COULEURS]
 
     def _apercu(self, code):
@@ -231,10 +233,12 @@ class EcranCasier(EcranMenu):
             from ecrans.en_ligne.commun import couleur_profil
             pygame.draw.circle(image, couleur_profil(code), (r.centerx, r.y + 46), 24)
             pygame.draw.circle(image, config.BLANC, (r.centerx, r.y + 46), 24, 2)
-        dessiner_texte(image, nom[:14], r.centerx, r.y + 88, 2, couleur_nom)
+        dessiner_texte(image, nom[:16], r.centerx, r.y + 88, 2 if len(nom) <= 14 else 1, couleur_nom)
         if equipe:
             dessiner_texte(image, "EQUIPE", r.centerx, r.y + 114, 2, config.VERT, lueur=False)
         elif not possede:
-            dessiner_texte(image, "VERROUILLE", r.centerx, r.y + 114, 2, (150, 90, 120), lueur=False)
+            texte = sous_titre if sous_titre.startswith("BATTRE") else "VERROUILLE"
+            dessiner_texte(image, texte, r.centerx, r.y + 114, 2 if len(texte) <= 14 else 1, (150, 90, 120),
+                           lueur=False)
         elif sous_titre and categorie == "bannieres":
             dessiner_texte(image, sous_titre, r.centerx, r.y + 114, 2, teinte, lueur=False)

@@ -139,6 +139,18 @@ def recette_sons():
     """
     recettes = {
         "raquette": lambda: synth(0.09, 330, 520, rapport=0.25, volume=0.4),
+        # Sons de rebond des skins (2.1)
+        "raquette_cristal": lambda: mixer(synth(0.14, 1320, 1760, "triangle", 0.3, relache=0.8),
+                                          synth(0.1, 2640, None, "triangle", 0.1, relache=0.9)),
+        "raquette_grave": lambda: synth(0.12, 160, 260, rapport=0.5, volume=0.42, relache=0.6),
+        "raquette_laser": lambda: synth(0.12, 1800, 500, rapport=0.125, volume=0.25, relache=0.7),
+        "raquette_arcade": lambda: synth(0.12, note(7, 523.25), None, rapport=0.25, volume=0.3,
+                                         arpege=[0, 12], pas_arpege=0.04),
+        "raquette_glitch": lambda: enchainer(synth(0.03, 900, None, "bruit", 0.25),
+                                             synth(0.03, 420, None, "carre", 0.3),
+                                             synth(0.04, 1300, None, "carre", 0.2)),
+        "raquette_chaud": lambda: mixer(synth(0.11, 260, 420, "scie", 0.3, relache=0.6),
+                                        synth(0.08, 800, 300, "bruit", 0.1)),
         "mur": lambda: synth(0.035, 220, 200, rapport=0.5, volume=0.25),
         "metal": lambda: mixer(synth(0.18, 1400, 1300, "triangle", 0.35,
                                      relache=0.9),

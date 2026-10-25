@@ -245,9 +245,9 @@ class Base:
                 self.lire("SELECT code FROM possessions WHERE joueur_id = ?", (joueur_id,))}
 
     def bannieres_de(self, joueur_id):
-        """But : bannières possédées, dans l'ordre du catalogue. Sortie : (list)."""
-        from reseau.boutique import BANNIERES
-        possedes = self.possessions_de(joueur_id)
+        """But : bannières possédées (achetées, gagnées, ou de boss), dans l'ordre du catalogue."""
+        from reseau.boutique import BANNIERES, bannieres_recompenses
+        possedes = self.possessions_de(joueur_id) | bannieres_recompenses(set(self.succes_de(joueur_id)))
         return [b["code"] for b in BANNIERES if b["code"] in possedes]
 
     def crediter(self, joueur_id, montant):

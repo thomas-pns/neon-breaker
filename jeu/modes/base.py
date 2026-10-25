@@ -248,7 +248,8 @@ class ModeDeJeu:
 
     def sur_raquette(self, terrain, balle, raquette):
         couleur = raquette.joueur.couleur_corps if raquette.joueur else config.CYAN
-        self.audio("raquette")
+        from reseau.profil import style_skin
+        self.audio(style_skin(getattr(raquette.joueur, "skin", "neon"))[2])
         self.effets.etincelles(balle.x, balle.y, couleur, raquette.sens, 8)
         if raquette.joueur is not None:
             raquette.joueur.casser_combo()

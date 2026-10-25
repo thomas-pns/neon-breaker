@@ -261,7 +261,8 @@ class EcranPartieEnLigne(EcranTempsReel):
                 balle.y_prec = balle.y
                 balle.rebond_local = self.temps
                 raquette.frappee()
-                self.app.audio.jouer("raquette")
+                from reseau.profil import style_skin
+                self.app.audio.jouer(style_skin(getattr(joueur, "skin", "neon"))[2])
                 self.sons_a_ignorer.append(self.temps)
                 self.temps_reel.envoyer({
                     "t": "rebond", "n": getattr(balle, "nid", -1), "x": round(balle.x, 1),

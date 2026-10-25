@@ -78,7 +78,21 @@ BANNIERES = [
     {"code": "signal", "nom": "SIGNAL PERDU", "rarete": "legendaire", "motif": "glitch",
      "couleurs": ((15, 15, 30), (60, 255, 230)), "icone": None},
 ]
+# Bannières de boss (2.1) : jamais vendues, offertes avec le succès du boss (« recompense »).
+BANNIERES += [
+    {"code": "soleil_eteint", "nom": "A ETEINT LE SOLEIL", "rarete": "legendaire", "motif": "flammes",
+     "couleurs": ((70, 10, 40), (255, 120, 60)), "icone": "boss_sunset", "recompense": "boss_sunset"},
+    {"code": "ville_liberee", "nom": "A LIBERE LA VILLE", "rarete": "legendaire", "motif": "grille",
+     "couleurs": ((10, 20, 60), (60, 230, 255)), "icone": "boss_gridlock", "recompense": "boss_gridlock"},
+    {"code": "noyau_brise", "nom": "A BRISE LE NOYAU", "rarete": "legendaire", "motif": "glitch",
+     "couleurs": ((20, 0, 40), (190, 90, 255)), "icone": "boss_core", "recompense": "boss_core"},
+]
 BANNIERES_PAR_CODE = {b["code"]: b for b in BANNIERES}
+
+
+def bannieres_recompenses(succes):
+    """But : codes des bannières de boss gagnées avec ces succès. Entrée : (ensemble de codes)."""
+    return {b["code"] for b in BANNIERES if b.get("recompense") in succes}
 
 
 def skins_premium():
@@ -91,7 +105,7 @@ def objet(code):
     But : description d'un objet de boutique (bannière ou skin premium).
     Entrée : code (str). Sortie : (dict) {"code", "nom", "type", "rarete", "prix"} ou None.
     """
-    if code in BANNIERES_PAR_CODE:
+    if code in BANNIERES_PAR_CODE and not BANNIERES_PAR_CODE[code].get("recompense"):
         b = BANNIERES_PAR_CODE[code]
         return {"code": code, "nom": b["nom"], "type": "banniere", "rarete": b["rarete"],
                 "prix": PRIX["banniere"][b["rarete"]]}
@@ -105,7 +119,8 @@ def objet(code):
 
 def tous_les_objets():
     """But : tous les objets à gagner (bannières puis skins premium)."""
-    return [objet(b["code"]) for b in BANNIERES] + [objet(s["code"]) for s in skins_premium()]
+    return [objet(b["code"]) for b in BANNIERES if not b.get("recompense")] \
+        + [objet(s["code"]) for s in skins_premium()]
 
 
 def selection_du_jour(jour):
