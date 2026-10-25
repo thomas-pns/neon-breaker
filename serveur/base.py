@@ -133,6 +133,11 @@ class Base:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN elo INTEGER NOT NULL DEFAULT 1000")
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN elo_max INTEGER NOT NULL DEFAULT 1000")
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees INTEGER NOT NULL DEFAULT 0")
+            # Migration 2.1 : bilan des parties classées (victoires, derniers résultats « VDVVD »).
+            colonnes = {l[1] for l in self.connexion.execute("PRAGMA table_info(joueurs)")}
+            if "classees_victoires" not in colonnes:
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_victoires INTEGER NOT NULL DEFAULT 0")
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_recents TEXT NOT NULL DEFAULT ''")
             self.connexion.commit()
 
     def _cadeaux_bienvenue(self):
@@ -301,8 +306,11 @@ class Base:
         resultat = {}
         for joueur in (gagnant, perdant):
             cote = nouvelles[joueur["id"]]
-            self.ecrire("UPDATE joueurs SET elo = ?, elo_max = MAX(elo_max, ?), classees = classees + 1 "
-                        "WHERE id = ?", (cote, cote, joueur["id"]))
+            gagne = joueur["id"] == gagnant_id
+            recents = (joueur["classees_recents"] + ("V" if gagne else "D"))[-10:]
+            self.ecrire("UPDATE joueurs SET elo = ?, elo_max = MAX(elo_max, ?), classees = classees + 1, "
+                        "classees_victoires = classees_victoires + ?, classees_recents = ? WHERE id = ?",
+                        (cote, cote, int(gagne), recents, joueur["id"]))
             resultat[joueur["id"]] = {"elo": cote, "elo_delta": cote - joueur["elo"],
                                       "classees": joueur["classees"] + 1}
         return resultat
@@ -526,6 +534,8 @@ class Base:
         return {"pseudo": joueur["pseudo"], "couleur": joueur["couleur"], "xp": joueur["xp"],
                 "skin": joueur["skin"], "banniere": joueur["banniere"],
                 "elo": joueur["elo"], "elo_max": joueur["elo_max"], "classees": joueur["classees"],
+                "classees_victoires": joueur["classees_victoires"],
+                "classees_recents": joueur["classees_recents"],
                 "objets": len(self.possessions_de(jid)), "niveau": niveau, "xp_niveau": catalogue.xp_pour_niveau(niveau),
                 "xp_suivant": catalogue.xp_pour_niveau(niveau + 1),
                 "cree_le": joueur["cree_le"], "vu_le": joueur["vu_le"],

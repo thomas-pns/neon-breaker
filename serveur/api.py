@@ -98,7 +98,9 @@ def presentation(joueur):
             "niveau": niveau_pour(joueur["xp"]), "skin": joueur["skin"],
             "skins": base.skins_de(joueur), "neons": joueur["neons"],
             "banniere": joueur["banniere"], "bannieres": base.bannieres_de(joueur["id"]),
-            "elo": joueur["elo"], "classees": joueur["classees"]}
+            "elo": joueur["elo"], "classees": joueur["classees"], "elo_max": joueur["elo_max"],
+            "classees_victoires": joueur["classees_victoires"],
+            "classees_recents": joueur["classees_recents"]}
 
 
 def ouvrir_session(joueur):

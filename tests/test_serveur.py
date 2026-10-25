@@ -204,7 +204,11 @@ class TestServeur(unittest.TestCase):
             self.assertTrue(fin["gains"]["victoire_classee"])
         lignes = self.client.get("/api/classements/classe").json()["lignes"]
         self.assertEqual(lignes[0]["pseudo"], "Classe1")
-        self.assertEqual(self.client.get("/api/joueurs/Classe2").json()["elo"], 980)
+        perdant = self.client.get("/api/joueurs/Classe2").json()
+        self.assertEqual((perdant["elo"], perdant["classees_recents"], perdant["classees_victoires"]),
+                         (980, "D", 0))
+        gagnant = self.client.get("/api/moi", headers={"Authorization": f"Bearer {jeton_a}"}).json()
+        self.assertEqual((gagnant["classees_victoires"], gagnant["classees_recents"]), (1, "V"))
 
     def test_fantome(self):
         from reseau.fantome import Enregistreur
