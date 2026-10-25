@@ -485,18 +485,29 @@ class EcranFinEnLigne(EcranFin):
             dessiner_texte(image, "PARTIE NON COMPTEE", cadre.centerx, cadre.centery, 2, GRIS,
                            lueur=False)
             return
-        dessiner_texte(image, f"+{self.gains.get('xp_gagnee', 0)} XP", cadre.centerx,
-                       cadre.y + 80, 4, config.AMBRE)
-        from moteur.bannieres import dessiner_piece
-        zone = dessiner_texte(image, f"+{self.gains.get('neons_gagnes', 0)}", cadre.centerx + 16,
-                              cadre.y + 124, 4, config.CYAN)
-        dessiner_piece(image, (zone.x - 22, zone.centery), 12, self.temps)
-        dessiner_texte(image, f"RANG {self.gains.get('niveau', 1)}", cadre.centerx,
-                       cadre.y + 162, 2, config.BLANC, lueur=False)
+        y = cadre.y + 80
+        if "xp_gagnee" in self.gains:
+            dessiner_texte(image, f"+{self.gains.get('xp_gagnee', 0)} XP", cadre.centerx, y, 4,
+                           config.AMBRE)
+            from moteur.bannieres import dessiner_piece
+            zone = dessiner_texte(image, f"+{self.gains.get('neons_gagnes', 0)}", cadre.centerx + 16,
+                                  y + 44, 4, config.CYAN)
+            dessiner_piece(image, (zone.x - 22, zone.centery), 12, self.temps)
+            dessiner_texte(image, f"RANG {self.gains.get('niveau', 1)}", cadre.centerx, y + 82, 2,
+                           config.BLANC, lueur=False)
+            y += 116
+        if self.gains.get("classee"):
+            from reseau.classee import division
+            delta = self.gains.get("elo_delta", 0)
+            nom, couleur, _, _ = division(self.gains.get("elo", 1000))
+            dessiner_texte(image, f"{'+' if delta >= 0 else ''}{delta} COTE", cadre.centerx, y, 3,
+                           config.VERT if delta >= 0 else config.ROUGE)
+            dessiner_texte(image, f"{nom}  {self.gains.get('elo', 1000)}", cadre.centerx, y + 32, 2,
+                           couleur, lueur=False)
+            y += 64
         succes = self.gains.get("nouveaux_succes", [])
         if succes:
-            dessiner_texte(image, "SUCCES DEBLOQUES", cadre.centerx, cadre.y + 196, 2,
-                           config.OR, lueur=False)
-        for i, entree in enumerate(succes[:5]):
-            dessiner_texte(image, entree["nom"], cadre.centerx, cadre.y + 224 + i * 26, 2,
+            dessiner_texte(image, "SUCCES DEBLOQUES", cadre.centerx, y, 2, config.OR, lueur=False)
+        for i, entree in enumerate(succes[:4]):
+            dessiner_texte(image, entree["nom"], cadre.centerx, y + 28 + i * 26, 2,
                            config.BLANC, lueur=False)

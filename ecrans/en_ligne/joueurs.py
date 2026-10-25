@@ -300,8 +300,12 @@ class EcranProfil(EcranEnLigneBase):
             lignes.append(("SERIE DEFI", f"{jour.get('en_cours', 0)} J  MAX {jour.get('record', 0)}"))
             lignes.append(("SERIE SEMAINE",
                            f"{semaine.get('en_cours', 0)} S  MAX {semaine.get('record', 0)}"))
+        if p.get("classees"):
+            from reseau.classee import division
+            lignes.append(("CLASSEE", f"{division(p['elo'])[0]} {p['elo']}"))
+        pas = min(29, (bloc.h - 48) / max(1, len(lignes) - 1))
         for i, (libelle, valeur) in enumerate(lignes):
-            y = bloc.y + 26 + i * 29
+            y = bloc.y + 26 + i * pas
             dessiner_texte(image, libelle, bloc.x + 24, y, 2, GRIS, ancrage="gauche", lueur=False)
             dessiner_texte(image, str(valeur), bloc.right - 24, y, 2, config.BLANC,
                            ancrage="droite", lueur=False)

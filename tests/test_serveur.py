@@ -182,6 +182,28 @@ class TestServeur(unittest.TestCase):
                 fin = recevoir_jusqua(a, "fin")
                 self.assertEqual(fin["resultat"]["titre"], "PARTIE INTERROMPUE")
 
+    def test_partie_classee(self):
+        jeton_a, jeton_b = self.inscrire("Classe1"), self.inscrire("Classe2")
+        with self.client.websocket_connect("/ws") as a, self.client.websocket_connect("/ws") as b:
+            a.send_json({"t": "auth", "jeton": jeton_a, "protocole": PROTOCOLE})
+            b.send_json({"t": "auth", "jeton": jeton_b, "protocole": PROTOCOLE})
+            recevoir_jusqua(a, "bienvenue")
+            recevoir_jusqua(b, "bienvenue")
+            a.send_json({"t": "file", "v": True})
+            self.assertTrue(recevoir_jusqua(a, "file")["v"])
+            b.send_json({"t": "file", "v": True})
+            debut = recevoir_jusqua(a, "debut", essais=2000)
+            self.assertTrue(debut["classee"])
+            self.assertEqual(debut["elos"], [1000, 1000])
+            recevoir_jusqua(b, "debut", essais=2000)
+            b.send_json({"t": "abandon"})                # abandonner = perdre
+            fin = recevoir_jusqua(a, "fin", essais=2000)
+            self.assertEqual(fin["gains"]["elo"], 1000 + 20)
+            self.assertTrue(fin["gains"]["victoire_classee"])
+        lignes = self.client.get("/api/classements/classe").json()["lignes"]
+        self.assertEqual(lignes[0]["pseudo"], "Classe1")
+        self.assertEqual(self.client.get("/api/joueurs/Classe2").json()["elo"], 980)
+
     def test_defi_du_jour(self):
         jeton = self.inscrire("Defieur")
         entete = {"Authorization": f"Bearer {jeton}"}

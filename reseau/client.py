@@ -184,6 +184,8 @@ class ServiceEnLigne:
         self.neons = compte.get("neons", 0)
         self.banniere = compte.get("banniere", "")
         self.bannieres = compte.get("bannieres", [])
+        self.elo = compte.get("elo", 1000)
+        self.classees = compte.get("classees", 0)
         self.connecte = False
         self.joignable = None
         self.temps_reel = None
@@ -266,12 +268,15 @@ class ServiceEnLigne:
         self.neons = donnees.get("neons", self.neons)
         self.banniere = donnees.get("banniere", self.banniere)
         self.bannieres = list(donnees.get("bannieres", self.bannieres))
+        self.elo = donnees.get("elo", self.elo)
+        self.classees = donnees.get("classees", self.classees)
         self.connecte = True
         self.app.donnees["compte"] = {"jeton": self.jeton, "pseudo": self.pseudo,
                                       "couleur": self.couleur, "niveau": self.niveau,
                                       "xp": self.xp, "skin": self.skin, "skins": self.skins,
                                       "neons": self.neons, "banniere": self.banniere,
-                                      "bannieres": self.bannieres}
+                                      "bannieres": self.bannieres, "elo": self.elo,
+                                      "classees": self.classees}
         self.app.enregistrer()
 
     def se_connecter(self, pseudo, mdp, inscription, rappel):
@@ -435,6 +440,8 @@ class ServiceEnLigne:
             self.app.notifier(f"+{gains['neons_gagnes']} {MONNAIE}", "CYAN", detail)
         if "neons" in gains:
             self.neons = gains["neons"]
+        if "elo" in gains:
+            self.elo, self.classees = gains["elo"], gains.get("classees", self.classees)
         for succes in gains.get("nouveaux_succes", []):
             self.app.notifier("SUCCES : " + succes["nom"], "OR", succes["description"])
 

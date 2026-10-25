@@ -8,12 +8,13 @@ Objectifs du fichier :
       auth {jeton, protocole}      lister                  creer {mode, niveau}
       rejoindre {id}               quitter                 pret {v}
       lancer                       cmd {x, vx, a}          abandon
-      ping {c}
+      ping {c}                     file {v}   (file des parties classées, 2.0)
     Messages du serveur :
       bienvenue {pseudo}           salons {liste, en_ligne, max}
       salon {...}                  debut {mode, niveau, numero, joueurs}
       etat {instantané, pause}     fin {resultat, gains}
       erreur {msg}                 pong {c}
+      file {v, attente, joueurs, elo}  (recherche d'adversaire classé)
 
 Par :
     Thomas CHASSANIS PONS et Camil BOUZIRI (refonte avec Claude)
@@ -53,6 +54,7 @@ class Connexion:
         self.skin = joueur["skin"] if "skin" in joueur.keys() else "neon"
         self.banniere = joueur["banniere"] if "banniere" in joueur.keys() else ""
         self.niveau = niveau_pour(joueur["xp"])
+        self.elo = joueur["elo"] if "elo" in joueur.keys() else 1000
         self.salon = None
         self.file = asyncio.Queue(maxsize=90)
         self.ouverte = True
@@ -99,6 +101,7 @@ class Salon:
         self.simulation = None
         self.tache = None
         self.absents = {}
+        self.classee = False
 
     def hote(self):
         return self.membres[0] if self.membres else ""
@@ -106,7 +109,7 @@ class Salon:
     def resume(self):
         return {"id": self.id, "mode": self.mode, "niveau": self.niveau, "hote": self.hote(),
                 "joueurs": list(self.membres), "etat": self.etat,
-                "places": config.JOUEURS_PAR_PARTIE}
+                "places": config.JOUEURS_PAR_PARTIE, "classee": self.classee}
 
 
 class Gestionnaire:
@@ -116,6 +119,8 @@ class Gestionnaire:
         self.base = base
         self.connexions = {}
         self.salons = {}
+        self.file_classee = {}          # pseudo -> (cote, entrée dans la file)
+        self.tache_file = None
 
     # --- Connexions ------------------------------------------------------------
 
@@ -173,6 +178,7 @@ class Gestionnaire:
 
     def debrancher(self, connexion):
         connexion.fermer()
+        self.file_classee.pop(connexion.pseudo, None)
         if self.connexions.get(connexion.pseudo) is connexion:
             del self.connexions[connexion.pseudo]
             salon = connexion.salon
@@ -237,6 +243,8 @@ class Gestionnaire:
             self.envoyer_salon(salon)
         elif nature == "lancer" and salon is not None:
             self.lancer(connexion, salon)
+        elif nature == "file":
+            self.file(connexion, bool(message.get("v", True)))
         elif nature == "abandon" and salon is not None and salon.etat == "jeu":
             asyncio.create_task(self.terminer(salon, abandon=connexion.pseudo))
 
@@ -293,6 +301,63 @@ class Gestionnaire:
             self.envoyer_salon(salon)
         self.diffuser_liste()
 
+    # --- Parties classées (2.0) -----------------------------------------------------
+
+    def file(self, connexion, entrer):
+        """But : entrer dans la file des parties classées (Duel), ou en sortir."""
+        if not entrer:
+            self.file_classee.pop(connexion.pseudo, None)
+            connexion.envoyer({"t": "file", "v": False})
+            return
+        if connexion.salon is not None and connexion.salon.etat == "jeu":
+            return
+        self.quitter_salon(connexion)
+        joueur = self.base.joueur_par_id(connexion.joueur_id)
+        connexion.elo = joueur["elo"]
+        self.file_classee[connexion.pseudo] = (connexion.elo, time.monotonic())
+        self._etat_file()
+        if self.tache_file is None or self.tache_file.done():
+            self.tache_file = asyncio.create_task(self._boucle_file())
+
+    def _etat_file(self):
+        maintenant = time.monotonic()
+        for pseudo, (cote, entree) in self.file_classee.items():
+            connexion = self.connexions.get(pseudo)
+            if connexion is not None:
+                connexion.envoyer({"t": "file", "v": True, "attente": round(maintenant - entree),
+                                   "joueurs": len(self.file_classee), "elo": cote})
+
+    async def _boucle_file(self):
+        """But : toutes les secondes, former des paires et prévenir ceux qui attendent."""
+        from reseau.classee import apparier
+        while self.file_classee:
+            for a, b in apparier(self.file_classee, time.monotonic()):
+                self.file_classee.pop(a, None)
+                self.file_classee.pop(b, None)
+                if a in self.connexions and b in self.connexions:
+                    self._demarrer_classee(a, b)
+                else:                                   # l'un est parti entre-temps
+                    for pseudo in (a, b):
+                        if pseudo in self.connexions:
+                            self.file_classee[pseudo] = (self.connexions[pseudo].elo, time.monotonic())
+            self._etat_file()
+            await asyncio.sleep(1)
+
+    def _demarrer_classee(self, a, b):
+        if len(self.salons) >= config.MAX_PARTIES:
+            for pseudo in (a, b):
+                self.file_classee[pseudo] = (self.connexions[pseudo].elo, time.monotonic())
+            return
+        salon = Salon("duel", 0, a)
+        salon.classee = True
+        salon.membres.append(b)
+        salon.prets = {a, b}
+        self.salons[salon.id] = salon
+        for pseudo in (a, b):
+            self.connexions[pseudo].salon = salon
+        journal.info("Partie classée : %s contre %s", a, b)
+        self._demarrer(salon)
+
     def lancer(self, connexion, salon):
         if salon.etat != "attente" or connexion.pseudo != salon.hote():
             return
@@ -302,6 +367,10 @@ class Gestionnaire:
         if set(salon.membres) - salon.prets:
             connexion.envoyer({"t": "erreur", "msg": "TOUT LE MONDE DOIT ETRE PRET"})
             return
+        self._demarrer(salon)
+
+    def _demarrer(self, salon):
+        """But : lancer la simulation d'un salon complet et prévenir les joueurs."""
         salon.etat = "jeu"
         salon.simulation = SimulationReseau(salon.mode, salon.membres, salon.niveau)
         for pseudo in salon.membres:
@@ -313,9 +382,29 @@ class Gestionnaire:
     def _envoyer_debut(self, salon, connexion):
         connexion.envoyer({"t": "debut", "mode": salon.mode, "niveau": salon.niveau,
                            "numero": salon.membres.index(connexion.pseudo) + 1,
-                           "joueurs": list(salon.membres),
+                           "joueurs": list(salon.membres), "classee": salon.classee,
+                           "elos": [self.connexions[p].elo if p in self.connexions else 1000
+                                    for p in salon.membres],
                            "skins": [self.connexions[p].skin if p in self.connexions else "neon"
                                      for p in salon.membres]})
+
+    def _resultat_classee(self, salon, resultat, abandon, gains):
+        """But : appliquer l'Elo d'une partie classée et l'ajouter aux gains de chacun."""
+        if len(salon.membres) != 2:
+            return
+        gagnant = gagnant_classee(salon.membres, resultat, abandon)
+        if gagnant is None:
+            return
+        perdant = next(p for p in salon.membres if p != gagnant)
+        joueurs = {p: self.base.joueur_par_pseudo(p) for p in salon.membres}
+        if any(j is None for j in joueurs.values()):
+            return
+        cotes = self.base.appliquer_classee(joueurs[gagnant]["id"], joueurs[perdant]["id"])
+        for pseudo, joueur in joueurs.items():
+            gains[pseudo] = dict(gains.get(pseudo) or {}, classee=True, victoire_classee=pseudo == gagnant,
+                                 **cotes[joueur["id"]])
+            if pseudo in self.connexions:
+                self.connexions[pseudo].elo = cotes[joueur["id"]]["elo"]
 
     # --- Boucle de jeu ---------------------------------------------------------------
 
@@ -388,6 +477,11 @@ class Gestionnaire:
         else:
             public = {"victoire": False, "titre": "PARTIE INTERROMPUE", "score": 0,
                       "mode": salon.mode, "lignes": [("ABANDON", str(abandon or "?"))]}
+        if salon.classee:
+            try:
+                self._resultat_classee(salon, resultat, abandon, gains)
+            except Exception:
+                journal.exception("Elo de la partie %s non appliqué", salon.id)
         for pseudo in salon.membres:
             connexion = self.connexions.get(pseudo)
             if connexion is not None and connexion.salon is salon:
@@ -397,6 +491,25 @@ class Gestionnaire:
         if salon.tache is not None and salon.tache is not asyncio.current_task():
             salon.tache.cancel()
         self.diffuser_liste()
+
+
+def gagnant_classee(membres, resultat, abandon):
+    """
+    But : pseudo du gagnant d'une partie classée (celui qui abandonne ou ne
+    revient pas perd ; une panne du serveur ne compte pas).
+    Sortie : (str ou None).
+    """
+    if abandon is not None:
+        if abandon not in membres:
+            return None
+        return next((p for p in membres if p != abandon), None)
+    if resultat is None:
+        return None
+    for rapport in resultat.get("rapports", []):
+        gagnant = rapport.get("gagnant")
+        if gagnant in (1, 2) and gagnant - 1 < len(membres):
+            return membres[gagnant - 1]
+    return None
 
 
 class SimulationReseau(Simulation):

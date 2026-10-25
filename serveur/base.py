@@ -120,6 +120,11 @@ class Base:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN neons INTEGER NOT NULL DEFAULT 0")
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN banniere TEXT NOT NULL DEFAULT ''")
                 self._cadeaux_bienvenue()
+            # Migration 2.0 : parties classées (cote Elo).
+            if "elo" not in colonnes:
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN elo INTEGER NOT NULL DEFAULT 1000")
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN elo_max INTEGER NOT NULL DEFAULT 1000")
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees INTEGER NOT NULL DEFAULT 0")
             self.connexion.commit()
 
     def _cadeaux_bienvenue(self):
@@ -270,6 +275,24 @@ class Base:
             return {"erreur": erreur}
         return {"objet": gagne, "rembourse": 0}
 
+    def appliquer_classee(self, gagnant_id, perdant_id):
+        """
+        But : mettre à jour les cotes Elo après une partie classée.
+        Sortie : (dict) joueur_id -> {"elo", "elo_delta", "classees"}.
+        """
+        from reseau.classee import nouvelle_cote
+        gagnant, perdant = self.joueur_par_id(gagnant_id), self.joueur_par_id(perdant_id)
+        nouvelles = {gagnant_id: nouvelle_cote(gagnant["elo"], perdant["elo"], True, gagnant["classees"]),
+                     perdant_id: nouvelle_cote(perdant["elo"], gagnant["elo"], False, perdant["classees"])}
+        resultat = {}
+        for joueur in (gagnant, perdant):
+            cote = nouvelles[joueur["id"]]
+            self.ecrire("UPDATE joueurs SET elo = ?, elo_max = MAX(elo_max, ?), classees = classees + 1 "
+                        "WHERE id = ?", (cote, cote, joueur["id"]))
+            resultat[joueur["id"]] = {"elo": cote, "elo_delta": cote - joueur["elo"],
+                                      "classees": joueur["classees"] + 1}
+        return resultat
+
     def changer_banniere(self, joueur_id, code):
         self.ecrire("UPDATE joueurs SET banniere = ? WHERE id = ?", (code, joueur_id))
 
@@ -358,7 +381,11 @@ class Base:
         victoires en Duel / Course).
         Sortie : (list de dict) {"pseudo", "couleur", "valeur", "niveau"}.
         """
-        if mode in MODES_VICTOIRES:
+        if mode == "classe":
+            lignes = self.lire(
+                "SELECT pseudo, couleur, xp, banniere, elo AS valeur, classees FROM joueurs "
+                "WHERE banni = 0 AND classees > 0 ORDER BY elo DESC, classees ASC LIMIT ?", (limite,))
+        elif mode in MODES_VICTOIRES:
             lignes = self.lire(
                 "SELECT j.pseudo, j.couleur, j.xp, j.banniere, SUM(p.victoire) AS valeur, COUNT(*) AS parties "
                 "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
@@ -458,6 +485,7 @@ class Base:
         niveau = catalogue.niveau_pour(joueur["xp"])
         return {"pseudo": joueur["pseudo"], "couleur": joueur["couleur"], "xp": joueur["xp"],
                 "skin": joueur["skin"], "banniere": joueur["banniere"],
+                "elo": joueur["elo"], "elo_max": joueur["elo_max"], "classees": joueur["classees"],
                 "objets": len(self.possessions_de(jid)), "niveau": niveau, "xp_niveau": catalogue.xp_pour_niveau(niveau),
                 "xp_suivant": catalogue.xp_pour_niveau(niveau + 1),
                 "cree_le": joueur["cree_le"], "vu_le": joueur["vu_le"],

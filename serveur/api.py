@@ -97,7 +97,8 @@ def presentation(joueur):
     return {"pseudo": joueur["pseudo"], "couleur": joueur["couleur"], "xp": joueur["xp"],
             "niveau": niveau_pour(joueur["xp"]), "skin": joueur["skin"],
             "skins": base.skins_de(joueur), "neons": joueur["neons"],
-            "banniere": joueur["banniere"], "bannieres": base.bannieres_de(joueur["id"])}
+            "banniere": joueur["banniere"], "bannieres": base.bannieres_de(joueur["id"]),
+            "elo": joueur["elo"], "classees": joueur["classees"]}
 
 
 def ouvrir_session(joueur):
@@ -234,9 +235,10 @@ def envoyer_parties(envoi: EnvoiParties, authorization: str = Header(default="")
 
 @app.get("/api/classements/{mode}")
 def classement(mode: str):
-    if mode not in MODES_SCORE + MODES_VICTOIRES:
+    if mode not in MODES_SCORE + MODES_VICTOIRES + ("classe",):
         raise HTTPException(404, "Mode inconnu")
-    return {"mode": mode, "type": "victoires" if mode in MODES_VICTOIRES else "score",
+    return {"mode": mode, "type": "classe" if mode == "classe" else
+            "victoires" if mode in MODES_VICTOIRES else "score",
             "lignes": base.classement(mode)}
 
 
