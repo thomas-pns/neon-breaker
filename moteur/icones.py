@@ -519,7 +519,16 @@ TROPHEE = ["XXXXXXXXX",
            "..XXXXX..",
            "........."]
 
-GRILLES = {**CAPSULES, **SUCCES}
+DIVERS = {
+    # Flamme des séries (jaune : jours, violette : semaines).
+    "flamme": ["....X....", "...XX....", "..XXX.X..", "..XXXXX..", ".XXXXXXX.", ".XX.XXXX.",
+               "XX...XXXX", "XXX.XXXX.", ".XXXXXX.."],
+    "verrou": [".........", "...XXX...", "..X...X..", "..X...X..", ".XXXXXXX.", ".XXX.XXX.",
+               ".XXX.XXX.", ".XXXXXXX.", "........."],
+    "vitesse_mode": ["X...X....", "XX..XX...", ".XX..XX..", "..XX..XX.", "...XX..XX", "..XX..XX.",
+                     ".XX..XX..", "XX..XX...", "X...X...."],
+}
+GRILLES = {**CAPSULES, **SUCCES, **DIVERS, "TROPHEE": TROPHEE}
 _CACHE = {}
 
 

@@ -23,7 +23,7 @@ from ecrans.hud import panneau, barre
 from ecrans.en_ligne.commun import EcranEnLigneBase, couleur_profil, GRIS
 
 
-class EcranHub(EcranEnLigneBase):
+class AncienEcranHub(EcranEnLigneBase):
     """Menu principal en ligne."""
 
     def __init__(self, app):
@@ -203,3 +203,9 @@ class EcranHub(EcranEnLigneBase):
             dessiner_texte(image, bas, config.LARGEUR / 2, config.HAUTEUR - 60, 2,
                            config.ROSE, lueur=False)
         self.pied(image, "ENTREE : CHOISIR    ECHAP : RETOUR")
+
+
+def EcranHub(app):
+    """But : depuis la 2.1, le menu en ligne est l'onglet JOUER, famille EN LIGNE."""
+    from ecrans.jouer import EcranJouer
+    return EcranJouer(app, "en_ligne")

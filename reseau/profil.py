@@ -70,6 +70,34 @@ SKINS = [
 ]
 SKINS_PAR_CODE = {s["code"]: s for s in SKINS}
 
+# Skins complets (2.1) : forme de la balle, traînée et son de rebond propres à chaque skin.
+# balle : rond, etoile, carre, losange, coeur ; trainee : disques, ruban, etincelles, pixels,
+# arc, bulles, cristaux, glitch ; son : nom d'un son de moteur/audio.py.
+STYLES = {
+    "neon": ("rond", "disques", "raquette"),
+    "sunset": ("rond", "ruban", "raquette_chaud"),
+    "cryo": ("losange", "cristaux", "raquette_cristal"),
+    "vapor": ("rond", "arc", "raquette_arcade"),
+    "spectre": ("rond", "arc", "raquette_cristal"),
+    "toxique": ("rond", "bulles", "raquette_grave"),
+    "noyau": ("losange", "etincelles", "raquette_grave"),
+    "drone": ("carre", "pixels", "raquette_laser"),
+    "or": ("etoile", "etincelles", "raquette_cristal"),
+    "glacier": ("losange", "cristaux", "raquette_cristal"),
+    "magma": ("rond", "etincelles", "raquette_chaud"),
+    "lagon": ("rond", "bulles", "raquette"),
+    "minuit": ("etoile", "etincelles", "raquette_cristal"),
+    "borne": ("carre", "pixels", "raquette_arcade"),
+    "cupidon": ("coeur", "ruban", "raquette_arcade"),
+    "glitch": ("carre", "glitch", "raquette_glitch"),
+    "nebuleuse": ("etoile", "arc", "raquette_cristal"),
+}
+
+
+def style_skin(code):
+    """But : (forme de balle, traînée, son de rebond) d'un skin. Sortie : (tuple de 3 str)."""
+    return STYLES.get(code, STYLES["neon"])
+
 
 def skins_debloques(niveau, succes, possedes=()):
     """

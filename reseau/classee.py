@@ -76,3 +76,41 @@ def apparier(file, maintenant):
         restants.remove(a)
         restants.remove(b)
     return paires
+
+
+# --- Saisons (2.1) ---------------------------------------------------------------------------
+# Une saison par mois. La saison 1 commence en novembre 2026 (avant : pré-saison).
+# À la fin d'une saison : NEONS selon la meilleure division atteinte, bannières exclusives
+# à partir de OR, puis la cote se rapproche de 1000 (moitié du chemin).
+ORIGINE_SAISONS = (2026, 11)
+RECOMPENSES_SAISON = {"BRONZE": 50, "ARGENT": 100, "OR": 200, "PLATINE": 350, "NEON": 500}
+BANNIERES_SAISON = {"OR": ["saison_or"], "PLATINE": ["saison_or", "saison_platine"],
+                    "NEON": ["saison_or", "saison_platine", "saison_neon"]}
+
+
+def id_saison(date):
+    """But : identifiant de la saison d'une date, ex. « 2026-11 »."""
+    return f"{date.year}-{date.month:02d}"
+
+
+def numero_saison(identifiant):
+    """But : numéro d'une saison (0 ou moins : pré-saison). Entrée : « AAAA-MM »."""
+    annee, mois = (int(x) for x in identifiant.split("-"))
+    return (annee - ORIGINE_SAISONS[0]) * 12 + mois - ORIGINE_SAISONS[1] + 1
+
+
+def nom_saison(date):
+    """But : « SAISON 3 » ou « PRE-SAISON »."""
+    numero = numero_saison(id_saison(date))
+    return f"SAISON {numero}" if numero >= 1 else "PRE-SAISON"
+
+
+def jours_avant_fin(date):
+    """But : jours restants dans la saison (le mois) d'une date."""
+    import calendar
+    return calendar.monthrange(date.year, date.month)[1] - date.day + 1
+
+
+def cote_apres_saison(cote):
+    """But : cote de départ de la saison suivante (à mi-chemin de 1000)."""
+    return round((cote + ELO_DEPART) / 2)

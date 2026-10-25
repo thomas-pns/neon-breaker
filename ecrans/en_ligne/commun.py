@@ -20,13 +20,14 @@ from moteur import config
 from moteur.police_pixel import dessiner_texte
 from moteur.rendu import halo_rect, attenuer
 from ecrans.base import EcranBase
+from ecrans.menus import Navigation
 
 COULEURS_PROFIL = {"cyan": config.CYAN, "rose": config.ROSE, "ambre": config.AMBRE,
                    "violet": config.VIOLET, "vert": config.VERT, "bleu": config.BLEU}
 NOMS_MODES = {"campagne": "CAMPAGNE", "arcade": "ARCADE", "hardcore": "HARDCORE",
               "coop": "COOP", "duel": "DUEL", "course": "COURSE",
               "defi": "DEFI", "semaine": "SEMAINE", "series": "SERIES",
-              "classe": "CLASSEE"}
+              "classe": "CLASSEE", "records": "RECORDS"}
 GRIS = (170, 140, 220)
 CARACTERES_PSEUDO = ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
                      "0123456789-_")
@@ -47,10 +48,24 @@ def duree_lisible(secondes):
     return f"{minutes // 60}H{minutes % 60:02d}"
 
 
-class EcranEnLigneBase(EcranBase):
-    """Écran en ligne : fond synthwave assombri et titre."""
+class EcranEnLigneBase(Navigation, EcranBase):
+    """
+    Écran en ligne : fond synthwave assombri et titre. Depuis la 2.1, un écran
+    qui définit « onglet » (ex. "CLASSEMENTS", ou "" pour le profil) affiche la
+    barre des menus à la place du titre, et Échap ramène à l'accueil.
+    """
 
     titre = "EN LIGNE"
+    onglet = None
+
+    def mettre_a_jour(self, dt):
+        super().mettre_a_jour(dt)
+        if self.onglet is not None:
+            self.naviguer()
+
+    def retour_accueil(self):
+        from ecrans.titre import EcranTitre
+        self.app.remplacer(EcranTitre(self.app), transition=False)
 
     def dessiner_fond(self, image, titre=None):
         self.app.fond.dessiner(image)
@@ -58,17 +73,15 @@ class EcranEnLigneBase(EcranBase):
         voile.fill((8, 0, 20))
         voile.set_alpha(150)
         image.blit(voile, (0, 0))
+        if self.onglet is not None:
+            self.dessiner_barre(image)
+            return
         dessiner_texte(image, titre or self.titre, config.LARGEUR / 2, 50, 5, config.CYAN)
         en_ligne = self.app.en_ligne
         if en_ligne.connecte:
             dessiner_texte(image, f"{en_ligne.pseudo.upper()}  RANG {en_ligne.niveau}",
                            config.LARGEUR - 20, 22, 2, couleur_profil(en_ligne.couleur),
                            ancrage="droite", lueur=False)
-            if self.titre != "BOUTIQUE":
-                from moteur.bannieres import dessiner_piece
-                zone = dessiner_texte(image, str(getattr(en_ligne, "neons", 0)), config.LARGEUR - 20,
-                                      46, 2, config.CYAN, ancrage="droite", lueur=False)
-                dessiner_piece(image, (zone.x - 12, zone.centery), 8, self.temps)
 
     def pied(self, image, texte):
         if math.sin(self.temps * 5) > -0.4:

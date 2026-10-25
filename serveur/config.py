@@ -21,6 +21,9 @@ PORT = int(os.environ.get("NEON_PORT", "8765"))
 JETON_DEPLOIEMENT = os.environ.get("NEON_JETON_DEPLOIEMENT", "")
 
 MAX_PARTIES = int(os.environ.get("NEON_MAX_PARTIES", "4"))
+# Pseudos administrateurs (2.1), séparés par des virgules, ex. NEON_ADMINS="Thomas".
+# Réglé dans le docker-compose du NAS : jamais écrit dans le dépôt public.
+ADMINS = [p.strip() for p in os.environ.get("NEON_ADMINS", "").split(",") if p.strip()]
 JOUEURS_PAR_PARTIE = 2
 DUREE_SESSION_JOURS = 90
 ATTENTE_RECONNEXION = 30.0          # secondes avant d'abandonner une partie

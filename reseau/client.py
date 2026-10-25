@@ -195,6 +195,10 @@ class ServiceEnLigne:
         self.bannieres = compte.get("bannieres", [])
         self.elo = compte.get("elo", 1000)
         self.classees = compte.get("classees", 0)
+        self.elo_max = compte.get("elo_max", self.elo)
+        self.classees_victoires = compte.get("classees_victoires", 0)
+        self.classees_recents = compte.get("classees_recents", "")
+        self.admin = bool(compte.get("admin", False))
         self.connecte = False
         self.joignable = None
         self.temps_reel = None
@@ -279,13 +283,22 @@ class ServiceEnLigne:
         self.bannieres = list(donnees.get("bannieres", self.bannieres))
         self.elo = donnees.get("elo", self.elo)
         self.classees = donnees.get("classees", self.classees)
+        self.elo_max = donnees.get("elo_max", getattr(self, "elo_max", self.elo))
+        self.classees_victoires = donnees.get("classees_victoires", getattr(self, "classees_victoires", 0))
+        self.classees_recents = donnees.get("classees_recents", getattr(self, "classees_recents", ""))
+        self.admin = bool(donnees.get("admin", getattr(self, "admin", False)))
+        if donnees.get("messages"):
+            self.annoncer_messages(donnees["messages"])
         self.connecte = True
         self.app.donnees["compte"] = {"jeton": self.jeton, "pseudo": self.pseudo,
                                       "couleur": self.couleur, "niveau": self.niveau,
                                       "xp": self.xp, "skin": self.skin, "skins": self.skins,
                                       "neons": self.neons, "banniere": self.banniere,
                                       "bannieres": self.bannieres, "elo": self.elo,
-                                      "classees": self.classees}
+                                      "classees": self.classees, "elo_max": self.elo_max,
+                                      "classees_victoires": self.classees_victoires,
+                                      "classees_recents": self.classees_recents,
+                                      "admin": self.admin}
         self.app.enregistrer()
 
     def se_connecter(self, pseudo, mdp, inscription, rappel):
@@ -317,6 +330,7 @@ class ServiceEnLigne:
         self.connecte = False
         self.skin, self.skins = "neon", ["neon"]
         self.neons, self.banniere, self.bannieres = 0, "", []
+        self.admin = False
         self.app.donnees["compte"] = {}
         self.app.enregistrer()
 
@@ -437,6 +451,17 @@ class ServiceEnLigne:
                 self.app.notifier(f"RANG {self.niveau} !", "AMBRE")
         self.appeler("POST", "/api/parties", {"rapports": lot}, recu)
 
+    def annoncer_messages(self, messages):
+        """But : récompenses du serveur (top 3, fin de saison) : notification puis « lu »."""
+        deja = getattr(self, "messages_vus", set())
+        nouveaux = [m for m in messages if m.get("id") not in deja]
+        for message in nouveaux:
+            self.app.notifier(message.get("titre", ""), "OR", message.get("texte", ""))
+            deja.add(message.get("id"))
+        self.messages_vus = deja
+        if nouveaux:
+            self.appeler("POST", "/api/moi/messages", {"ids": [m["id"] for m in nouveaux]})
+
     def annoncer_gains(self, gains):
         """But : notifications des succès débloqués (réponse du serveur)."""
         if not gains:
@@ -451,6 +476,9 @@ class ServiceEnLigne:
             self.neons = gains["neons"]
         if "elo" in gains:
             self.elo, self.classees = gains["elo"], gains.get("classees", self.classees)
+            self.elo_max = max(getattr(self, "elo_max", 0), self.elo)
+            self.classees_victoires = getattr(self, "classees_victoires", 0) + int(bool(gains.get("victoire_classee")))
+            self.classees_recents = (getattr(self, "classees_recents", "") + ("V" if gains.get("victoire_classee") else "D"))[-10:]
         for succes in gains.get("nouveaux_succes", []):
             self.app.notifier("SUCCES : " + succes["nom"], "OR", succes["description"])
 

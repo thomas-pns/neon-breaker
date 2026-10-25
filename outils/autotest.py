@@ -25,6 +25,9 @@ def lancer(app):
     from ecrans.titre import EcranTitre
     from ecrans.modes import EcranModes, fabrique_mode
     from ecrans.aide import EcranAide
+    from ecrans.jouer import EcranJouer
+    from ecrans.casier import EcranCasier
+    from ecrans.menus import EcranReglages
     from ecrans.carte import EcranCarte
     from ecrans.nouveautes import EcranNouveautes
     from ecrans.scores import EcranScores
@@ -46,6 +49,11 @@ def lancer(app):
     etapes = [
         ("titre", lambda: EcranTitre(app)),
         ("modes", lambda: EcranModes(app)),
+        ("jouer en ligne", lambda: EcranJouer(app, "en_ligne")),
+        ("jouer defis", lambda: EcranJouer(app, "defis")),
+        ("casier", lambda: EcranCasier(app)),
+        ("reglages", lambda: EcranReglages(app)),
+        ("admin", lambda: __import__("ecrans.en_ligne.admin", fromlist=["EcranAdmin"]).EcranAdmin(app)),
         ("aide", lambda: EcranAide(app)),
         ("carte", lambda: EcranCarte(app, "campagne")),
         ("nouveautes", lambda: EcranNouveautes(app)),

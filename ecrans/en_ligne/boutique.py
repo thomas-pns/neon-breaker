@@ -25,9 +25,10 @@ from reseau.boutique import COULEURS_RARETES, MONNAIE, NOMS_RARETES, PRIX_BOITE
 from ecrans.hud import panneau
 from ecrans.en_ligne.commun import EcranEnLigneBase, GRIS
 
-LARGEUR_CARTE, HAUTEUR_CARTE = 290, 190
+LARGEUR_CARTE, HAUTEUR_CARTE = 205, 236
 COLONNES = 3
-GAUCHE, HAUT = 70, 120
+GAUCHE, HAUT = 590, 104                # sélection du jour à droite (2.1)
+VEDETTE = pygame.Rect(40, 104, 520, 500)
 CASE_BOITE = 6                     # indice de la boîte mystère (après les 6 objets)
 
 
@@ -48,6 +49,7 @@ class EcranBoutique(EcranEnLigneBase):
     """
 
     titre = "BOUTIQUE"
+    onglet = "BOUTIQUE"
 
     def __init__(self, app):
         super().__init__(app)
@@ -86,14 +88,23 @@ class EcranBoutique(EcranEnLigneBase):
     def _dessiner_objet(self, image, objet, centre, temps, largeur=230):
         """Aperçu d'un objet : bannière avec le pseudo, ou raquette au skin."""
         if objet["type"] == "banniere":
-            rect = pygame.Rect(0, 0, largeur, 38)
+            rect = pygame.Rect(0, 0, largeur, max(38, largeur // 5))
             rect.center = centre
             dessiner_banniere(image, objet["code"], rect, temps)
-            dessiner_texte(image, self.app.en_ligne.pseudo.upper(), rect.centerx, rect.centery, 2,
-                           config.BLANC)
+            dessiner_texte(image, self.app.en_ligne.pseudo.upper(), rect.centerx, rect.centery,
+                           2 if rect.h < 60 else 4, config.BLANC)
         else:
             raquette = self._apercu(objet["code"]).raquette
-            raquette.x = centre[0] + math.sin(temps * 1.6) * 50
+            if largeur > 300:                 # vedette : raquette agrandie x2
+                toile = pygame.Surface((260, 60))
+                toile.fill((0, 0, 0))
+                raquette.x = 130 + math.sin(temps * 1.6) * 20
+                raquette.y = 30 - raquette.hauteur / 2
+                raquette.dessiner(toile, temps)
+                grande = pygame.transform.scale(toile, (520, 120))
+                image.blit(grande, grande.get_rect(center=centre), special_flags=pygame.BLEND_RGB_ADD)
+                return
+            raquette.x = centre[0] + math.sin(temps * 1.6) * min(50, largeur / 8)
             raquette.y = centre[1] - raquette.hauteur / 2
             raquette.dessiner(image, temps)
 
@@ -151,6 +162,34 @@ class EcranBoutique(EcranEnLigneBase):
         self.message = f"{objet['nom']} EST A TOI !  ENTREE : EQUIPER"
         self.minuteur = 4.0
 
+    def _recu_historique(self, resultat):
+        if resultat["ok"] and self.historique is not None:
+            self.historique = resultat["donnees"]["mouvements"] or [{"montant": 0, "raison": "AUCUN MOUVEMENT",
+                                                                     "le": 0}]
+
+    def _dessiner_historique(self, image):
+        from ecrans.menus import carte
+        cadre = pygame.Rect(0, 0, 720, 500)
+        cadre.center = (config.LARGEUR / 2, 380)
+        voile = pygame.Surface(image.get_size(), pygame.SRCALPHA)
+        voile.fill((5, 0, 15, 190))
+        image.blit(voile, (0, 0))
+        carte(image, cadre, config.CYAN, True, alpha=245)
+        dessiner_texte(image, f"HISTORIQUE DES {MONNAIE}", cadre.centerx, cadre.y + 36, 4, config.CYAN)
+        if not self.historique:
+            dessiner_texte(image, "CHARGEMENT...", cadre.centerx, cadre.centery, 2, GRIS, lueur=False)
+        for k, ligne in enumerate(self.historique[:12]):
+            y = cadre.y + 86 + k * 32
+            date = datetime.datetime.fromtimestamp(ligne["le"]).strftime("%d/%m") if ligne["le"] else ""
+            dessiner_texte(image, date, cadre.x + 30, y, 2, GRIS, ancrage="gauche", lueur=False)
+            dessiner_texte(image, str(ligne["raison"])[:30], cadre.x + 110, y, 2, config.BLANC,
+                           ancrage="gauche", lueur=False)
+            montant = ligne["montant"]
+            if montant:
+                dessiner_texte(image, f"{'+' if montant > 0 else ''}{montant}", cadre.right - 30, y, 2,
+                               config.VERT if montant > 0 else config.ROSE, ancrage="droite", lueur=False)
+        dessiner_texte(image, "H OU ECHAP : FERMER", cadre.centerx, cadre.bottom - 24, 2, GRIS, lueur=False)
+
     def _recu_boite(self, resultat):
         self.en_attente = False
         if not resultat["ok"]:
@@ -196,86 +235,118 @@ class EcranBoutique(EcranEnLigneBase):
             elif entrees.vient_d_appuyer("retour") and not self.en_attente:
                 self.etat = "vitrine"
             return
-        if entrees.vient_d_appuyer("retour"):
-            from ecrans.en_ligne.hub import EcranHub
-            self.app.remplacer(EcranHub(self.app))
+        if pygame.KSCAN_H in entrees.appuis and self.etat == "vitrine":
+            self.historique = None if getattr(self, "historique", None) is not None else []
+            if self.historique == []:
+                self.app.en_ligne.appeler("GET", "/api/moi/historique", rappel=self._recu_historique)
             return
-        if self.etat != "vitrine":
+        if entrees.vient_d_appuyer("retour"):
+            if getattr(self, "historique", None) is not None:
+                self.historique = None
+                return
+            self.retour_accueil()
+            return
+        if self.etat != "vitrine" or getattr(self, "historique", None) is not None:
             return
         ancien = self.indice
         if entrees.vient_d_appuyer("droite"):
-            self.indice = CASE_BOITE if self.indice % COLONNES == COLONNES - 1 and \
-                self.indice != CASE_BOITE else min(CASE_BOITE, self.indice + 1)
+            if self.indice == CASE_BOITE:
+                self.indice = 0
+            elif self.indice % COLONNES < COLONNES - 1:
+                self.indice += 1
         if entrees.vient_d_appuyer("gauche"):
-            self.indice = 2 if self.indice == CASE_BOITE else max(0, self.indice - 1)
+            if self.indice != CASE_BOITE:
+                self.indice = CASE_BOITE if self.indice % COLONNES == 0 else self.indice - 1
         if entrees.vient_d_appuyer("bas") and self.indice < COLONNES:
             self.indice += COLONNES
         if entrees.vient_d_appuyer("haut") and COLONNES <= self.indice < CASE_BOITE:
             self.indice -= COLONNES
+        if entrees.souris_bougee:
+            for i in list(range(len(self.selection[:CASE_BOITE]))) + [CASE_BOITE]:
+                if self._rect_carte(i).collidepoint(entrees.souris):
+                    self.indice = i
         if self.indice != ancien:
             self.app.audio.jouer("menu_nav")
-        if entrees.vient_d_appuyer("valider"):
+        clic = 1 in entrees.clics and self._rect_carte(self.indice).collidepoint(entrees.souris)
+        if entrees.vient_d_appuyer("valider") or clic:
             self._valider()
 
     # --- Dessin ----------------------------------------------------------------------------
 
     def _rect_carte(self, i):
         if i == CASE_BOITE:
-            return pygame.Rect(GAUCHE + COLONNES * (LARGEUR_CARTE + 20), HAUT,
-                               240, 2 * HAUTEUR_CARTE + 20)
-        return pygame.Rect(GAUCHE + (i % COLONNES) * (LARGEUR_CARTE + 20),
-                           HAUT + (i // COLONNES) * (HAUTEUR_CARTE + 20),
+            return VEDETTE
+        return pygame.Rect(GAUCHE + (i % COLONNES) * (LARGEUR_CARTE + 15),
+                           HAUT + (i // COLONNES) * (HAUTEUR_CARTE + 28),
                            LARGEUR_CARTE, HAUTEUR_CARTE)
 
     def _dessiner_carte(self, image, i, objet):
+        from ecrans.menus import carte
         rect = self._rect_carte(i)
         couleur = COULEURS_RARETES[objet["rarete"]]
         choisie = i == self.indice
-        if choisie:
-            lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=10)
-            image.blit(lueur, (rect.x - 16, rect.y - 16), special_flags=pygame.BLEND_RGB_ADD)
-        panneau(image, rect, couleur if choisie else attenuer(couleur, 0.55))
+        carte(image, rect, couleur if choisie else attenuer(couleur, 0.8), choisie)
         dessiner_texte(image, NOMS_RARETES[objet["rarete"]] + ("  SKIN" if objet["type"] == "skin"
                                                                else "  BANNIERE"),
-                       rect.x + 14, rect.y + 20, 2, couleur, ancrage="gauche", lueur=False)
-        self._dessiner_objet(image, objet, (rect.centerx, rect.y + 78), self.temps)
-        dessiner_texte(image, objet["nom"], rect.centerx, rect.y + 122, 3, config.BLANC)
+                       rect.centerx, rect.y + 22, 1, couleur, lueur=False)
+        self._dessiner_objet(image, objet, (rect.centerx, rect.y + 82), self.temps, rect.w - 30)
+        dessiner_texte(image, objet["nom"], rect.centerx, rect.y + 142, 2, config.BLANC)
         if objet.get("possede"):
-            dessiner_texte(image, "POSSEDE", rect.centerx, rect.bottom - 30, 3, config.VERT)
+            dessiner_texte(image, "POSSEDE", rect.centerx, rect.bottom - 34, 3, config.VERT)
             return
-        prix = rect.centerx + 14
         if objet.get("promo"):
-            barre = dessiner_texte(image, str(objet["prix_normal"]), rect.x + 50, rect.bottom - 30,
+            barre = dessiner_texte(image, str(objet["prix_normal"]), rect.centerx, rect.bottom - 64,
                                    2, GRIS, lueur=False)
             pygame.draw.line(image, config.ROSE, (barre.x - 2, barre.centery),
                              (barre.right + 2, barre.centery), 2)
-            etiquette = pygame.Rect(rect.right - 80, rect.y - 12, 72, 24)
+            etiquette = pygame.Rect(rect.right - 70, rect.y - 10, 62, 22)
             pygame.draw.rect(image, config.ROSE, etiquette, border_radius=4)
             dessiner_texte(image, "-30%", etiquette.centerx, etiquette.centery, 2, config.BLANC,
                            lueur=False)
         abordable = self.app.en_ligne.neons >= objet["prix"]
-        zone = dessiner_texte(image, str(objet["prix"]), prix, rect.bottom - 30, 3,
+        zone = dessiner_texte(image, str(objet["prix"]), rect.centerx + 12, rect.bottom - 34, 3,
                               config.CYAN if abordable else (150, 90, 120))
-        dessiner_piece(image, (zone.x - 18, zone.centery), 10, self.temps)
+        dessiner_piece(image, (zone.x - 16, zone.centery), 10, self.temps)
+
+    def _vedette(self):
+        """Objet légendaire mis en avant (le même toute la journée), à gagner dans la boîte."""
+        if getattr(self, "_objet_vedette", None) is None:
+            import random
+            from reseau.boutique import tous_les_objets
+            legendaires = [o for o in tous_les_objets() if o["rarete"] == "legendaire"]
+            hasard = random.Random("vedette-" + datetime.date.today().isoformat())
+            self._objet_vedette = hasard.choice(legendaires) if legendaires else None
+        return self._objet_vedette
 
     def _dessiner_boite(self, image):
-        rect = self._rect_carte(CASE_BOITE)
+        from ecrans.menus import bouton, carte
+        rect = VEDETTE
         choisie = self.indice == CASE_BOITE
         couleur = COULEURS_RARETES["legendaire"]
-        if choisie:
-            lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=10)
-            image.blit(lueur, (rect.x - 16, rect.y - 16), special_flags=pygame.BLEND_RGB_ADD)
-        panneau(image, rect, couleur if choisie else attenuer(couleur, 0.55))
-        dessiner_texte(image, "BOITE", rect.centerx, rect.y + 34, 4, couleur)
-        dessiner_texte(image, "MYSTERE", rect.centerx, rect.y + 72, 4, couleur)
-        self._dessiner_cube(image, (rect.centerx, rect.y + 190), 56, self.temps, 0.0)
-        for k, ligne in enumerate(("UN OBJET AU HASARD", "JAMAIS EN DOUBLE", "LEGENDAIRE : 5 %")):
-            dessiner_texte(image, ligne, rect.centerx, rect.y + 286 + k * 22, 2,
-                           config.AMBRE if k == 2 else GRIS, lueur=False)
+        carte(image, rect, couleur if choisie else attenuer(couleur, 0.8), choisie)
+        dessiner_texte(image, "EN VEDETTE", rect.x + 26, rect.y + 30, 2, GRIS, ancrage="gauche",
+                       lueur=False)
+        vedette = self._vedette()
+        if vedette is not None:
+            self._dessiner_objet(image, vedette, (rect.centerx, rect.y + 130), self.temps, rect.w - 80)
+            dessiner_texte(image, vedette["nom"], rect.centerx, rect.y + 226, 5, couleur)
+            genre = "BANNIERE" if vedette["type"] == "banniere" else "SKIN"
+            dessiner_texte(image, f"{genre} LEGENDAIRE", rect.centerx, rect.y + 268, 2, GRIS, lueur=False)
+            dessiner_texte(image, "SEULEMENT DANS LA BOITE MYSTERE", rect.centerx, rect.y + 294, 2,
+                           config.AMBRE, lueur=False)
+        self._dessiner_cube(image, (rect.x + 96, rect.y + 362), 44, self.temps, 0.0)
+        for k, ligne in enumerate(("BOITE MYSTERE", "UN OBJET AU HASARD", "JAMAIS EN DOUBLE")):
+            dessiner_texte(image, ligne, rect.x + 166, rect.y + 336 + k * 26, 3 if k == 0 else 2,
+                           couleur if k == 0 else GRIS, ancrage="gauche", lueur=False)
+        b = pygame.Rect(0, 0, 340, 56)
+        b.midbottom = (rect.centerx, rect.bottom - 22)
         abordable = self.app.en_ligne.neons >= PRIX_BOITE
-        zone = dessiner_texte(image, str(PRIX_BOITE), rect.centerx + 14, rect.bottom - 30, 3,
-                              config.CYAN if abordable else (150, 90, 120))
-        dessiner_piece(image, (zone.x - 18, zone.centery), 10, self.temps)
+        pygame.draw.rect(image, couleur if abordable else (120, 90, 60), b, border_radius=8)
+        dessiner_texte(image, "OUVRIR", b.x + 30, b.centery, 4, (20, 0, 30), ancrage="gauche", lueur=False,
+                       ombre=False)
+        zone = dessiner_texte(image, str(PRIX_BOITE), b.right - 24, b.centery, 4, (20, 0, 30),
+                              ancrage="droite", lueur=False, ombre=False)
+        dessiner_piece(image, (zone.x - 20, zone.centery), 11, self.temps)
 
     def _dessiner_cube(self, image, centre, taille, temps, secousse):
         """Boîte mystère en néon : un cube qui flotte (et tremble à l'ouverture)."""
@@ -298,12 +369,10 @@ class EcranBoutique(EcranEnLigneBase):
         dessiner_texte(image, "?", face.centerx, face.centery, int(demi // 8) + 1, config.BLANC)
 
     def _dessiner_entete(self, image):
-        en_ligne = self.app.en_ligne
-        zone = dessiner_texte(image, f"{en_ligne.neons}", config.LARGEUR - 40, 80, 4, config.CYAN,
-                              ancrage="droite")
-        dessiner_piece(image, (zone.x - 26, zone.centery), 14, self.temps)
-        dessiner_texte(image, f"NOUVELLE SELECTION DANS {temps_avant_minuit()}", GAUCHE, 88, 2, GRIS,
-                       ancrage="gauche", lueur=False)
+        dessiner_texte(image, "SELECTION DU JOUR", GAUCHE, 84, 2, config.VIOLET, ancrage="gauche",
+                       lueur=False)
+        dessiner_texte(image, f"NOUVELLE DANS {temps_avant_minuit()}", config.LARGEUR - 46, 84, 2, GRIS,
+                       ancrage="droite", lueur=False)
 
     def _dessiner_superpose(self, image, titre, lignes, couleur):
         voile = pygame.Surface(image.get_size())
@@ -329,14 +398,10 @@ class EcranBoutique(EcranEnLigneBase):
             self._dessiner_carte(image, i, objet)
         self._dessiner_boite(image)
         if self.message and self.minuteur > 0:
-            dessiner_texte(image, self.message, config.LARGEUR / 2, 572, 3, config.AMBRE)
+            dessiner_texte(image, self.message, config.LARGEUR / 2, 640, 3, config.AMBRE)
         else:
-            objet = self._objet_courant()
-            aide = ("ENTREE : OUVRIR UNE BOITE" if self.indice == CASE_BOITE else
-                    "ENTREE : EQUIPER" if objet and objet.get("possede") else "ENTREE : ACHETER")
-            dessiner_texte(image, aide, config.LARGEUR / 2, 572, 2, GRIS, lueur=False)
-        dessiner_texte(image, f"GAGNE DES {MONNAIE} : CAMPAGNE, BOSS, DEFIS, SERIES, SUCCES, EN LIGNE",
-                       config.LARGEUR / 2, 620, 2, (130, 110, 190), lueur=False)
+            dessiner_texte(image, f"GAGNE DES {MONNAIE} : CAMPAGNE, BOSS, DEFIS, SERIES, SUCCES, EN LIGNE",
+                           config.LARGEUR / 2, 640, 2, (130, 110, 190), lueur=False)
 
         if self.etat == "confirmer":
             if self.indice == CASE_BOITE:
@@ -374,4 +439,6 @@ class EcranBoutique(EcranEnLigneBase):
             dessiner_texte(image, self.gagne["nom"], cadre.centerx, cadre.y + 200, 4, config.BLANC)
             dessiner_texte(image, "ENTREE : EQUIPER      ECHAP : PLUS TARD", cadre.centerx,
                            cadre.bottom - 30, 2, GRIS, lueur=False)
-        self.pied(image, "FLECHES : CHOISIR    ENTREE : VALIDER    ECHAP : RETOUR")
+        if getattr(self, "historique", None) is not None:
+            self._dessiner_historique(image)
+        self.pied(image, "FLECHES : CHOISIR    ENTREE : ACHETER / EQUIPER    H : HISTORIQUE    TAB : ONGLET")

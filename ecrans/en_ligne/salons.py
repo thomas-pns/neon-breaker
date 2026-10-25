@@ -88,8 +88,9 @@ class EcranSalons(EcranTempsReel):
 
     titre = "PARTIES EN LIGNE"
 
-    def __init__(self, app):
+    def __init__(self, app, creer=None):
         super().__init__(app)
+        self.creer = creer                 # mode à créer dès la connexion (onglet JOUER, 2.1)
         self.salons = []
         self.joueurs_en_ligne = []
         self.maximum = 4
@@ -104,6 +105,9 @@ class EcranSalons(EcranTempsReel):
 
     def sur_connexion(self):
         self.temps_reel.envoyer({"t": "lister"})
+        if self.creer:
+            self.temps_reel.envoyer({"t": "creer", "mode": self.creer, "niveau": self.niveau})
+            self.creer = None
 
     def sur_salons(self, message):
         self.salons = [s for s in message["liste"]]
@@ -155,7 +159,6 @@ class EcranSalons(EcranTempsReel):
             if self.indice < len(self.salons):
                 self.temps_reel.envoyer({"t": "rejoindre", "id": self.salons[self.indice]["id"]})
             elif MODES[self.mode_creation] == "classe":
-                self.temps_reel.envoyer({"t": "file", "v": True})
                 self.app.remplacer(EcranFileClassee(self.app), transition=False)
             else:
                 self.temps_reel.envoyer({"t": "creer", "mode": MODES[self.mode_creation],
@@ -256,14 +259,16 @@ class EcranFileClassee(EcranTempsReel):
 
     titre = "PARTIE CLASSEE"
 
-    def __init__(self, app):
+    def __init__(self, app, mode="duel"):
         super().__init__(app)
+        self.mode = mode
+        self.titre = "CLASSEE COURSE" if mode == "course" else "CLASSEE DUEL"
         self.attente = 0
         self.joueurs = 1
         self.debut = time.monotonic()
 
     def sur_connexion(self):
-        self.temps_reel.envoyer({"t": "file", "v": True})
+        self.temps_reel.envoyer({"t": "file", "v": True, "mode": self.mode})
 
     def sur_file(self, message):
         if message.get("v"):

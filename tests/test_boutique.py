@@ -80,6 +80,11 @@ class TestBoutique(unittest.TestCase):
         self.assertFalse(set(codes) & {s["code"] for s in SKINS
                                        if not s["condition"] or s["condition"][0] != "boutique"})
 
+    def test_bannieres_de_boss(self):
+        self.assertEqual(b.bannieres_recompenses({"boss_sunset", "combo_8"}), {"soleil_eteint"})
+        self.assertIsNone(b.objet("soleil_eteint"))                      # jamais en vente
+        self.assertNotIn("noyau_brise", [o["code"] for o in b.tous_les_objets()])
+
     def test_selection_du_jour(self):
         jour = b.selection_du_jour("2026-10-25")
         self.assertEqual(jour, b.selection_du_jour("2026-10-25"))     # même pour tous

@@ -19,6 +19,7 @@ Réalisé le 21/10/2026
 """
 
 import hashlib
+import logging
 import hmac
 import html
 import json
@@ -43,6 +44,7 @@ MODES_SOLO = ("campagne", "arcade", "hardcore", "defi", "semaine")
 MORCEAUX_ATTENDUS = {}          # fichier partiel -> numéro du prochain morceau
 
 app = FastAPI(title="NEON BREAKER", docs_url=None, redoc_url=None)
+journal_admin = logging.getLogger("neon.admin")
 base = Base()
 gestionnaire = Gestionnaire(base)
 limiteur = securite.Limiteur(config.TENTATIVES_PAR_MINUTE)
@@ -98,7 +100,9 @@ def presentation(joueur):
             "niveau": niveau_pour(joueur["xp"]), "skin": joueur["skin"],
             "skins": base.skins_de(joueur), "neons": joueur["neons"],
             "banniere": joueur["banniere"], "bannieres": base.bannieres_de(joueur["id"]),
-            "elo": joueur["elo"], "classees": joueur["classees"]}
+            "elo": joueur["elo"], "classees": joueur["classees"], "elo_max": joueur["elo_max"],
+            "classees_victoires": joueur["classees_victoires"],
+            "classees_recents": joueur["classees_recents"], "admin": base.est_admin(joueur)}
 
 
 def ouvrir_session(joueur):
@@ -146,7 +150,37 @@ def deconnexion(authorization: str = Header(default="")):
 def moi(authorization: str = Header(default="")):
     joueur = joueur_connecte(authorization)
     base.toucher(joueur["id"])
-    return presentation(joueur)
+    return {**presentation(joueur), "messages": base.messages_non_lus(joueur["id"])}
+
+
+class MessagesLus(BaseModel):
+    ids: list
+
+
+@app.post("/api/moi/messages")
+def messages_lus(lus: MessagesLus, authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    base.marquer_lus(joueur["id"], [i for i in lus.ids if isinstance(i, int)])
+    return {"ok": True}
+
+
+@app.get("/api/moi/historique")
+def historique(authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    return {"mouvements": base.historique(joueur["id"]), "neons": joueur["neons"]}
+
+
+@app.on_event("startup")
+async def demarrer_recompenses():
+    """Récompenses des défis et des saisons : vérifiées au démarrage puis toutes les 10 minutes."""
+    import asyncio
+    from serveur.recompenses import verser_tout
+
+    async def boucle():
+        while True:
+            verser_tout(base, aujourd_hui())
+            await asyncio.sleep(600)
+    app.state.tache_recompenses = asyncio.create_task(boucle())
 
 
 @app.put("/api/moi/couleur")
@@ -180,6 +214,52 @@ def changer_banniere(choix: Banniere, authorization: str = Header(default="")):
     if connexion is not None:
         connexion.banniere = choix.banniere
     return {"ok": True, "banniere": choix.banniere}
+
+
+# --- Administration (2.1) ---------------------------------------------------------------
+
+class ActionAdmin(BaseModel):
+    action: str
+    valeur: int = 0
+
+
+def admin_connecte(autorisation):
+    joueur = joueur_connecte(autorisation)
+    if not base.est_admin(joueur):
+        raise HTTPException(403, "Reserve aux administrateurs")
+    return joueur
+
+
+@app.get("/api/admin/joueurs")
+def admin_joueurs(authorization: str = Header(default="")):
+    admin_connecte(authorization)
+    return {"joueurs": base.liste_admin(), "en_ligne": sorted(gestionnaire.connexions),
+            "parties": len(gestionnaire.salons)}
+
+
+@app.post("/api/admin/joueurs/{pseudo}")
+def admin_action(pseudo: str, action: ActionAdmin, authorization: str = Header(default="")):
+    """Actions de base : suspendre, rétablir, donner des NEONS (valeur), remettre la cote à 1000."""
+    admin = admin_connecte(authorization)
+    cible = base.joueur_par_pseudo(pseudo)
+    if cible is None:
+        raise HTTPException(404, "Joueur introuvable")
+    if action.action == "suspendre":
+        if cible["id"] == admin["id"]:
+            raise HTTPException(400, "Impossible de se suspendre soi-meme")
+        base.bannir(cible["id"], True)
+        base.supprimer_sessions_joueur(cible["id"])
+    elif action.action == "retablir":
+        base.bannir(cible["id"], False)
+    elif action.action == "neons":
+        base.crediter(cible["id"], max(-100000, min(100000, action.valeur)), "CADEAU ADMIN")
+    elif action.action == "cote":
+        base.ecrire("UPDATE joueurs SET elo = 1000, classees = 0, classees_victoires = 0, "
+                    "classees_recents = '' WHERE id = ?", (cible["id"],))
+    else:
+        raise HTTPException(400, "Action inconnue")
+    journal_admin.info("Admin %s : %s %s (%s)", admin["pseudo"], action.action, pseudo, action.valeur)
+    return {"ok": True, "joueurs": base.liste_admin()}
 
 
 # --- Boutique (2.0) -----------------------------------------------------------------------

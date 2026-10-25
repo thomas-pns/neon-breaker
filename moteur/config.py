@@ -164,6 +164,7 @@ TOUCHES = {
         "valider": [S.KSCAN_RETURN, S.KSCAN_KP_ENTER, S.KSCAN_SPACE],
         "retour": [S.KSCAN_ESCAPE, S.KSCAN_BACKSPACE],
         "pause": [S.KSCAN_ESCAPE, S.KSCAN_P],
+        "onglet": [S.KSCAN_TAB],          # menus 2.1 : onglet suivant (Maj + Tab : précédent)
     },
     "solo": {
         "gauche": [S.KSCAN_LEFT, S.KSCAN_A],
@@ -199,7 +200,8 @@ TOUCHES = {
 MANETTE = {
     "menu": {"haut": ["haut", "stick_haut"], "bas": ["bas", "stick_bas"],
              "gauche": ["gauche", "stick_gauche"], "droite": ["droite", "stick_droite"],
-             "valider": ["a", "start"], "retour": ["b", "back"], "pause": ["start"]},
+             "valider": ["a", "start"], "retour": ["b", "back"], "pause": ["start"],
+             "onglet": ["rb"], "onglet_precedent": ["lb"]},
     "jeu": {"gauche": ["gauche", "stick_gauche"], "droite": ["droite", "stick_droite"],
             "action": ["a"], "changer": ["x", "lb"], "activer": ["y", "rb"],
             "overdrive": ["b", "rt", "lt"]},

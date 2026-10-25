@@ -203,8 +203,12 @@ class TestServeur(unittest.TestCase):
             self.assertEqual(fin["gains"]["elo"], 1000 + 20)
             self.assertTrue(fin["gains"]["victoire_classee"])
         lignes = self.client.get("/api/classements/classe").json()["lignes"]
-        self.assertEqual(lignes[0]["pseudo"], "Classe1")
-        self.assertEqual(self.client.get("/api/joueurs/Classe2").json()["elo"], 980)
+        self.assertEqual(next(l for l in lignes if l["pseudo"] == "Classe1")["valeur"], 1020)
+        perdant = self.client.get("/api/joueurs/Classe2").json()
+        self.assertEqual((perdant["elo"], perdant["classees_recents"], perdant["classees_victoires"]),
+                         (980, "D", 0))
+        gagnant = self.client.get("/api/moi", headers={"Authorization": f"Bearer {jeton_a}"}).json()
+        self.assertEqual((gagnant["classees_victoires"], gagnant["classees_recents"]), (1, "V"))
 
     def test_fantome(self):
         from reseau.fantome import Enregistreur
@@ -220,6 +224,23 @@ class TestServeur(unittest.TestCase):
         self.assertEqual((reponse["pseudo"], reponse["score"]), ("Spectre", 900))
         self.assertEqual(self.client.get("/api/fantome/defi/2026-10-23").status_code, 404)
         self.assertEqual(self.client.get("/api/fantome/arcade/2026-10-22").status_code, 400)
+
+    def test_course_classee(self):
+        jetons = [self.inscrire("Coureur1"), self.inscrire("Coureur2"), self.inscrire("Dueliste")]
+        with self.client.websocket_connect("/ws") as a, self.client.websocket_connect("/ws") as b, \
+                self.client.websocket_connect("/ws") as c:
+            for socket, jeton in zip((a, b, c), jetons):
+                socket.send_json({"t": "auth", "jeton": jeton, "protocole": PROTOCOLE})
+                recevoir_jusqua(socket, "bienvenue")
+            a.send_json({"t": "file", "v": True, "mode": "course"})
+            c.send_json({"t": "file", "v": True, "mode": "duel"})     # pas la même file
+            self.assertEqual(recevoir_jusqua(a, "file")["mode"], "course")
+            b.send_json({"t": "file", "v": True, "mode": "course"})
+            debut = recevoir_jusqua(a, "debut", essais=2000)
+            self.assertEqual((debut["mode"], debut["classee"]), ("course", True))
+            a.send_json({"t": "abandon"})
+            recevoir_jusqua(b, "fin", essais=2000)
+            c.send_json({"t": "file", "v": False})
 
     def test_defi_du_jour(self):
         jeton = self.inscrire("Defieur")
@@ -324,6 +345,28 @@ class TestServeur(unittest.TestCase):
         pauvre = {"Authorization": f"Bearer {self.inscrire('Fauche')}"}
         self.assertEqual(self.client.post("/api/boutique/acheter", headers=pauvre,
                                           json={"code": skin["code"]}).status_code, 400)
+
+    def test_admin(self):
+        jeton = self.inscrire("Chef")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        self.assertFalse(self.client.get("/api/moi", headers=entete).json()["admin"])
+        self.assertEqual(self.client.get("/api/admin/joueurs", headers=entete).status_code, 403)
+        config.ADMINS.append("Chef")
+        try:
+            self.assertTrue(self.client.get("/api/moi", headers=entete).json()["admin"])
+            self.inscrire("Tricheur")
+            liste = self.client.get("/api/admin/joueurs", headers=entete).json()["joueurs"]
+            self.assertIn("Tricheur", [j["pseudo"] for j in liste])
+            r = self.client.post("/api/admin/joueurs/Tricheur", headers=entete,
+                                 json={"action": "neons", "valeur": 500})
+            self.assertEqual(next(j for j in r.json()["joueurs"] if j["pseudo"] == "Tricheur")["neons"], 600)
+            self.client.post("/api/admin/joueurs/Tricheur", headers=entete, json={"action": "suspendre"})
+            self.assertEqual(self.client.post("/api/connexion",
+                                              json={"pseudo": "Tricheur", "mdp": "motdepasse"}).status_code, 403)
+            self.assertEqual(self.client.post("/api/admin/joueurs/Chef", headers=entete,
+                                              json={"action": "suspendre"}).status_code, 400)
+        finally:
+            config.ADMINS.remove("Chef")
 
     def test_migration_base_1_0(self):
         """Une base créée par la version 1.0 (sans skin ni jour) est mise à niveau."""
