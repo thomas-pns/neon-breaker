@@ -24,7 +24,7 @@ MAX_PARTIES = int(os.environ.get("NEON_MAX_PARTIES", "4"))
 JOUEURS_PAR_PARTIE = 2
 DUREE_SESSION_JOURS = 90
 ATTENTE_RECONNEXION = 30.0          # secondes avant d'abandonner une partie
-FREQUENCE_INSTANTANES = 30          # envois d'état par seconde
+FREQUENCE_INSTANTANES = 60          # envois d'état par seconde (une image sur une)
 
 # Limite anti-spam : tentatives de connexion / inscription par adresse IP.
 TENTATIVES_PAR_MINUTE = 10

@@ -271,6 +271,7 @@ def appliquer_terrain(terrain, d, par_numero, numero_local):
             continue                         # pilotée par ce PC (prédiction locale)
         raquette.largeur = largeur
         raquette.cible_reseau = (x, vx)
+        raquette.age_cible = 0.0
 
     # Briques.
     if "briques" in d:
@@ -401,12 +402,27 @@ def prolonger(mode, dt):
                 facteur = balle.facteur_vitesse() * (0.4 if terrain.chrono > 0 else 1)
                 balle.x += balle.vx * dt * facteur
                 balle.y += balle.vy * dt * facteur
+                correction = getattr(balle, "correction", None)
+                if correction is not None:
+                    # Recalage doux : l'écart avec le serveur est rattrapé en ~0,1 s.
+                    part = min(1.0, dt * 12)
+                    balle.x -= correction[0] * part
+                    balle.y -= correction[1] * part
+                    reste = (correction[0] * (1 - part), correction[1] * (1 - part))
+                    balle.correction = reste if abs(reste[0]) + abs(reste[1]) > 0.3 else None
             balle.mettre_a_jour_visuel(dt)
         for raquette in terrain.raquettes:
             cible = getattr(raquette, "cible_reseau", None)
             if cible is not None:
+                # Raquette d'un autre joueur : entre deux instantanés, sa position
+                # continue sur sa lancée (au plus 0,12 s), et l'affichage la suit en
+                # douceur ; plus de mouvement « en escalier ».
                 x, vx = cible
-                raquette.x += (x - raquette.x) * min(1.0, dt * 18)
+                raquette.age_cible = getattr(raquette, "age_cible", 0.0) + dt
+                visee = x + vx * min(0.12, raquette.age_cible)
+                visee = max(raquette.x_min + raquette.largeur / 2,
+                            min(raquette.x_max - raquette.largeur / 2, visee))
+                raquette.x += (visee - raquette.x) * min(1.0, dt * 20)
                 raquette.vx = vx
             raquette.ecrasement = max(0.0, raquette.ecrasement - dt * 6)
         if terrain.boss is not None:

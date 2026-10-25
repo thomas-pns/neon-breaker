@@ -26,7 +26,7 @@ Idées et corrections notées pour les prochaines versions (retours de Thomas ap
 
 ## Latence en ligne
 
-Aujourd'hui, le serveur calcule tout et envoie l'état 30 fois par seconde. Votre raquette répond
+Aujourd'hui, le serveur calcule tout et envoie l'état 60 fois par seconde (30 avant la 1.5). Votre raquette répond
 tout de suite, mais la balle et l'autre joueur arrivent avec le retard du réseau (environ un
 demi-ping, plus le temps entre deux images du serveur). C'est surtout sensible quand la balle
 touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
@@ -35,11 +35,18 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   raquette sur votre écran, votre jeu fait rebondir la balle tout de suite et prévient le
   serveur, qui s'aligne (on fait confiance entre amis). Plus aucune balle « traversée » ni de
   rebond en retard sur sa propre raquette.
-- [ ] **Prédiction de la balle** : entre deux images du serveur, le jeu continue de faire
-  avancer la balle (murs et briques compris), puis se recale en douceur au lieu de sauter.
-  Les deux joueurs peuvent voir de petites différences, ce qui est acceptable.
-- [ ] Monter à **60 images par seconde** côté serveur, ou n'envoyer que ce qui change pour
-  garder le même débit.
+- [x] **(fait en 1.5)** **Recalage doux de la balle** : un petit écart avec le serveur est
+  rattrapé en 0,1 s au lieu de faire sauter la balle (5 fois moins de sauts en test).
+- [x] **(fait en 1.5)** **Raquette de l'autre joueur fluide** : elle continue sur sa lancée
+  entre deux images du serveur et glisse en douceur (2 fois moins de saccades en test).
+- [x] **(fait en 1.5)** Serveur à **60 images par seconde**.
+- [x] **(fait en 1.5)** Coop : la balle collée à la raquette de l'autre joueur ne suit plus la
+  vôtre (bogue présent depuis la 1.0).
+- [x] **(fait en 1.5)** Touche **F3** en ligne : ping, images reçues par seconde, gigue,
+  recalages et sauts de balle, pour diagnostiquer une partie qui saccade.
+- [ ] **Prédiction complète de la balle** (murs et briques simulés côté joueur) si le jeu
+  saccade encore chez certains.
+- [ ] N'envoyer que ce qui change, pour réduire le débit si le serveur peine.
 - [x] Afficher le **ping** dans le HUD en ligne (vert / orange / rouge) pour savoir d'où vient
   la gêne. Si le ping est élevé, c'est le trajet Internet jusqu'au NAS, pas le jeu.
 

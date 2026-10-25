@@ -10,7 +10,8 @@ Objectifs du fichier :
     l'application (méthode traiter). Le jeu reste jouable hors ligne : si
     le serveur ne répond pas, on garde simplement les scores pour plus tard.
 
-    Pour les tests, NEON_LATENCE_MS ajoute un délai aux messages temps réel.
+    Pour les tests, NEON_LATENCE_MS ajoute un délai aux messages temps réel, et
+    NEON_GIGUE_MS un délai aléatoire en plus (l'ordre des messages est gardé).
 
 Par :
     Thomas CHASSANIS PONS et Camil BOUZIRI (refonte avec Claude)
@@ -32,6 +33,7 @@ import uuid
 from moteur.version import PROTOCOLE, VERSION, adresse_serveur
 
 LATENCE = float(os.environ.get("NEON_LATENCE_MS", "0")) / 1000
+GIGUE = float(os.environ.get("NEON_GIGUE_MS", "0")) / 1000      # tests : réseau irrégulier
 
 
 def contexte_ssl():
@@ -50,6 +52,7 @@ class TempsReel:
     """
 
     def __init__(self, url, jeton):
+        self.derniere_echeance = 0.0
         self.url = url
         self.jeton = jeton
         self.etat = "ferme"
@@ -94,7 +97,12 @@ class TempsReel:
                 async for texte in socket:
                     # Latence simulée : le message est daté, pas mis en attente
                     # (sinon les retards s'additionneraient).
-                    self.recus.put((time.monotonic() + LATENCE / 2, json.loads(texte)))
+                    echeance = time.monotonic() + LATENCE / 2
+                    if GIGUE:
+                        import random
+                        echeance = max(self.derniere_echeance, echeance + random.uniform(0, GIGUE))
+                        self.derniere_echeance = echeance
+                    self.recus.put((echeance, json.loads(texte)))
 
             async def envoyer():
                 while True:

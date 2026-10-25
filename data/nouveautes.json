@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.5.0",
+    "titre": "RESEAU",
+    "lignes": [
+      "EN LIGNE BEAUCOUP PLUS FLUIDE",
+      "L'AUTRE JOUEUR NE SACCADE PLUS",
+      "LA BALLE SE RECALE EN DOUCEUR AU LIEU DE SAUTER",
+      "SERVEUR 2 FOIS PLUS RAPIDE (60 IMAGES/S)",
+      "COOP : LA BALLE DE L'AUTRE NE SUIT PLUS TA RAQUETTE",
+      "F3 EN LIGNE : DIAGNOSTIC DU RESEAU"
+    ]
+  },
+  {
     "version": "1.4.0",
     "titre": "DEFIS ET DUEL",
     "lignes": [

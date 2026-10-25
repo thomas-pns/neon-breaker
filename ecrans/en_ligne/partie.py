@@ -76,6 +76,7 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.coupure = None
         self.menu_quitter = False
         self.sons_a_ignorer = []         # instants des rebonds joués ici (sons du serveur en double)
+        self.diagnostic = {"intervalles": [], "lissages": 0, "sauts": 0}
 
     def joueur_local(self):
         return self.mode.joueurs[self.numero - 1]
@@ -83,10 +84,15 @@ class EcranPartieEnLigne(EcranTempsReel):
     # --- Messages du serveur -------------------------------------------------------
 
     def sur_etat(self, message):
+        self._mesurer_arrivee()
         proteges = self._balles_protegees()
+        affichees = {balle.nid: (balle.x, balle.y, balle.vx, balle.vy)
+                     for terrain in self.mode.terrains for balle in terrain.balles
+                     if getattr(balle, "nid", None) is not None and not balle.collee}
         appliquer(self.mode, message, self.app, self.numero)
         compenser_latence(self.mode, min(0.15, self.temps_reel.ping / 2000))
         self._restaurer_balles(proteges)
+        self._lisser_balles(affichees, proteges)
         rejouer_effets(self._filtrer_sons(message.get("fx", [])), self.app, self.effets)
         self.recu = True
         self.pause = message.get("pause")
@@ -264,6 +270,61 @@ class EcranPartieEnLigne(EcranTempsReel):
                     balle.rebond_local = -1e9        # le serveur a suivi : il reprend la main
                 balle.y_prec = balle.y
 
+    def _lisser_balles(self, affichees, proteges):
+        """
+        But : petit écart entre la balle affichée et la nouvelle position du serveur :
+        au lieu de la téléporter, on garde l'affichage et on rattrape l'écart en
+        douceur sur quelques images (voir prolonger). Un vrai changement de direction
+        (rebond sur une brique, un mur...) est appliqué tout de suite.
+        """
+        for terrain in self.mode.terrains:
+            for balle in terrain.balles:
+                ancien = affichees.get(getattr(balle, "nid", None))
+                if ancien is None or balle.collee or balle.nid in proteges:
+                    continue
+                x, y, vx, vy = ancien
+                ecart = ((x - balle.x) ** 2 + (y - balle.y) ** 2) ** 0.5
+                meme_direction = vx * balle.vx + vy * balle.vy > 0
+                if meme_direction and 1.0 < ecart < 90:
+                    balle.correction = (x - balle.x, y - balle.y)
+                    balle.x, balle.y = x, y
+                    self.diagnostic["lissages"] += 1
+                elif ecart >= 90:
+                    self.diagnostic["sauts"] += 1
+
+    def _mesurer_arrivee(self):
+        """But : régularité des instantanés reçus (diagnostic F3)."""
+        import time
+        maintenant = time.monotonic()
+        precedent = self.diagnostic.get("derniere")
+        if precedent is not None:
+            intervalles = self.diagnostic["intervalles"]
+            intervalles.append(maintenant - precedent)
+            del intervalles[:-120]
+        self.diagnostic["derniere"] = maintenant
+
+    def _dessiner_diagnostic(self, image):
+        """But : touche F3 : ping, cadence et régularité du réseau, corrections."""
+        intervalles = self.diagnostic["intervalles"]
+        if intervalles:
+            moyenne = sum(intervalles) / len(intervalles)
+            gigue = (sum((i - moyenne) ** 2 for i in intervalles) / len(intervalles)) ** 0.5
+            cadence = 1 / moyenne if moyenne else 0
+        else:
+            moyenne = gigue = cadence = 0
+        lignes = [f"PING {self.temps_reel.ping:.0f} MS",
+                  f"ETATS {cadence:.0f} / S",
+                  f"GIGUE {gigue * 1000:.0f} MS",
+                  f"MAX {max(intervalles, default=0) * 1000:.0f} MS",
+                  f"LISSAGES {self.diagnostic['lissages']}",
+                  f"SAUTS {self.diagnostic['sauts']}"]
+        cadre = pygame.Rect(config.LARGEUR - 230, 60, 214, 30 + 24 * len(lignes))
+        pygame.draw.rect(image, (10, 0, 24), cadre, border_radius=8)
+        pygame.draw.rect(image, config.CYAN, cadre, 1, border_radius=8)
+        for i, ligne in enumerate(lignes):
+            dessiner_texte(image, ligne, cadre.x + 14, cadre.y + 22 + i * 24, 2, config.BLANC,
+                           ancrage="gauche", lueur=False, ombre=False)
+
     def _filtrer_sons(self, effets):
         """But : ne pas rejouer le son d'un rebond déjà joué sur ce PC."""
         self.sons_a_ignorer = [t for t in self.sons_a_ignorer if self.temps - t < 1.0]
@@ -298,15 +359,20 @@ class EcranPartieEnLigne(EcranTempsReel):
                     raquette.contraindre()
 
     def _recaler_balles_collees(self):
-        """Une balle posée sur MA raquette suit ma raquette locale."""
+        """
+        Une balle posée sur MA raquette suit ma raquette locale. On se fie au
+        propriétaire de la balle (et non à la raquette la plus proche : en Coop, les
+        deux raquettes sont à la même hauteur).
+        """
+        raquette = self.joueur_local().raquette
+        if raquette is None:
+            return
         for terrain in self.mode.terrains:
             for balle in terrain.balles:
-                if not balle.collee or not terrain.raquettes:
+                if not balle.collee or balle.proprietaire is not self.joueur_local():
                     continue
-                raquette = min(terrain.raquettes, key=lambda r: abs(r.face_y() - balle.y))
-                if raquette.joueur is not None and raquette.joueur.numero == self.numero:
-                    decalage = getattr(balle, "x_serveur", balle.x) - getattr(raquette, "x_serveur", raquette.x)
-                    balle.x = raquette.x + decalage
+                decalage = getattr(balle, "x_serveur", balle.x) - getattr(raquette, "x_serveur", raquette.x)
+                balle.x = raquette.x + max(-raquette.largeur / 2, min(raquette.largeur / 2, decalage))
 
     # --- Dessin -------------------------------------------------------------------------
 
@@ -331,6 +397,8 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.mode.dessiner_message(image)
         self.effets.dessiner_flash(image)
         ping = self.temps_reel.ping
+        if self.app.debug:
+            self._dessiner_diagnostic(image)
         couleur_ping = config.VERT if ping < 80 else config.AMBRE if ping < 150 else config.ROUGE
         dessiner_texte(image, f"PING {ping:.0f} MS", config.LARGEUR - 14, config.HAUTEUR - 12, 2,
                        couleur_ping, ancrage="droite", lueur=False, ombre=False)
