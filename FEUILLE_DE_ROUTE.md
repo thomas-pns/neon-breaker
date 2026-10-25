@@ -101,6 +101,9 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
 ## Difficulté
 
+> Décision de Thomas (25/10) : **on garde la difficulté actuelle**. Un début trop facile
+> rendrait le jeu vite ennuyeux. À revoir seulement si les amis bloquent vraiment.
+
 - [ ] Le boss 1 (SUNSET) est déjà très dur : rééquilibrer le monde 1 (moins de tirs, garde plus
   lente) et/ou ajouter une difficulté au choix (FACILE / NORMAL), ainsi qu'une vie de plus
   avant chaque boss.

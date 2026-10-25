@@ -1,5 +1,8 @@
 # Délégation aux agents ChatGPT (Codex)
 
+> **En pause depuis le 25/10/2026** : Claude travaille directement sur `main`, et il ne publie
+> qu'en changeant `VERSION`. Le protocole ci-dessous reste valable si la délégation reprend.
+
 Objectif : économiser les crédits Claude. Claude conçoit, découpe le travail, rédige les
 consignes et relit. Les agents Codex écrivent l'essentiel du code.
 
