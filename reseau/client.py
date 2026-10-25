@@ -198,6 +198,7 @@ class ServiceEnLigne:
         self.elo_max = compte.get("elo_max", self.elo)
         self.classees_victoires = compte.get("classees_victoires", 0)
         self.classees_recents = compte.get("classees_recents", "")
+        self.admin = bool(compte.get("admin", False))
         self.connecte = False
         self.joignable = None
         self.temps_reel = None
@@ -285,6 +286,7 @@ class ServiceEnLigne:
         self.elo_max = donnees.get("elo_max", getattr(self, "elo_max", self.elo))
         self.classees_victoires = donnees.get("classees_victoires", getattr(self, "classees_victoires", 0))
         self.classees_recents = donnees.get("classees_recents", getattr(self, "classees_recents", ""))
+        self.admin = bool(donnees.get("admin", getattr(self, "admin", False)))
         self.connecte = True
         self.app.donnees["compte"] = {"jeton": self.jeton, "pseudo": self.pseudo,
                                       "couleur": self.couleur, "niveau": self.niveau,
@@ -293,7 +295,8 @@ class ServiceEnLigne:
                                       "bannieres": self.bannieres, "elo": self.elo,
                                       "classees": self.classees, "elo_max": self.elo_max,
                                       "classees_victoires": self.classees_victoires,
-                                      "classees_recents": self.classees_recents}
+                                      "classees_recents": self.classees_recents,
+                                      "admin": self.admin}
         self.app.enregistrer()
 
     def se_connecter(self, pseudo, mdp, inscription, rappel):
@@ -325,6 +328,7 @@ class ServiceEnLigne:
         self.connecte = False
         self.skin, self.skins = "neon", ["neon"]
         self.neons, self.banniere, self.bannieres = 0, "", []
+        self.admin = False
         self.app.donnees["compte"] = {}
         self.app.enregistrer()
 

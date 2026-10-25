@@ -53,6 +53,7 @@ def lancer(app):
         ("jouer defis", lambda: EcranJouer(app, "defis")),
         ("casier", lambda: EcranCasier(app)),
         ("reglages", lambda: EcranReglages(app)),
+        ("admin", lambda: __import__("ecrans.en_ligne.admin", fromlist=["EcranAdmin"]).EcranAdmin(app)),
         ("aide", lambda: EcranAide(app)),
         ("carte", lambda: EcranCarte(app, "campagne")),
         ("nouveautes", lambda: EcranNouveautes(app)),

@@ -302,10 +302,16 @@ class EcranReglages(EcranBase):
 
     def options(self):
         connecte = bool(self.app.en_ligne.jeton)
-        return [("NOUVEAUTES", self._nouveautes), ("AIDE", self._aide), ("OPTIONS", self._options),
-                ("JOUEURS", self._joueurs),
-                ("SE DECONNECTER" if connecte else "SE CONNECTER", self._compte),
-                ("QUITTER LE JEU", self._quitter)]
+        options = [("NOUVEAUTES", self._nouveautes), ("AIDE", self._aide), ("OPTIONS", self._options),
+                   ("JOUEURS", self._joueurs)]
+        if connecte and getattr(self.app.en_ligne, "admin", False):
+            options.append(("ADMIN", self._admin))
+        return options + [("SE DECONNECTER" if connecte else "SE CONNECTER", self._compte),
+                          ("QUITTER LE JEU", self._quitter)]
+
+    def _admin(self):
+        from ecrans.en_ligne.admin import EcranAdmin
+        self.app.remplacer(EcranAdmin(self.app), transition=False)
 
     def _fermer(self):
         self.app.depiler()

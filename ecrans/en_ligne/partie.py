@@ -17,6 +17,8 @@ Par :
 Réalisé le 21/10/2026
 """
 
+import math
+
 import pygame
 
 from moteur import config
@@ -59,6 +61,7 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.numero = debut["numero"]
         self.code = debut["mode"]
         self.classee = bool(debut.get("classee"))
+        self.bot = None
         self.effets = GestionnaireEffets()
         self.effets.qualite = app.reglages["particules"]
         self.mode = creer_mode_client(self.code, app, self.effets, debut.get("niveau", 0))
@@ -131,6 +134,9 @@ class EcranPartieEnLigne(EcranTempsReel):
         entrees = self.app.entrees
         self.effets.mettre_a_jour(dt)
         self._surveiller_connexion()
+        if pygame.KSCAN_F8 in entrees.appuis and getattr(self.app.en_ligne, "admin", False):
+            self.app.donnees["bot_actif"] = not self.app.donnees.get("bot_actif", False)
+            self.app.notifier("BOT " + ("ACTIVE" if self.app.donnees["bot_actif"] else "COUPE"), "AMBRE")
         if pygame.KSCAN_ESCAPE in entrees.appuis:
             self.menu_quitter = not self.menu_quitter
         if self.menu_quitter:
@@ -141,12 +147,21 @@ class EcranPartieEnLigne(EcranTempsReel):
                 from ecrans.en_ligne.salons import EcranSalons
                 self.app.remplacer(EcranSalons(self.app))
             return
+        if self.bot_actif():
+            if self.bot is None:
+                from jeu.bot import Bot
+                self.bot = Bot()
+            self.bot.piloter(self.app, self.joueur_local(), dt)
         if self.recu:
             self._piloter(dt)
         prolonger(self.mode, dt)
         self._recaler_balles_collees()
         if self.recu:
             self._rebonds_locaux()
+
+    def bot_actif(self):
+        """But : le bot de test pilote-t-il ma raquette ? (administrateurs seulement, F8)"""
+        return bool(getattr(self.app.en_ligne, "admin", False) and self.app.donnees.get("bot_actif"))
 
     def _surveiller_connexion(self):
         """Coupure : on retente toutes les 2 s, et on abandonne après 35 s."""
@@ -416,6 +431,9 @@ class EcranPartieEnLigne(EcranTempsReel):
         ping = self.temps_reel.ping
         if self.app.debug:
             self._dessiner_diagnostic(image)
+        if self.bot_actif() and math.sin(self.temps * 4) > -0.5:
+            dessiner_texte(image, "BOT  (F8)", 20, config.HAUTEUR - 20, 2, config.AMBRE, ancrage="gauche",
+                           lueur=False)
         couleur_ping = config.VERT if ping < 80 else config.AMBRE if ping < 150 else config.ROUGE
         dessiner_texte(image, f"PING {ping:.0f} MS", config.LARGEUR - 14, config.HAUTEUR - 12, 2,
                        couleur_ping, ancrage="droite", lueur=False, ombre=False)

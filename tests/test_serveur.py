@@ -329,6 +329,28 @@ class TestServeur(unittest.TestCase):
         self.assertEqual(self.client.post("/api/boutique/acheter", headers=pauvre,
                                           json={"code": skin["code"]}).status_code, 400)
 
+    def test_admin(self):
+        jeton = self.inscrire("Chef")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        self.assertFalse(self.client.get("/api/moi", headers=entete).json()["admin"])
+        self.assertEqual(self.client.get("/api/admin/joueurs", headers=entete).status_code, 403)
+        config.ADMINS.append("Chef")
+        try:
+            self.assertTrue(self.client.get("/api/moi", headers=entete).json()["admin"])
+            self.inscrire("Tricheur")
+            liste = self.client.get("/api/admin/joueurs", headers=entete).json()["joueurs"]
+            self.assertIn("Tricheur", [j["pseudo"] for j in liste])
+            r = self.client.post("/api/admin/joueurs/Tricheur", headers=entete,
+                                 json={"action": "neons", "valeur": 500})
+            self.assertEqual(next(j for j in r.json()["joueurs"] if j["pseudo"] == "Tricheur")["neons"], 600)
+            self.client.post("/api/admin/joueurs/Tricheur", headers=entete, json={"action": "suspendre"})
+            self.assertEqual(self.client.post("/api/connexion",
+                                              json={"pseudo": "Tricheur", "mdp": "motdepasse"}).status_code, 403)
+            self.assertEqual(self.client.post("/api/admin/joueurs/Chef", headers=entete,
+                                              json={"action": "suspendre"}).status_code, 400)
+        finally:
+            config.ADMINS.remove("Chef")
+
     def test_migration_base_1_0(self):
         """Une base créée par la version 1.0 (sans skin ni jour) est mise à niveau."""
         import sqlite3

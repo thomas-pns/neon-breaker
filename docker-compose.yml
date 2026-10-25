@@ -16,6 +16,8 @@ services:
       # À CHANGER : jeton secret, identique au secret GitHub NEON_JETON_DEPLOIEMENT.
       NEON_JETON_DEPLOIEMENT: "remplacez-moi-par-un-long-jeton-aleatoire"
       NEON_MAX_PARTIES: "4"
+      # Pseudos administrateurs (menu ADMIN dans le jeu, bot de test), séparés par des virgules.
+      NEON_ADMINS: ""
       # Utilisateur DSM propriétaire du dossier data (1026 / 100 = premier
       # utilisateur DSM, groupe users ; vérifiable avec la commande « id »).
       PUID: "1026"

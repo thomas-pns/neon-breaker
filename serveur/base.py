@@ -135,6 +135,12 @@ class Base:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees INTEGER NOT NULL DEFAULT 0")
             # Migration 2.1 : bilan des parties classées (victoires, derniers résultats « VDVVD »).
             colonnes = {l[1] for l in self.connexion.execute("PRAGMA table_info(joueurs)")}
+            if "admin" not in colonnes:
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN admin INTEGER NOT NULL DEFAULT 0")
+            # Les administrateurs sont donnés par NEON_ADMINS (réglage du serveur).
+            self.connexion.execute("UPDATE joueurs SET admin = 0")
+            for pseudo in config.ADMINS:
+                self.connexion.execute("UPDATE joueurs SET admin = 1 WHERE pseudo = ?", (pseudo,))
             if "classees_victoires" not in colonnes:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_victoires INTEGER NOT NULL DEFAULT 0")
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_recents TEXT NOT NULL DEFAULT ''")
@@ -337,6 +343,17 @@ class Base:
             return None
         return {"pseudo": lignes[0]["pseudo"], "score": lignes[0]["score"],
                 "fantome": json.loads(lignes[0]["donnees"])}
+
+    def est_admin(self, joueur):
+        """But : le joueur est-il administrateur ? (réglage NEON_ADMINS du serveur)"""
+        return bool(joueur["admin"]) or joueur["pseudo"].lower() in {a.lower() for a in config.ADMINS}
+
+    def liste_admin(self):
+        """But : tous les joueurs (bannis compris) avec ce qu'il faut pour les gérer."""
+        return [{"pseudo": l["pseudo"], "niveau": catalogue.niveau_pour(l["xp"]), "neons": l["neons"],
+                 "elo": l["elo"], "banni": bool(l["banni"]), "admin": bool(l["admin"]),
+                 "vu_le": l["vu_le"]}
+                for l in self.lire("SELECT * FROM joueurs ORDER BY vu_le DESC")]
 
     def changer_banniere(self, joueur_id, code):
         self.ecrire("UPDATE joueurs SET banniere = ? WHERE id = ?", (code, joueur_id))
