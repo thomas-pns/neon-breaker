@@ -173,16 +173,22 @@ class ModeDuel(ModeDeJeu):
     # --- Dessin -------------------------------------------------------------------
 
     def dessiner(self, image):
-        terrain = self.terrains[0]
         super().dessiner(image)
-        # Ligne médiane en pointillés.
+        self.dessiner_mediane(image)
+
+    def dessiner_mediane(self, image):
+        """But : ligne médiane en pointillés."""
+        terrain = self.terrains[0]
         y = terrain.rect.centery
         for x in range(terrain.rect.left, terrain.rect.right, 24):
             image.fill((90, 40, 140), (x, y, 12, 2))
 
     def dessiner_hud(self, image):
-        for joueur, rect, place, aide in ((self.joueurs[0], PANNEAU_J1, "BAS", "j1"),
-                                          (self.joueurs[1], PANNEAU_J2, "HAUT", "j2")):
+        # En ligne, le joueur 2 voit le terrain retourné : il est en bas chez lui.
+        retourne = getattr(self, "vue_retournee", False)
+        places = ("HAUT", "BAS") if retourne else ("BAS", "HAUT")
+        for joueur, rect, place, aide in ((self.joueurs[0], PANNEAU_J1, places[0], "j1"),
+                                          (self.joueurs[1], PANNEAU_J2, places[1], "j2")):
             hud.panneau(image, rect, joueur.couleur_bord)
             dessiner_texte(image, f"{self.nom_joueur(joueur)}  {place}", rect.centerx, 50,
                            3 if len(self.nom_joueur(joueur)) < 7 else 2, joueur.couleur_bord)
@@ -193,8 +199,8 @@ class ModeDuel(ModeDeJeu):
             hud.bloc_joueur_vertical(image, rect, joueur, 160, self.temps, score=False,
                                      touche_overdrive="MAJ" if self.en_ligne else (
                                          "S" if joueur.numero == 1 else "↓"))
-            hud.etiquette(image, "COMMANDES", rect.centerx, 540, config.ROSE)
-            hud.dessiner_commandes(image, rect, "solo" if self.en_ligne else aide, 566)
+            hud.etiquette(image, "COMMANDES", rect.centerx, 486, config.ROSE)
+            hud.dessiner_commandes(image, rect, "solo" if self.en_ligne else aide, 512)
 
     def dessiner_overlay(self, image):
         if self.etat == "compte":

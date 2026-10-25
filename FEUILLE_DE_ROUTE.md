@@ -168,7 +168,7 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
 
 ## Duel en ligne
 
-- [ ] Aujourd'hui, les deux joueurs voient le même écran : J1 en bas, J2 en haut. **Retourner la vue
+- [x] (fait en 1.4) Aujourd'hui, les deux joueurs voient le même écran : J1 en bas, J2 en haut. **Retourner la vue
   du J2** pour que chacun se voie en bas : on dessine le terrain dans une image à part, retournée
   verticalement, puis on ajoute par-dessus les textes et le HUD à l'endroit. Les commandes
   gauche / droite restent naturelles (le retournement est vertical uniquement).

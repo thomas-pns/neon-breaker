@@ -61,6 +61,9 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.effets = GestionnaireEffets()
         self.effets.qualite = app.reglages["particules"]
         self.mode = creer_mode_client(self.code, app, self.effets, debut.get("niveau", 0))
+        # Duel : le joueur 2 (raquette du haut) voit le terrain retourné, donc lui en bas.
+        self.vue_retournee = self.code == "duel" and self.numero == 2
+        self.mode.vue_retournee = self.vue_retournee
         skins = debut.get("skins") or []
         for i, (joueur, pseudo) in enumerate(zip(self.mode.joueurs, debut["joueurs"])):
             joueur.nom = pseudo
@@ -319,8 +322,11 @@ class EcranPartieEnLigne(EcranTempsReel):
             dessiner_texte(image, "SYNCHRONISATION...", config.LARGEUR / 2, config.HAUTEUR / 2,
                            4, config.CYAN)
             return
-        self.mode.dessiner(image)
-        self.effets.dessiner(image)
+        if self.vue_retournee:
+            self._dessiner_retourne(image)
+        else:
+            self.mode.dessiner(image)
+            self.effets.dessiner(image)
         self.mode.dessiner_overlay(image)
         self.mode.dessiner_message(image)
         self.effets.dessiner_flash(image)
@@ -335,6 +341,40 @@ class EcranPartieEnLigne(EcranTempsReel):
             self._bandeau(image, "CONNEXION PERDUE", "RECONNEXION EN COURS...")
         if self.menu_quitter:
             self._bandeau(image, "QUITTER LA PARTIE ?", "ENTREE : OUI    ECHAP : NON")
+
+    def _dessiner_retourne(self, image):
+        """
+        But : vue du joueur 2 en Duel : le terrain est dessiné puis retourné de haut en
+        bas, pour que sa raquette soit en bas. Le fond est retourné avant puis remis à
+        l'endroit par le second retournement ; capsules (icônes) et textes flottants
+        sont dessinés ensuite, à leur place miroir mais à l'endroit, puis le HUD.
+        """
+        from structures.liste import Liste
+        terrain = self.mode.terrains[0]
+        zone = terrain.rect.inflate(48, 48).clip(image.get_rect())
+        miroir = terrain.rect.top + terrain.rect.bottom
+        self._retourner(image, zone)
+        capsules, terrain.capsules = terrain.capsules, Liste()
+        try:
+            terrain.dessiner(image)
+            self.mode.dessiner_mediane(image)
+            self.effets.dessiner(image, textes=False)
+        finally:
+            terrain.capsules = capsules
+        self._retourner(image, zone)
+        for capsule in capsules:
+            y = capsule.y
+            capsule.y = miroir - y
+            capsule.dessiner(image)
+            capsule.y = y
+        self.effets.dessiner_textes(image, miroir_y=miroir)
+        self.mode.dessiner_hud(image)
+
+    @staticmethod
+    def _retourner(image, zone):
+        """But : retourner verticalement une zone de l'image, sur place."""
+        morceau = pygame.transform.flip(image.subsurface(zone).copy(), False, True)
+        image.blit(morceau, zone.topleft)
 
     def _bandeau(self, image, titre, sous_titre):
         voile(image, 120)

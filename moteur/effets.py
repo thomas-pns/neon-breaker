@@ -298,10 +298,10 @@ class GestionnaireEffets:
         return (int(random.uniform(-force, force)),
                 int(random.uniform(-force, force)))
 
-    def dessiner(self, ecran):
+    def dessiner(self, ecran, textes=True):
         """
-        But : dessiner particules, ondes et textes.
-        Entrée : ecran (Surface). Sortie : aucune.
+        But : dessiner particules, ondes et (si textes) textes flottants.
+        Entrées : ecran (Surface) ; textes (bool). Sortie : aucune.
         """
         for onde in self.ondes:
             avance = 1 - onde.vie / onde.duree
@@ -318,11 +318,21 @@ class GestionnaireEffets:
             ecran.fill(couleur, (int(p.x), int(p.y), taille, taille),
                        special_flags=pygame.BLEND_RGB_ADD)
 
+        if textes:
+            self.dessiner_textes(ecran)
+
+    def dessiner_textes(self, ecran, miroir_y=None):
+        """
+        But : textes flottants (« +100 », « COMBO x4 »...).
+        Entrées : ecran ; miroir_y (float ou None) : si donné, chaque texte est placé à
+                  miroir_y - y (vue retournée du joueur du haut en Duel, textes à l'endroit).
+        """
         for t in self.textes:
             ratio = t.vie / t.duree
             agrandi = 1 if ratio < 0.85 else 2
             alpha = 255 if ratio > 0.3 else int(255 * ratio / 0.3)
-            dessiner_texte(ecran, t.texte, t.x, t.y, t.echelle + agrandi - 1,
+            y = t.y if miroir_y is None else miroir_y - t.y
+            dessiner_texte(ecran, t.texte, t.x, y, t.echelle + agrandi - 1,
                            t.couleur, alpha=alpha)
 
     def dessiner_flash(self, ecran):
