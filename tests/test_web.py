@@ -94,14 +94,22 @@ class TestTactile(unittest.TestCase):
     def test_bouton_sans_clic_ni_raquette(self):
         self.nouvelle_image([(pygame.Rect(1050, 600, 200, 50), "pause")])
         self.entrees.traiter(doigt(pygame.FINGERDOWN, 1100, 620))
+        self.assertFalse(self.entrees.vient_d_appuyer("pause"))     # pas encore : doigt posé
+        self.entrees.traiter(doigt(pygame.FINGERUP, 1102, 622))
         self.assertTrue(self.entrees.vient_d_appuyer("pause"))
         self.assertTrue(self.entrees.vient_d_appuyer("pause", "solo"))
         self.assertFalse(self.entrees.clics)
         self.assertFalse(self.entrees.souris_bougee)
-        # Le doigt resté sur le bouton ne bouge pas la raquette.
-        self.entrees.traiter(doigt(pygame.FINGERMOTION, 900, 620))
-        self.assertFalse(self.entrees.souris_bougee)
         self.entrees.debut_image()
+        self.assertFalse(self.entrees.vient_d_appuyer("pause"))
+
+    def test_bouton_quitte_avant_de_lever(self):
+        """Le doigt glisse hors du bouton avant de se lever : rien ne se passe."""
+        self.nouvelle_image([(pygame.Rect(1050, 600, 200, 50), "pause")])
+        self.entrees.traiter(doigt(pygame.FINGERDOWN, 1100, 620))
+        self.entrees.traiter(doigt(pygame.FINGERMOTION, 900, 620))
+        self.assertFalse(self.entrees.souris_bougee)              # ne bouge pas la raquette
+        self.entrees.traiter(doigt(pygame.FINGERUP, 900, 620))
         self.assertFalse(self.entrees.vient_d_appuyer("pause"))
 
     def test_deux_doigts(self):
@@ -110,6 +118,7 @@ class TestTactile(unittest.TestCase):
         self.entrees.traiter(doigt(pygame.FINGERDOWN, 500, 600, 1))
         self.entrees.traiter(doigt(pygame.FINGERDOWN, 1100, 580, 2))
         self.entrees.traiter(doigt(pygame.FINGERMOTION, 560, 600, 1))
+        self.entrees.traiter(doigt(pygame.FINGERUP, 1100, 580, 2))
         self.assertTrue(self.entrees.vient_d_appuyer("overdrive", "solo"))
         self.assertEqual(self.souris(), (560, 600))
 

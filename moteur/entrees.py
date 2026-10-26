@@ -120,8 +120,8 @@ class Entrees:
         if evenement.type == pygame.FINGERDOWN:
             for rect, action in self.boutons:
                 if rect.collidepoint(position):
-                    self.appuis_tactiles.add(action)
-                    self.doigts[doigt] = "bouton"
+                    # Le bouton part quand le doigt se lève dessus (pas de toucher involontaire).
+                    self.doigts[doigt] = ("bouton", rect, action)
                     return
             self.doigts[doigt] = list(position)
             self.depart_doigt[doigt] = (position[0], position[1], pygame.time.get_ticks())
@@ -143,8 +143,13 @@ class Entrees:
                     self.molette += pas
                     self.glissement -= 40 * pas
         else:
-            self.doigts.pop(doigt, None)
+            etat = self.doigts.pop(doigt, None)
             self.glissement = 0.0
+            if isinstance(etat, tuple):
+                _, rect, action = etat
+                if rect.inflate(20, 20).collidepoint(position):
+                    self.appuis_tactiles.add(action)
+                return
             depart = self.depart_doigt.pop(doigt, None)
             if depart is not None:              # balayage : rapide, surtout horizontal
                 dx, dy = position[0] - depart[0], position[1] - depart[1]
