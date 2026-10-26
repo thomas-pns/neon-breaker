@@ -21,7 +21,7 @@ import pygame
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
-from moteur.rendu import halo_rect, attenuer, melanger
+from moteur.rendu import ajouter_lueur, halo_rect, attenuer, melanger
 from ecrans.base import EcranBase
 
 CARTES = [
@@ -156,7 +156,7 @@ class AncienEcranModes(EcranBase):
         image.blit(fond, rect.topleft)
         if choisie:
             lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=12, epaisseur=4)
-            image.blit(lueur, (rect.x - 24, rect.y - 24), special_flags=pygame.BLEND_RGB_ADD)
+            ajouter_lueur(image, lueur, (rect.x - 24, rect.y - 24))
         pygame.draw.rect(image, couleur if choisie else attenuer(couleur, 0.5), rect,
                          3 if choisie else 2, border_radius=10)
         dessiner_texte(image, titre, rect.centerx, rect.y + 40, 5,
@@ -198,7 +198,7 @@ class AncienEcranModes(EcranBase):
         image.blit(fond, rect.topleft)
         if choisi:
             lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=12, epaisseur=4)
-            image.blit(lueur, (rect.x - 24, rect.y - 24), special_flags=pygame.BLEND_RGB_ADD)
+            ajouter_lueur(image, lueur, (rect.x - 24, rect.y - 24))
         pygame.draw.rect(image, couleur if choisi else attenuer(couleur, 0.5), rect,
                          3 if choisi else 2, border_radius=10)
         dessiner_texte(image, titre, rect.x + 20, rect.centery - 14, 3,

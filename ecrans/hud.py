@@ -21,7 +21,7 @@ import pygame
 
 from moteur import config
 from moteur.police_pixel import dessiner_texte
-from moteur.rendu import halo_rect, attenuer
+from moteur.rendu import ajouter_lueur, halo_rect, attenuer
 from jeu.capsule import CATALOGUE, OR_POUVOIR
 
 COULEURS_MULTI = {1: config.CYAN, 2: config.VERT, 3: config.AMBRE,
@@ -39,12 +39,15 @@ def panneau(image, rect, couleur):
     cle = rect.size
     fond = _cache_panneaux.get(cle)
     if fond is None:
-        fond = pygame.Surface(rect.size, pygame.SRCALPHA)
-        fond.fill((10, 0, 26, 200))
+        # Opacité de toute la surface (set_alpha) plutôt que par pixel : même
+        # rendu, bien plus rapide (surtout dans le navigateur).
+        fond = pygame.Surface(rect.size)
+        fond.fill((10, 0, 26))
+        fond.set_alpha(200)
         _cache_panneaux[cle] = fond
     image.blit(fond, rect.topleft)
     lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.45), rayon=8)
-    image.blit(lueur, (rect.x - 16, rect.y - 16), special_flags=pygame.BLEND_RGB_ADD)
+    ajouter_lueur(image, lueur, (rect.x - 16, rect.y - 16))
     pygame.draw.rect(image, couleur, rect, 2, border_radius=6)
 
 
@@ -191,6 +194,20 @@ def dessiner_vies(image, cx, y, vies, couleurs=(config.RAQUETTE_CORPS, config.RA
         rect.center = (cx - 52 + colonne * 52, y + rang * 22)
         pygame.draw.rect(image, couleurs[0], rect, border_radius=4)
         pygame.draw.rect(image, couleurs[1], rect, 2, border_radius=4)
+
+
+def bloc_commandes(image, rect, profil, y, app, joueur=None):
+    """
+    But : rubrique COMMANDES d'un panneau latéral (titre à l'ordonnée y) ; au doigt
+    (écran tactile), les boutons POUVOIRS, SUPERNOVA et PAUSE à la place.
+    Entrées : ... ; joueur (Joueur ou None) : celui qui joue sur cet appareil.
+    """
+    if joueur is not None and app.entrees.tactile:
+        from ecrans.tactile import dessiner_boutons_partie
+        dessiner_boutons_partie(image, app, rect, y - 6, joueur)
+        return
+    etiquette(image, "COMMANDES", rect.centerx, y, config.ROSE)
+    dessiner_commandes(image, rect, profil, y + 28, app)
 
 
 def dessiner_commandes(image, rect, profil, y, app=None):

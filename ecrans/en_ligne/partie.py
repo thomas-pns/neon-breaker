@@ -56,6 +56,8 @@ class EcranPartieEnLigne(EcranTempsReel):
     actions (set : à envoyer), coupure (float ou None : début de la coupure).
     """
 
+    bouton_retour = False          # au doigt : pas de bouton RETOUR commun
+
     def __init__(self, app, debut):
         super().__init__(app)
         self.numero = debut["numero"]
@@ -68,6 +70,7 @@ class EcranPartieEnLigne(EcranTempsReel):
         # Duel : le joueur 2 (raquette du haut) voit le terrain retourné, donc lui en bas.
         self.vue_retournee = self.code == "duel" and self.numero == 2
         self.mode.vue_retournee = self.vue_retournee
+        self.mode.joueur_tactile = self.mode.joueurs[self.numero - 1]   # boutons au doigt
         skins = debut.get("skins") or []
         for i, (joueur, pseudo) in enumerate(zip(self.mode.joueurs, debut["joueurs"])):
             joueur.nom = pseudo
@@ -139,10 +142,12 @@ class EcranPartieEnLigne(EcranTempsReel):
         if pygame.KSCAN_F8 in entrees.appuis and getattr(self.app.en_ligne, "admin", False):
             self.app.donnees["bot_actif"] = not self.app.donnees.get("bot_actif", False)
             self.app.notifier("BOT " + ("ACTIVE" if self.app.donnees["bot_actif"] else "COUPE"), "AMBRE")
-        if pygame.KSCAN_ESCAPE in entrees.appuis:
+        tactile = entrees.appuis_tactiles
+        if pygame.KSCAN_ESCAPE in entrees.appuis or "pause" in tactile or "quitter_non" in tactile:
             self.menu_quitter = not self.menu_quitter
         if self.menu_quitter:
-            if pygame.KSCAN_RETURN in entrees.appuis or ("menu", "valider") in entrees.forcees:
+            if pygame.KSCAN_RETURN in entrees.appuis or ("menu", "valider") in entrees.forcees \
+                    or "quitter_oui" in tactile:
                 from reseau.client import journaliser
                 journaliser(f"abandon volontaire ({self.code})")
                 self.temps_reel.envoyer({"t": "abandon"})
@@ -450,6 +455,17 @@ class EcranPartieEnLigne(EcranTempsReel):
                 self._bandeau(image, "ABANDONNER ? = DEFAITE CLASSEE", "ENTREE : OUI    ECHAP : NON")
             else:
                 self._bandeau(image, "QUITTER LA PARTIE ?", "ENTREE : OUI    ECHAP : NON")
+            if self.app.entrees.tactile:
+                from ecrans import tactile
+                centre = config.LARGEUR // 2
+                tactile.bouton(image, self.app, pygame.Rect(centre - 230, 470, 200, 64), "quitter_oui",
+                               config.ROUGE, "OUI")
+                tactile.bouton(image, self.app, pygame.Rect(centre + 30, 470, 200, 64), "quitter_non",
+                               config.CYAN, "NON")
+        elif self.app.entrees.tactile and not any(
+                action == "pause" for _, action in self.app.entrees.boutons_dessines):
+            from ecrans.tactile import bouton_pause
+            bouton_pause(image, self.app)
 
     def _dessiner_retourne(self, image):
         """

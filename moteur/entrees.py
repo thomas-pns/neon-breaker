@@ -47,6 +47,8 @@ class Entrees:
         souris (tuple) : position de la souris en coordonnées internes.
         souris_bougee (bool), clics (set de boutons), molette (int).
         texte (str) : caractères tapés pendant l'image (saisie du nom).
+        tactile (bool) : un écran tactile a servi (boutons à l'écran affichés).
+        boutons (list de (Rect, action)) : boutons tactiles de l'image précédente.
     """
 
     def __init__(self, ecran, touches=None):
@@ -64,6 +66,14 @@ class Entrees:
         self.tenues_manette = set()   # (numéro, nom)
         self.appuis_manette = set()
         self.derniere_touche = None   # (scancode, nom) : pour reconfigurer une commande
+        # Écran tactile : chaque doigt est suivi (événements FINGER*), pour bouger la
+        # raquette d'un doigt et toucher un bouton de l'autre.
+        self.tactile = False
+        self.boutons = []             # (Rect, action) dessinés à l'image précédente
+        self.boutons_dessines = []    # ceux de l'image en cours de dessin
+        self.appuis_tactiles = set()  # actions touchées pendant cette image
+        self.doigts = {}              # identifiant -> "bouton" ou [x, y] (doigt sur le jeu)
+        self.glissement = 0.0         # défilement vertical accumulé (listes)
         if _manettes is not None:
             try:
                 _manettes.init()
@@ -83,6 +93,50 @@ class Entrees:
         self.souris_bougee = False
         self.molette = 0
         self.texte = ""
+        self.appuis_tactiles.clear()
+        self.boutons, self.boutons_dessines = self.boutons_dessines, []
+
+    def bouton_tactile(self, rect, action):
+        """
+        But : déclarer un bouton à l'écran (dessiné pendant cette image) : le toucher
+        déclenche l'action, pour tous les profils.
+        Entrées : rect (Rect, coordonnées internes) ; action (str, ex. "pause").
+        """
+        self.boutons_dessines.append((pygame.Rect(rect), action))
+
+    def _traiter_doigt(self, evenement):
+        """Doigts : boutons à l'écran, sinon comme la souris (bouger, toucher = clic)."""
+        self.tactile = True
+        largeur, hauteur = self.ecran.fenetre.get_size()
+        position = self.ecran.vers_interne((evenement.x * largeur, evenement.y * hauteur))
+        doigt = evenement.finger_id
+        if evenement.type == pygame.FINGERDOWN:
+            for rect, action in self.boutons:
+                if rect.collidepoint(position):
+                    self.appuis_tactiles.add(action)
+                    self.doigts[doigt] = "bouton"
+                    return
+            self.doigts[doigt] = list(position)
+            self.souris = position
+            self.souris_bougee = True
+            self.clics.add(1)
+        elif evenement.type == pygame.FINGERMOTION:
+            precedent = self.doigts.get(doigt)
+            if not isinstance(precedent, list):
+                return
+            dx, dy = position[0] - precedent[0], position[1] - precedent[1]
+            self.doigts[doigt] = list(position)
+            self.souris = position
+            self.souris_bougee = True
+            if abs(dy) > abs(dx):          # glisser vers le haut = descendre dans une liste
+                self.glissement += dy
+                while abs(self.glissement) >= 40:
+                    pas = 1 if self.glissement > 0 else -1
+                    self.molette += pas
+                    self.glissement -= 40 * pas
+        else:
+            self.doigts.pop(doigt, None)
+            self.glissement = 0.0
 
     def traiter(self, evenement):
         """
@@ -103,12 +157,21 @@ class Entrees:
             if getattr(evenement, "gain", 0) == 0:
                 self.tenues.clear()
                 self.tenues_manette.clear()
+        elif evenement.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
+            self._traiter_doigt(evenement)
+        elif getattr(evenement, "touch", False):
+            pass                    # souris imitée par SDL à partir d'un doigt : déjà traité
         elif evenement.type == pygame.MOUSEMOTION:
             self.souris = self.ecran.vers_interne(evenement.pos)
             self.souris_bougee = True
         elif evenement.type == pygame.MOUSEBUTTONDOWN:
             self.souris = self.ecran.vers_interne(evenement.pos)
-            self.clics.add(evenement.button)
+            bouton = next((action for rect, action in self.boutons
+                           if rect.collidepoint(self.souris)), None)
+            if bouton is not None and evenement.button == 1:
+                self.appuis_tactiles.add(bouton)
+            else:
+                self.clics.add(evenement.button)
         elif evenement.type == pygame.MOUSEWHEEL:
             self.molette += evenement.y
         elif _manettes is not None:
@@ -206,7 +269,7 @@ class Entrees:
         But : savoir si une action vient d'être déclenchée.
         Entrées : action (str), profil (str). Sortie : (bool).
         """
-        if (profil, action) in self.forcees:
+        if (profil, action) in self.forcees or action in self.appuis_tactiles:
             return True
         codes = self.touches.get(profil, {}).get(action, ())
         return any(code in self.appuis for code in codes) \

@@ -20,6 +20,7 @@ import pygame
 from moteur import config
 from moteur.bannieres import dessiner_banniere
 from moteur.police_pixel import dessiner_texte
+from moteur.rendu import figer
 from moteur.version import VERSION
 from ecrans.hud import barre, dessiner_etoiles
 from ecrans.menus import (EcranMenu, GRIS, JAUNE_SERIE, VIOLET_SERIE, bouton, carte,
@@ -49,12 +50,15 @@ def texte_version():
 class EcranTitre(EcranMenu):
     """Accueil. Attributs : choix (str : zone sélectionnée), decor (Surface : monde atteint)."""
 
+    bouton_retour = False          # au doigt : pas de bouton RETOUR commun
+
     onglet = "ACCUEIL"
 
     def __init__(self, app):
         super().__init__(app)
         self.choix = "jouer"
         self.decor = None
+        self.rayures = None
         self.vitrine = None
         self.code_decor = None
 
@@ -99,7 +103,7 @@ class EcranTitre(EcranMenu):
         pygame.draw.rect(masque, (255, 255, 255, 255), masque.get_rect(), border_radius=12)
         avec_alpha = decor.convert_alpha() if pygame.display.get_surface() else decor
         avec_alpha.blit(masque, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-        self.decor, self.code_decor = avec_alpha, monde
+        self.decor, self.code_decor = figer(avec_alpha), monde
         return avec_alpha
 
     # --- Actions -----------------------------------------------------------------------
@@ -232,14 +236,19 @@ class EcranTitre(EcranMenu):
 
     def _dessiner_jouer(self, image, r, choisi):
         carte(image, r, config.ROSE, True)
-        bande = pygame.Surface(r.size, pygame.SRCALPHA)
+        # Rayures qui défilent : un motif dessiné une fois (36 px plus large), dont on
+        # copie la bonne fenêtre à chaque image.
+        if self.rayures is None or self.rayures.get_height() != r.h:
+            self.rayures = pygame.Surface((r.w + 36, r.h), pygame.SRCALPHA)
+            for k in range(0, r.w + r.h + 36, 36):
+                pygame.draw.line(self.rayures, (255, 60, 200, 22), (k, 0), (k - r.h, r.h), 12)
+            figer(self.rayures)
         decalage = int(self.temps * 30) % 36
-        for k in range(-36, r.w + r.h, 36):
-            pygame.draw.line(bande, (255, 60, 200, 22), (k + decalage, 0), (k + decalage - r.h, r.h), 12)
-        masque = pygame.Surface(r.size, pygame.SRCALPHA)
-        pygame.draw.rect(masque, (255, 255, 255, 255), masque.get_rect(), border_radius=12)
-        bande.blit(masque, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-        image.blit(bande, r.topleft)
+        # Sans les coins (12 px, arrondis de la carte) : bande du milieu, puis côtés.
+        x0 = 36 - decalage
+        for zone in (pygame.Rect(12, 0, r.w - 24, r.h), pygame.Rect(0, 12, 12, r.h - 24),
+                     pygame.Rect(r.w - 12, 12, 12, r.h - 24)):
+            image.blit(self.rayures, (r.x + zone.x, r.y + zone.y), zone.move(x0, 0))
         self._cadre_choix(image, r, choisi, config.BLANC)
         pulse = 1.0 if not choisi else 1.0 + 0.04 * math.sin(self.temps * 5)
         dessiner_texte(image, "JOUER", r.centerx, r.y + 76, int(10 * pulse), config.ROSE)

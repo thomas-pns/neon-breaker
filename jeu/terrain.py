@@ -32,7 +32,7 @@ import pygame
 from structures.file import File
 from structures.liste import Liste
 from moteur import config
-from moteur.rendu import halo_rect, attenuer
+from moteur.rendu import ajouter_lueur, halo_rect, attenuer
 from jeu.balle import Balle
 from jeu.capsule import Capsule, tirer_effet
 from jeu.projectiles import Laser
@@ -221,14 +221,26 @@ class Terrain:
         self._minuteurs_rayon = {}
 
     def _creer_cadre(self):
-        """Fond assombri du terrain (pré-calculé, avec transparence)."""
-        cadre = pygame.Surface(self.rect.size, pygame.SRCALPHA)
-        cadre.fill((10, 0, 26, 205))
-        for y in range(0, self.rect.h, 40):
-            pygame.draw.line(cadre, (60, 20, 100, 60), (0, y), (self.rect.w, y))
-        for x in range(0, self.rect.w, 40):
-            pygame.draw.line(cadre, (60, 20, 100, 60), (x, 0), (x, self.rect.h))
-        return cadre
+        """
+        Fond assombri du terrain, quadrillé (pré-calculé). Deux calques à opacité
+        uniforme (set_alpha) avec une couleur transparente (colorkey), plutôt qu'un
+        calque transparent pixel par pixel : même rendu, bien plus rapide à copier.
+        Sortie : (list de Surface) à copier l'une après l'autre.
+        """
+        cle = (255, 0, 255)
+        fond = pygame.Surface(self.rect.size)
+        fond.fill((10, 0, 26))
+        lignes = pygame.Surface(self.rect.size)
+        lignes.fill(cle)
+        for calque, couleur in ((fond, cle), (lignes, (60, 20, 100))):
+            for y in range(0, self.rect.h, 40):
+                pygame.draw.line(calque, couleur, (0, y), (self.rect.w, y))
+            for x in range(0, self.rect.w, 40):
+                pygame.draw.line(calque, couleur, (x, 0), (x, self.rect.h))
+            calque.set_colorkey(cle, pygame.RLEACCEL)
+        fond.set_alpha(205, pygame.RLEACCEL)
+        lignes.set_alpha(60, pygame.RLEACCEL)
+        return [fond, lignes]
 
     # --- Mise en place -------------------------------------------------------
 
@@ -881,11 +893,11 @@ class Terrain:
         Entrée : image (Surface). Sortie : aucune.
         """
         couleur_bord = self.couleur_bord
-        image.blit(self.cadre, self.rect.topleft)
+        for calque in self.cadre:
+            image.blit(calque, self.rect.topleft)
         lueur = halo_rect(self.rect.w, self.rect.h + (0 if not self.mur_haut else 40),
                           attenuer(couleur_bord, 0.6), rayon=10, epaisseur=3)
-        image.blit(lueur, (self.rect.x - 20, self.rect.y - 20),
-                   special_flags=pygame.BLEND_RGB_ADD)
+        ajouter_lueur(image, lueur, (self.rect.x - 20, self.rect.y - 20))
         bord = config.EPAISSEUR_BORD
         gauche = self.rect.left - bord
         if self.mur_haut:

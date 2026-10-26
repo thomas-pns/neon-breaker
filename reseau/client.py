@@ -23,13 +23,13 @@ import asyncio
 import json
 import os
 import queue
-import ssl
 import threading
 import time
 import urllib.error
 import urllib.request
 import uuid
 
+from moteur import config, web
 from moteur.version import PROTOCOLE, VERSION, adresse_serveur
 
 LATENCE = float(os.environ.get("NEON_LATENCE_MS", "0")) / 1000
@@ -38,6 +38,7 @@ GIGUE = float(os.environ.get("NEON_GIGUE_MS", "0")) / 1000      # tests : résea
 
 def contexte_ssl():
     """Certificats fournis par certifi (indispensable dans l'application macOS)."""
+    import ssl
     try:
         import certifi
         return ssl.create_default_context(cafile=certifi.where())
@@ -172,6 +173,70 @@ class TempsReel:
         self.etat = "ferme"
 
 
+class TempsReelWeb:
+    """
+    Même rôle que TempsReel pour la version navigateur : le WebSocket est
+    celui de la page (moteur/web.py) et le jeu relève les messages à chaque image.
+    """
+
+    def __init__(self, url, jeton):
+        self.url = url
+        self.jeton = jeton
+        self.ping = 0.0
+        self._etat = "ferme"
+        self.erreur = ""
+        self._authentifie = False
+        self._prochain_ping = 0.0
+
+    @property
+    def etat(self):
+        if self._etat in ("connexion", "ouvert"):
+            etat, erreur = web.ws_etat()
+            if etat == "ouvert" and not self._authentifie:
+                self._authentifie = True
+                web.ws_envoyer(json.dumps({"t": "auth", "jeton": self.jeton,
+                                           "protocole": PROTOCOLE, "version": VERSION}))
+            if etat in ("ferme", "erreur") and self._etat != "ferme":
+                self.erreur = erreur or "fermee sans raison"
+                journaliser(f"coupure : {self.erreur} (ping {self.ping:.0f} ms)")
+                etat = "erreur"
+            self._etat = etat
+        return self._etat
+
+    @etat.setter
+    def etat(self, valeur):
+        self._etat = valeur
+
+    def ouvrir(self):
+        if self.etat in ("connexion", "ouvert"):
+            return
+        self._etat = "connexion"
+        self._authentifie = False
+        web.ws_ouvrir(self.url)
+
+    def envoyer(self, message):
+        if self.etat == "ouvert":
+            web.ws_envoyer(json.dumps(message, separators=(",", ":")))
+
+    def messages(self):
+        if self.etat != "ouvert":
+            return []
+        maintenant = time.monotonic()
+        if maintenant >= self._prochain_ping:
+            self._prochain_ping = maintenant + 2
+            self.envoyer({"t": "ping", "c": maintenant})
+        resultat = [json.loads(texte) for texte in web.ws_messages()]
+        for message in resultat:
+            if message.get("t") == "pong" and message.get("c"):
+                self.ping = (time.monotonic() - message["c"]) * 1000
+        return resultat
+
+    def fermer(self):
+        if self._etat in ("connexion", "ouvert"):
+            web.ws_fermer()
+        self._etat = "ferme"
+
+
 class ServiceEnLigne:
     """
     Tout ce qui touche au serveur, côté jeu.
@@ -206,10 +271,13 @@ class ServiceEnLigne:
         self.reponses = queue.Queue()
         self.envoi_en_cours = False
         self._prochaine_verification_version = time.monotonic() + 30
+        self.requetes_web = {}          # version navigateur : numéro -> rappel
 
     # --- Adresse ---------------------------------------------------------------
 
     def adresse(self):
+        if config.EST_WEB:
+            return web.origine()        # la page est servie par le serveur du jeu
         return adresse_serveur(self.app.reglages)
 
     def adresse_ws(self):
@@ -233,6 +301,10 @@ class ServiceEnLigne:
                                             "maintenance": False}))
             return
         jeton = self.jeton if authentifie else ""
+        if config.EST_WEB:
+            numero = web.requete(methode, adresse + chemin, corps, jeton)
+            self.requetes_web[numero] = rappel
+            return
 
         def executer():
             resultat = requete_http(adresse + chemin, methode, corps, jeton)
@@ -249,6 +321,13 @@ class ServiceEnLigne:
             # Vérification silencieuse : on mémorise la version, sans fenêtre pendant
             # une partie ; l'accès au jeu en ligne proposera la mise à jour.
             self.verifier_version(lambda resultat: None)
+        if self.requetes_web:
+            for numero, code, texte in web.reponses():
+                rappel = self.requetes_web.pop(numero, None)
+                resultat = resultat_http(code, texte)
+                self.joignable = code != 0
+                if rappel:
+                    self.reponses.put((rappel, resultat))
         while True:
             try:
                 rappel, resultat = self.reponses.get_nowait()
@@ -487,7 +566,8 @@ class ServiceEnLigne:
     def ouvrir_temps_reel(self):
         """But : ouvrir (ou rouvrir) la connexion WebSocket. Sortie : TempsReel."""
         if self.temps_reel is None or self.temps_reel.etat in ("ferme", "erreur"):
-            self.temps_reel = TempsReel(self.adresse_ws(), self.jeton)
+            classe = TempsReelWeb if config.EST_WEB else TempsReel
+            self.temps_reel = classe(self.adresse_ws(), self.jeton)
             self.temps_reel.ouvrir()
         return self.temps_reel
 
@@ -524,6 +604,30 @@ def journaliser(texte):
             fichier.write(time.strftime("%Y-%m-%d %H:%M:%S ") + texte + "\n")
     except OSError:
         pass
+
+
+def resultat_http(code, texte):
+    """
+    But : mettre la réponse d'une requête faite par le navigateur au même format
+    que requete_http. Entrées : code (int, 0 = injoignable) ; texte (str) : corps.
+    """
+    if code == 0:
+        return {"ok": False, "code": 0, "donnees": None,
+                "erreur": "SERVEUR EN MAINTENANCE", "maintenance": True}
+    try:
+        donnees = json.loads(texte) if texte else {}
+    except ValueError:
+        donnees = None
+    if 200 <= code < 300:
+        if donnees is None:
+            return {"ok": False, "code": code, "donnees": None,
+                    "erreur": "REPONSE INVALIDE", "maintenance": False}
+        return {"ok": True, "code": code, "donnees": donnees, "erreur": "", "maintenance": False}
+    maintenance = code in (502, 503, 504)
+    detail = donnees.get("detail", "") if isinstance(donnees, dict) else ""
+    return {"ok": False, "code": code, "donnees": None,
+            "erreur": "SERVEUR EN MAINTENANCE" if maintenance else str(detail or f"ERREUR {code}"),
+            "maintenance": maintenance}
 
 
 def requete_http(url, methode="GET", corps=None, jeton="", delai=8):

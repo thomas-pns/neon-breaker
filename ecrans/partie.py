@@ -27,6 +27,8 @@ class EcranPartie(EcranBase):
         mode (ModeDeJeu), effets (GestionnaireEffets), accumulateur (float).
     """
 
+    bouton_retour = False          # au doigt : pas de bouton RETOUR commun
+
     def __init__(self, app, fabrique):
         super().__init__(app)
         self.fabrique = fabrique
@@ -99,3 +101,7 @@ class EcranPartie(EcranBase):
         dessiner(self.mode, image)
         self.mode.dessiner_message(image)
         self.effets.dessiner_flash(image)
+        entrees = self.app.entrees
+        if entrees.tactile and not any(action == "pause" for _, action in entrees.boutons_dessines):
+            from ecrans.tactile import bouton_pause       # modes sans boutons dans le panneau
+            bouton_pause(image, self.app)

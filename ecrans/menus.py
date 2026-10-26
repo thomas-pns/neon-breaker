@@ -25,7 +25,7 @@ from moteur import config
 from moteur.bannieres import dessiner_banniere, dessiner_piece
 from moteur.icones import dessiner_icone
 from moteur.police_pixel import dessiner_texte
-from moteur.rendu import attenuer, halo_rect, melanger
+from moteur.rendu import ajouter_lueur, attenuer, halo_rect, melanger
 from moteur.version import VERSION
 from ecrans.base import EcranBase
 
@@ -38,15 +38,30 @@ JAUNE_SERIE, VIOLET_SERIE = config.AMBRE, (190, 90, 255)
 
 # --- Éléments de dessin ------------------------------------------------------------------
 
+_cache_cartes = {}
+_cache_voiles = {}
+
+
 def carte(image, rect, couleur, choisie=False, alpha=225, rayon=12):
     """But : panneau néon arrondi (lumineux si choisi)."""
-    fond = pygame.Surface(rect.size, pygame.SRCALPHA)
-    pygame.draw.rect(fond, (*melanger((12, 0, 30), couleur, 0.14 if choisie else 0.05), alpha),
-                     fond.get_rect(), border_radius=rayon)
+    teinte = melanger((12, 0, 30), couleur, 0.14 if choisie else 0.05)
+    cle = (rect.size, teinte, alpha, rayon)
+    fond = _cache_cartes.get(cle)
+    if fond is None:
+        # Opacité uniforme + coins transparents (colorkey) : même rendu qu'une
+        # surface transparente pixel par pixel, mais bien plus rapide à copier.
+        fond = pygame.Surface(rect.size)
+        fond.fill((255, 0, 255))
+        pygame.draw.rect(fond, teinte, fond.get_rect(), border_radius=rayon)
+        fond.set_colorkey((255, 0, 255), pygame.RLEACCEL)
+        fond.set_alpha(alpha, pygame.RLEACCEL)       # après set_colorkey : garder RLE
+        if len(_cache_cartes) > 200:
+            _cache_cartes.clear()
+        _cache_cartes[cle] = fond
     image.blit(fond, rect.topleft)
     if choisie:
         lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=12, epaisseur=4)
-        image.blit(lueur, (rect.x - 24, rect.y - 24), special_flags=pygame.BLEND_RGB_ADD)
+        ajouter_lueur(image, lueur, (rect.x - 24, rect.y - 24))
     pygame.draw.rect(image, couleur if choisie else attenuer(couleur, 0.5), rect,
                      3 if choisie else 2, border_radius=rayon)
 
@@ -110,9 +125,12 @@ def series_locales(app):
 def fond_menu(app, image, voile=140):
     """But : fond synthwave assombri des menus."""
     app.fond.dessiner(image)
-    sombre = pygame.Surface(image.get_size())
-    sombre.fill((8, 0, 20))
-    sombre.set_alpha(voile)
+    sombre = _cache_voiles.get((image.get_size(), voile))
+    if sombre is None:
+        sombre = pygame.Surface(image.get_size())
+        sombre.fill((8, 0, 20))
+        sombre.set_alpha(voile)
+        _cache_voiles[(image.get_size(), voile)] = sombre
     image.blit(sombre, (0, 0))
 
 
@@ -216,8 +234,11 @@ class Navigation:
 
     def dessiner_barre(self, image):
         """But : barre du haut (onglets, NEONS, petite bannière, roue des réglages)."""
-        bande = pygame.Surface((config.LARGEUR, HAUTEUR_BARRE), pygame.SRCALPHA)
-        bande.fill((6, 0, 18, 235))
+        bande = _cache_voiles.get("barre")
+        if bande is None:                   # opacité uniforme : copie rapide
+            bande = _cache_voiles["barre"] = pygame.Surface((config.LARGEUR, HAUTEUR_BARRE))
+            bande.fill((6, 0, 18))
+            bande.set_alpha(235)
         image.blit(bande, (0, 0))
         pygame.draw.line(image, attenuer(config.CYAN, 0.6), (0, HAUTEUR_BARRE),
                          (config.LARGEUR, HAUTEUR_BARRE), 2)
@@ -306,8 +327,10 @@ class EcranReglages(EcranBase):
                    ("JOUEURS", self._joueurs)]
         if connecte and getattr(self.app.en_ligne, "admin", False):
             options.append(("ADMIN", self._admin))
-        return options + [("SE DECONNECTER" if connecte else "SE CONNECTER", self._compte),
-                          ("QUITTER LE JEU", self._quitter)]
+        options.append(("SE DECONNECTER" if connecte else "SE CONNECTER", self._compte))
+        if not config.EST_WEB:                  # dans le navigateur, on ferme l'onglet
+            options.append(("QUITTER LE JEU", self._quitter))
+        return options
 
     def _admin(self):
         from ecrans.en_ligne.admin import EcranAdmin

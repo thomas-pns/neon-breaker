@@ -19,7 +19,6 @@ Réalisé le 21/10/2026
 
 import os
 import random
-import wave
 
 from moteur import config
 
@@ -391,6 +390,7 @@ def ecrire_wav(chemin, echantillons):
     """But : enregistrer une boucle en .wav mono 16 bits."""
     donnees = (echantillons.clip(-1, 1) * 32000).astype("<i2")
     temporaire = chemin + ".tmp"
+    import wave         # pas dans le Python du navigateur (sons livrés en .ogg)
     with wave.open(temporaire, "wb") as fichier:
         fichier.setnchannels(1)
         fichier.setsampwidth(2)

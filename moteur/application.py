@@ -285,21 +285,104 @@ class Application:
         Entrée : premier_ecran (EcranBase) : écran de départ.
         Sortie : aucune.
         """
+        self._demarrer(premier_ecran)
+        while self.en_marche and self.ecran_actif() is not None:
+            self._image()
+        pygame.quit()
+
+    async def lancer_web(self, premier_ecran):
+        """
+        But : boucle principale de la version navigateur : la même, mais on
+        rend la main au navigateur après chaque image (sinon la page gèle).
+        Entrée : premier_ecran (EcranBase).
+        """
+        import asyncio
+        from moteur import web
+        self._demarrer(premier_ecran)
+        web.demarre()
+        mesure = web.parametre("profil")      # ?profil : mesurer où passe le temps
+        if mesure:
+            await self._profiler_web(web)
+        if web.parametre("banc"):
+            from outils.banc_web import banc
+            web.journal(banc())
+        while self.ecran_actif() is not None:
+            if not self.en_marche:              # QUITTER : on revient à l'accueil
+                self.en_marche = True
+            self._image()
+            await asyncio.sleep(0)
+
+    async def _profiler_web(self, web):
+        """
+        But : (outil) mesurer le temps des images dans le navigateur, sur l'accueil
+        puis en Campagne, étape par étape, et l'écrire dans la console du navigateur.
+        """
+        import asyncio
+        import time
+        from ecrans.modes import fabrique_mode
+        from ecrans.partie import EcranPartie
+        temps = {}
+
+        def chronometrer(objet, methode, nom):
+            origine = getattr(objet, methode)
+
+            def mesuree(*args, **kwargs):
+                debut = time.perf_counter()
+                try:
+                    return origine(*args, **kwargs)
+                finally:
+                    temps[nom] = temps.get(nom, 0.0) + time.perf_counter() - debut
+            setattr(objet, methode, mesuree)
+
+        web.journal(f"NEON SONS : {len(self.audio.sons)} effets, {len(self.audio.musiques)} musiques "
+                    f"(audio actif : {self.audio.actif})")
+        chronometrer(self, "_evenements", "evenements")
+        chronometrer(self, "_mettre_a_jour", "mise a jour")
+        chronometrer(self.fond, "dessiner", "fond")
+        chronometrer(self.crt, "appliquer", "filtre CRT")
+        chronometrer(pygame.display, "flip", "affichage (flip)")
+        chronometrer(pygame.transform, "smoothscale", "mise a l'echelle")
+        for nom in ("accueil", "partie"):
+            if nom == "partie":
+                self.remplacer(EcranPartie(self, fabrique_mode("campagne")), transition=False)
+            ecran = self.ecran_actif()
+            chronometrer(ecran, "dessiner", "ecran " + nom)
+            for _ in range(20):
+                self._image()
+                await asyncio.sleep(0)
+            temps.clear()
+            debut = time.perf_counter()
+            for _ in range(60):
+                self._image()
+            total = (time.perf_counter() - debut) / 60 * 1000
+            lignes = [f"NEON PROFIL {nom} : {total:.1f} ms par image"]
+            for cle, valeur in sorted(temps.items(), key=lambda e: -e[1]):
+                lignes.append(f"  {cle:<20} {valeur / 60 * 1000:7.1f} ms")
+            web.journal("\n".join(lignes))
+            await asyncio.sleep(0)
+            detail = web.profiler(lambda: [self._image() for _ in range(10)])
+            web.journal("NEON DETAIL " + nom + " (10 images)\n" + detail)
+            await asyncio.sleep(0)
+
+    def _demarrer(self, premier_ecran):
+        """Charger les sons, afficher le premier écran, vérifier la session."""
         self.charger()
         self.empiler(premier_ecran)
         self.en_ligne.verifier_session()
         self.en_ligne.verifier_version(self._version_recue)
-        while self.en_marche and self.ecran_actif() is not None:
-            dt = min(self.horloge.tick(config.FPS) / 1000, 0.1)
-            self._evenements()
-            self._mettre_a_jour(dt)
-            self._dessiner()
-        pygame.quit()
+
+    def _image(self):
+        """Une image du jeu : événements, mise à jour, dessin."""
+        dt = min(self.horloge.tick(config.FPS) / 1000, 0.1)
+        self._evenements()
+        self._mettre_a_jour(dt)
+        self._dessiner()
 
     def _version_recue(self, resultat):
         """Une version plus récente existe : proposer la mise à jour."""
-        if config.EST_TEST:
-            return                  # un exe de test ne se remplace jamais tout seul
+        if config.EST_TEST or config.EST_WEB:
+            return                  # un exe de test ne se remplace jamais tout seul ;
+                                    # la version web est toujours celle du serveur
         from reseau.mise_a_jour import version_disponible
         infos = version_disponible(resultat.get("donnees"))
         if infos is not None:
@@ -360,6 +443,9 @@ class Application:
             pile_dessin.append(pile_dessin[-1].dessous)
         for ecran in reversed(pile_dessin):
             ecran.dessiner(image)
+        if self.entrees.tactile and getattr(actif, "bouton_retour", True):
+            from ecrans.tactile import bouton_retour        # au doigt : pas de touche Échap
+            bouton_retour(image, self)
         if self.transition is not None:
             self.transition.dessiner(image)
         if self.notifications:

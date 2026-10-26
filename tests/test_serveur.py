@@ -401,3 +401,49 @@ class TestServeur(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipUnless(DISPONIBLE, "fastapi / httpx non installés")
+class TestVersionNavigateur(unittest.TestCase):
+    """Le serveur sert la version web (jeu/ et archives/), compressée si possible."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ancien = config.DOSSIER_WEB
+        config.DOSSIER_WEB = dossier_temporaire("neon_test_web_")
+        os.makedirs(os.path.join(config.DOSSIER_WEB, "jeu"))
+        os.makedirs(os.path.join(config.DOSSIER_WEB, "archives", "0.9"))
+        with open(os.path.join(config.DOSSIER_WEB, "jeu", "index.html"), "w") as fichier:
+            fichier.write("<html>NEON</html>")
+        import gzip
+        moteur = os.path.join(config.DOSSIER_WEB, "archives", "0.9", "main.wasm")
+        with open(moteur, "wb") as fichier:
+            fichier.write(b"\0asm" + b"x" * 1000)
+        with open(moteur + ".gz", "wb") as fichier:
+            fichier.write(gzip.compress(b"\0asm" + b"x" * 1000))
+        cls.client = TestClient(api.app)
+
+    @classmethod
+    def tearDownClass(cls):
+        config.DOSSIER_WEB = cls.ancien
+
+    def test_page_et_redirection(self):
+        reponse = self.client.get("/jeu", follow_redirects=False)
+        self.assertIn(reponse.status_code, (302, 307))
+        reponse = self.client.get("/jeu/")
+        self.assertEqual(reponse.status_code, 200)
+        self.assertIn("NEON", reponse.text)
+        self.assertEqual(reponse.headers["cache-control"], "no-cache")
+        self.assertIn("JOUER DANS LE NAVIGATEUR", self.client.get("/").text)
+
+    def test_moteur_compresse(self):
+        reponse = self.client.get("/archives/0.9/main.wasm", headers={"Accept-Encoding": "gzip"})
+        self.assertEqual(reponse.status_code, 200)
+        self.assertEqual(reponse.headers["content-encoding"], "gzip")
+        self.assertEqual(reponse.headers["content-type"], "application/wasm")
+        self.assertEqual(reponse.content[:4], b"\0asm")        # décompressé par le client
+
+    def test_pas_de_sortie_du_dossier(self):
+        for chemin in ("/jeu/../../serveur/config.py", "/jeu/%2e%2e/%2e%2e/serveur/config.py",
+                       "/archives/..%2f..%2fserveur%2fconfig.py", "/jeu/inexistant.js"):
+            self.assertEqual(self.client.get(chemin).status_code, 404, chemin)

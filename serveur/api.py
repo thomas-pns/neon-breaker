@@ -27,7 +27,7 @@ import os
 import re
 
 from fastapi import FastAPI, Header, HTTPException, Request, WebSocket
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from moteur.version import PROTOCOLE, comparer_versions
@@ -472,6 +472,51 @@ def telecharger(plateforme: str):
                         filename=infos["fichier"], media_type="application/octet-stream")
 
 
+# --- Version navigateur -------------------------------------------------------------------
+
+TYPES_WEB = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".wasm": "application/wasm",
+             ".json": "application/json", ".py": "text/plain; charset=utf-8", ".png": "image/png",
+             ".css": "text/css", ".ogg": "audio/ogg", ".ico": "image/x-icon"}
+
+
+def fichier_web(dossier, chemin, accepte):
+    """
+    But : envoyer un fichier de la version navigateur (dossier jeu/ ou archives/).
+    Les gros fichiers ont une copie .gz faite d'avance : envoyée si le navigateur
+    l'accepte (le moteur passe de 30 à 15 Mo). Les navigateurs revalident à chaque
+    chargement (no-cache) : une mise à jour du jeu est vue tout de suite.
+    """
+    racine = os.path.realpath(os.path.join(config.DOSSIER_WEB, dossier))
+    cible = os.path.realpath(os.path.join(racine, chemin or "index.html"))
+    if not cible.startswith(racine + os.sep) or not os.path.isfile(cible):
+        raise HTTPException(404, "Introuvable")
+    entetes = {"Cache-Control": "no-cache", "Vary": "Accept-Encoding"}
+    type_media = TYPES_WEB.get(os.path.splitext(cible)[1], "application/octet-stream")
+    if "gzip" in (accepte or "") and os.path.isfile(cible + ".gz"):
+        entetes["Content-Encoding"] = "gzip"
+        return FileResponse(cible + ".gz", media_type=type_media, headers=entetes)
+    return FileResponse(cible, media_type=type_media, headers=entetes)
+
+
+def version_web_disponible():
+    return os.path.isfile(os.path.join(config.DOSSIER_WEB, "jeu", "index.html"))
+
+
+@app.get("/jeu")
+def jeu_sans_barre():
+    return RedirectResponse("/jeu/")
+
+
+@app.get("/jeu/{chemin:path}")
+def jeu_web(chemin: str, accept_encoding: str = Header(default="")):
+    return fichier_web("jeu", chemin, accept_encoding)
+
+
+@app.get("/archives/{chemin:path}")
+def moteur_web(chemin: str, accept_encoding: str = Header(default="")):
+    return fichier_web("archives", chemin, accept_encoding)
+
+
 @app.get("/", response_class=HTMLResponse)
 def accueil():
     """Petite page néon pour que les amis téléchargent le jeu."""
@@ -480,6 +525,9 @@ def accueil():
     liens = "".join(
         f'<a href="/telechargements/{p}">{noms[p]}<span>v{html.escape(i["version"])}</span></a>'
         for p, i in lire_versions().items() if p in noms) or "<p>Aucune version publiee.</p>"
+    if version_web_disponible():
+        liens = ('<a class="web" href="/jeu/">JOUER DANS LE NAVIGATEUR<span>PC, TELEPHONE, TABLETTE</span></a>'
+                 + liens)
     return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>NEON BREAKER</title>
 <style>body{{margin:0;min-height:100vh;background:linear-gradient(#0a021e,#3c0e6e 60%,#ff2ba0);
@@ -487,9 +535,12 @@ color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:
 h1{{font-size:clamp(32px,8vw,72px);color:#00e5ff;text-shadow:0 0 18px #00e5ff,4px 4px 0 #ff2bd6;margin:0}}
 a{{display:flex;justify-content:space-between;gap:24px;min-width:min(420px,90vw);padding:16px 20px;border:2px solid #ffb000;
 border-radius:10px;color:#ffb000;text-decoration:none;font-size:18px;background:#12002bcc;box-shadow:0 0 14px #ffb00088}}
-a:hover{{background:#ffb000;color:#12002b}} p{{max-width:560px;text-align:center;line-height:1.5;color:#e6d6ff}}</style></head>
+a:hover{{background:#ffb000;color:#12002b}}
+a.web{{border-color:#00e5ff;color:#00e5ff;box-shadow:0 0 18px #00e5ffaa;font-size:20px;flex-direction:column;gap:6px;align-items:center}}
+a.web span{{font-size:13px;color:#e6d6ff}} a.web:hover{{background:#00e5ff;color:#12002b}} p{{max-width:560px;text-align:center;line-height:1.5;color:#e6d6ff}}</style></head>
 <body><h1>NEON BREAKER</h1>{liens}
-<p>Windows : si un message bleu « Windows a protege votre ordinateur » apparait, cliquez sur
+<p>Sur iPhone et iPad : dans Safari, <b>Partager &gt; Sur l'ecran d'accueil</b> pour l'avoir comme une app.<br>
+Windows : si un message bleu « Windows a protege votre ordinateur » apparait, cliquez sur
 <b>Informations complementaires</b> puis <b>Executer quand meme</b>.<br>
 Mac : dezippez, glissez l'application dans Applications, puis <b>clic droit &gt; Ouvrir</b> la premiere fois.</p>
 </body></html>"""

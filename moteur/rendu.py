@@ -23,6 +23,18 @@ from moteur import config
 _cache_halos = {}
 
 
+def figer(surface):
+    """
+    But : marquer une image transparente qui ne changera plus (cache) pour que SDL
+    la compresse (RLE) : sa copie devient bien plus rapide, surtout dans le
+    navigateur (jusqu'à 70 fois). Ne plus dessiner dessus ensuite (ça marche,
+    mais SDL la décompresse puis la recompresse à chaque fois).
+    Entrée : surface (Surface SRCALPHA). Sortie : la même surface.
+    """
+    surface.set_alpha(255, pygame.RLEACCEL)
+    return surface
+
+
 def flouter(surface, rayon):
     """
     But : flouter une surface (gaussien si disponible, sinon réduction /
@@ -81,6 +93,47 @@ def halo_rect(largeur, hauteur, couleur, rayon=8, epaisseur=3):
     return surface
 
 
+def _bandes_lumineuses(surface):
+    """
+    But : zones d'un halo rectangulaire qui ne sont pas noires. L'intérieur d'un grand
+    halo est noir : l'ajouter (BLEND_RGB_ADD) ne change rien et coûte cher. On garde
+    les quatre bandes du bord (ou toute la surface si l'intérieur est petit).
+    Entrée : surface (Surface opaque, fond noir). Sortie : (list de Rect).
+    """
+    largeur, hauteur = surface.get_size()
+    tout = [pygame.Rect(0, 0, largeur, hauteur)]
+    for marge in range(8, min(largeur, hauteur) // 2 - 8, 4):
+        interieur = pygame.Rect(marge, marge, largeur - 2 * marge, hauteur - 2 * marge)
+        if interieur.w * interieur.h < largeur * hauteur * 0.25:
+            return tout                      # trop peu à gagner
+        zone = surface.subsurface(interieur)
+        presque_noir = pygame.mask.from_threshold(zone, (0, 0, 0), (2, 2, 2, 255))
+        if presque_noir.count() == interieur.w * interieur.h:
+            return [pygame.Rect(0, 0, largeur, marge),
+                    pygame.Rect(0, hauteur - marge, largeur, marge),
+                    pygame.Rect(0, marge, marge, hauteur - 2 * marge),
+                    pygame.Rect(largeur - marge, marge, marge, hauteur - 2 * marge)]
+    return tout
+
+
+_bandes = {}
+
+
+def ajouter_lueur(image, lueur, position):
+    """
+    But : ajouter un halo (fond noir) sur l'image, comme
+    image.blit(lueur, position, special_flags=BLEND_RGB_ADD), mais sans
+    traiter l'intérieur noir des grands halos rectangulaires.
+    Entrées : image, lueur (Surface) ; position (tuple) : coin haut gauche.
+    """
+    bandes = _bandes.get(id(lueur))
+    if bandes is None or bandes[0] is not lueur:
+        bandes = _bandes[id(lueur)] = (lueur, _bandes_lumineuses(lueur))
+    x, y = position
+    for zone in bandes[1]:
+        image.blit(lueur, (x + zone.x, y + zone.y), zone, special_flags=pygame.BLEND_RGB_ADD)
+
+
 def halo_cercle(rayon_objet, couleur, rayon=10, plein=True):
     """
     But : halo additif (fond noir) d'un disque, mis en cache.
@@ -106,7 +159,13 @@ def attenuer(couleur, facteur):
     But : assombrir (facteur < 1) ou éclaircir (facteur > 1) une couleur.
     Entrées : couleur (tuple RVB), facteur (float). Sortie : (tuple RVB).
     """
-    return tuple(max(0, min(255, int(c * facteur))) for c in couleur[:3])
+    # Sans générateur ni min/max : appelée des milliers de fois par image.
+    r = int(couleur[0] * facteur)
+    v = int(couleur[1] * facteur)
+    b = int(couleur[2] * facteur)
+    return (0 if r < 0 else 255 if r > 255 else r,
+            0 if v < 0 else 255 if v > 255 else v,
+            0 if b < 0 else 255 if b > 255 else b)
 
 
 def melanger(couleur_a, couleur_b, t):
@@ -115,7 +174,11 @@ def melanger(couleur_a, couleur_b, t):
     Entrées : couleur_a, couleur_b (tuple RVB), t (float 0..1).
     Sortie : (tuple RVB).
     """
-    t = max(0.0, min(1.0, t))
+    t = 0.0 if t < 0.0 else 1.0 if t > 1.0 else t
+    if len(couleur_a) == 3 and len(couleur_b) == 3:     # cas courant, sans générateur
+        return (int(couleur_a[0] + (couleur_b[0] - couleur_a[0]) * t),
+                int(couleur_a[1] + (couleur_b[1] - couleur_a[1]) * t),
+                int(couleur_a[2] + (couleur_b[2] - couleur_a[2]) * t))
     return tuple(int(a + (b - a) * t) for a, b in zip(couleur_a, couleur_b))
 
 
@@ -132,12 +195,26 @@ class FiltreCRT:
         Sortie : aucune.
         """
         self.actif = True
-        self.scanlines = pygame.Surface((largeur, hauteur), pygame.SRCALPHA)
-        for y in range(0, hauteur, 3):
-            pygame.draw.line(self.scanlines, (0, 0, 0, 55), (0, y),
-                             (largeur, y))
-        self.vignette = self._creer_vignette(largeur, hauteur)
+        self.calque = self._creer_calque(largeur, hauteur)
         self.aberration = 0.0
+
+    @staticmethod
+    def _creer_calque(largeur, hauteur):
+        """
+        But : pré-calculer scanlines et vignette en UN calque à multiplier.
+        Assombrir avec un noir d'opacité a revient à multiplier par (1 - a) :
+        un seul blit BLEND_RGB_MULT, au lieu de deux blits avec transparence
+        (beaucoup plus lents, surtout dans le navigateur).
+        Entrées : largeur, hauteur (int). Sortie : (Surface) calque opaque.
+        """
+        vignette = FiltreCRT._creer_vignette(largeur, hauteur)
+        calque = pygame.Surface((largeur, hauteur))
+        calque.fill((255, 255, 255))
+        calque.blit(vignette, (0, 0))      # blanc assombri = 255 * (1 - a_vignette)
+        for y in range(0, hauteur, 3):     # scanlines : opacité 55/255
+            calque.fill((200, 200, 200), (0, y, largeur, 1),
+                        special_flags=pygame.BLEND_RGB_MULT)
+        return calque
 
     @staticmethod
     def _creer_vignette(largeur, hauteur):
@@ -186,8 +263,7 @@ class FiltreCRT:
                 image.blit(rouge, (decalage, 0),
                            special_flags=pygame.BLEND_RGB_ADD)
         if self.actif:
-            image.blit(self.scanlines, (0, 0))
-            image.blit(self.vignette, (0, 0))
+            image.blit(self.calque, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
 
 class Ecran:
@@ -213,7 +289,10 @@ class Ecran:
         But : (ré)ouvrir la fenêtre selon le mode courant.
         Entrée : aucune. Sortie : aucune.
         """
-        if self.plein_ecran:
+        if config.EST_WEB:
+            # La page met le canevas à l'échelle de l'écran (téléphone, tablette).
+            self.fenetre = pygame.display.set_mode((config.LARGEUR, config.HAUTEUR))
+        elif self.plein_ecran:
             self.fenetre = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
             self.fenetre = pygame.display.set_mode(
@@ -225,6 +304,8 @@ class Ecran:
         But : passer du mode fenêtré au plein écran et inversement (F11).
         Entrée : aucune. Sortie : aucune.
         """
+        if config.EST_WEB:
+            return                  # navigateur : bouton plein écran de la page
         self.plein_ecran = not self.plein_ecran
         self._ouvrir()
 

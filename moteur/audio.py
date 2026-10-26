@@ -22,7 +22,6 @@ import array
 import math
 import os
 import random
-import wave
 
 import pygame
 
@@ -233,6 +232,7 @@ def ecrire_wav(chemin, echantillons):
     Entrées : chemin (str), echantillons (list de float). Sortie : aucune.
     """
     donnees = array.array("h", (int(v * 32000) for v in echantillons))
+    import wave         # pas dans le Python du navigateur (sons livrés en .ogg)
     with wave.open(chemin, "wb") as fichier:
         fichier.setnchannels(1)
         fichier.setsampwidth(2)
@@ -258,6 +258,28 @@ def generer_sons(rappel_progression=None):
         if rappel_progression:
             rappel_progression((i + 1) / len(recettes))
     return chemins
+
+
+def sons_web():
+    """
+    But : sons et musiques livrés en .ogg avec la version web.
+    Sortie : (dict nom -> chemin des effets, dict nom -> chemin des musiques).
+    """
+    effets, musiques = {}, {}
+    try:
+        fichiers = sorted(os.listdir(config.DOSSIER_SONS_WEB))
+    except OSError:
+        return effets, musiques
+    for fichier in fichiers:
+        nom, extension = os.path.splitext(fichier)
+        chemin = os.path.join(config.DOSSIER_SONS_WEB, fichier)
+        if extension != ".ogg":
+            continue
+        if nom.startswith("musique_"):
+            musiques[nom[len("musique_"):]] = chemin
+        else:
+            effets[nom] = chemin
+    return effets, musiques
 
 
 CANAUX_MUSIQUE = 3
@@ -301,8 +323,12 @@ class Audio:
             if rappel_progression:
                 rappel_progression(0.4 + v * 0.6)
 
-        chemins = generer_sons(sons)
-        chemins_musique = generer_musiques(musiques)
+        if config.EST_WEB:
+            # Navigateur : sons et musiques fabriqués d'avance (outils/construire_web.py).
+            chemins, chemins_musique = sons_web()
+        else:
+            chemins = generer_sons(sons)
+            chemins_musique = generer_musiques(musiques)
         if not self.actif:
             return
         for nom, chemin in chemins.items():
