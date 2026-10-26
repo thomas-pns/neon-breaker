@@ -50,10 +50,11 @@ class FondSynthwave:
         palette : couleurs (grille 1, grille 2, soleil haut, soleil bas).
     """
 
-    def __init__(self, palette=None):
+    def __init__(self, palette=None, taille=None):
         """
         But : pré-calculer ciel, soleil, montagnes et étoiles.
-        Entrée : palette (dict ou None) : couleurs du thème.
+        Entrées : palette (dict ou None) : couleurs du thème ; taille ((l, h) ou None) :
+                  taille de l'image (1280x720 par défaut ; téléphone : vertical).
         Sortie : aucune.
         """
         self.palette = palette or PALETTES[1]
@@ -63,16 +64,46 @@ class FondSynthwave:
         self.vitesse = 0.8
         self.vitesse_cible = 0.8
         self.progression = 0.0
-        self.ciel = self._creer_ciel()
         self.soleil = self._creer_soleil(150)
         self._soleils_rayes = {}
+        self._geometries = {}          # taille -> images pré-calculées pour cette taille
+        self.largeur = self.hauteur = None
+        self._adopter(taille or (config.LARGEUR, config.HAUTEUR))
+
+    # Ce qui dépend de la taille de l'image (paysage 1280x720 ou vertical sur téléphone).
+    GEOMETRIE = ("largeur", "hauteur", "horizon", "fuite_x", "profondeur_k", "ciel", "montagnes",
+                 "etoiles", "sol")
+
+    def _adopter(self, taille):
+        """
+        But : se préparer à dessiner sur une image de cette taille. Les deux formats
+        partagent l'animation (défilement, soleil...) ; leurs images sont en cache.
+        Entrée : taille (tuple (largeur, hauteur)).
+        """
+        taille = tuple(taille)
+        if taille == (self.largeur, self.hauteur):
+            return
+        if self.largeur is not None:
+            self._geometries[(self.largeur, self.hauteur)] = {
+                nom: getattr(self, nom) for nom in self.GEOMETRIE}
+        deja = self._geometries.get(taille)
+        if deja is not None:
+            for nom, valeur in deja.items():
+                setattr(self, nom, valeur)
+            return
+        self.largeur, self.hauteur = taille
+        # Horizon à 60 % de la hauteur (430 px en 1280x720), point de fuite au milieu.
+        self.horizon = HORIZON if self.hauteur == 720 else int(self.hauteur * 0.6)
+        self.fuite_x = self.largeur // 2
+        self.profondeur_k = self.hauteur - self.horizon
+        self.ciel = self._creer_ciel()
         self.montagnes = self._creer_montagnes()
         aleatoire = random.Random(7)
-        self.etoiles = [(aleatoire.randint(0, config.LARGEUR),
-                         aleatoire.randint(0, HORIZON - 60),
+        self.etoiles = [(aleatoire.randint(0, self.largeur),
+                         aleatoire.randint(0, self.horizon - 60),
                          aleatoire.uniform(0, 6.28),
                          aleatoire.choice((1, 1, 1, 2)))
-                        for _ in range(150)]
+                        for _ in range(150 if self.hauteur == 720 else 200)]
         self.sol = self._creer_sol()
 
     def changer_monde(self, monde):
@@ -87,6 +118,7 @@ class FondSynthwave:
         self.ciel = self._creer_ciel()
         self.soleil = self._creer_soleil(150)
         self._soleils_rayes = {}
+        self._geometries.clear()       # le ciel de l'autre format est à refaire
 
     # --- Pré-calculs -------------------------------------------------------
 
@@ -96,14 +128,14 @@ class FondSynthwave:
         Entrée : aucune. Sortie : (Surface).
         """
         haut, milieu, bas = self.palette["ciel"]
-        ciel = pygame.Surface((config.LARGEUR, HORIZON))
-        for y in range(HORIZON):
-            t = y / HORIZON
+        ciel = pygame.Surface((self.largeur, self.horizon))
+        for y in range(self.horizon):
+            t = y / self.horizon
             if t < 0.55:
                 couleur = melanger(haut, milieu, t / 0.55)
             else:
                 couleur = melanger(milieu, bas, ((t - 0.55) / 0.45) ** 1.6)
-            pygame.draw.line(ciel, couleur, (0, y), (config.LARGEUR, y))
+            pygame.draw.line(ciel, couleur, (0, y), (self.largeur, y))
         return ciel
 
     def _creer_soleil(self, rayon):
@@ -126,17 +158,17 @@ class FondSynthwave:
         Entrée : aucune. Sortie : (Surface SRCALPHA) posée sur l'horizon.
         """
         hauteur = 170
-        surface = pygame.Surface((config.LARGEUR, hauteur), pygame.SRCALPHA)
+        surface = pygame.Surface((self.largeur, hauteur), pygame.SRCALPHA)
         aleatoire = random.Random(42)
         for cote in (-1, 1):
             points = []
             nb = 14
             for i in range(nb + 1):
                 t = i / nb
-                x = POINT_FUITE_X + cote * (330 + t * 330)
+                x = self.fuite_x + cote * (330 + t * 330)
                 pic = hauteur - (20 + t * 120 + aleatoire.uniform(-25, 35))
                 points.append((x, max(4, pic)))
-            polygone = [(POINT_FUITE_X + cote * 300, hauteur)] + points + \
+            polygone = [(self.fuite_x + cote * 300, hauteur)] + points + \
                        [(points[-1][0], hauteur)]
             pygame.draw.polygon(surface, (14, 4, 40, 255), polygone)
             # Arêtes filaires : contour + lignes vers la base.
@@ -157,11 +189,11 @@ class FondSynthwave:
         But : dégradé sombre du sol sous l'horizon.
         Entrée : aucune. Sortie : (Surface).
         """
-        hauteur = config.HAUTEUR - HORIZON
-        sol = pygame.Surface((config.LARGEUR, hauteur))
+        hauteur = self.hauteur - self.horizon
+        sol = pygame.Surface((self.largeur, hauteur))
         for y in range(hauteur):
             couleur = melanger((40, 6, 70), (8, 0, 20), (y / hauteur) ** 0.6)
-            pygame.draw.line(sol, couleur, (0, y), (config.LARGEUR, y))
+            pygame.draw.line(sol, couleur, (0, y), (self.largeur, y))
         return sol
 
     # --- Animation ---------------------------------------------------------
@@ -180,11 +212,12 @@ class FondSynthwave:
         But : dessiner tout le fond.
         Entrée : ecran (Surface). Sortie : aucune.
         """
+        self._adopter(ecran.get_size())
         ecran.blit(self.ciel, (0, 0))
         self._dessiner_etoiles(ecran)
         self._dessiner_soleil(ecran)
-        ecran.blit(self.montagnes, (0, HORIZON - self.montagnes.get_height()))
-        ecran.blit(self.sol, (0, HORIZON))
+        ecran.blit(self.montagnes, (0, self.horizon - self.montagnes.get_height()))
+        ecran.blit(self.sol, (0, self.horizon))
         self._dessiner_grille(ecran)
 
     def _dessiner_etoiles(self, ecran):
@@ -200,15 +233,15 @@ class FondSynthwave:
     def _dessiner_soleil(self, ecran):
         """Soleil rayé : les bandes vides descendent lentement."""
         rayon = self.soleil.get_width() // 2
-        centre_y = HORIZON - 80 + int(self.progression * 90)
+        centre_y = self.horizon - 80 + int(self.progression * 90)
         lueur = halo_cercle(rayon, attenuer(self.palette["soleil_bas"], 0.7),
                             rayon=40)
-        ecran.blit(lueur, lueur.get_rect(center=(POINT_FUITE_X, centre_y)),
+        ecran.blit(lueur, lueur.get_rect(center=(self.fuite_x, centre_y)),
                    special_flags=pygame.BLEND_RGB_ADD)
         soleil = self._soleil_raye(rayon, int((self.temps * 12) % 20))
-        zone = soleil.get_rect(center=(POINT_FUITE_X, centre_y))
+        zone = soleil.get_rect(center=(self.fuite_x, centre_y))
         # On coupe ce qui dépasse sous l'horizon.
-        visible = HORIZON - zone.top
+        visible = self.horizon - zone.top
         if visible > 0:
             ecran.blit(soleil, zone.topleft,
                        (0, 0, zone.width, min(zone.height, visible)))
@@ -236,13 +269,13 @@ class FondSynthwave:
         """Grille en perspective : lignes de fuite + lignes de profondeur."""
         couleur_a = self.palette["grille"]
         couleur_b = self.palette["grille2"]
-        bas = config.HAUTEUR
+        bas = self.hauteur
         # Lignes de profondeur (horizontales) qui avancent vers le joueur.
         for n in range(NB_LIGNES_PROFONDEUR):
             distance = n + 1 - self.defilement
             if distance <= 0.05:
                 continue
-            y = HORIZON + PROFONDEUR_K / distance
+            y = self.horizon + self.profondeur_k / distance
             if y > bas:
                 continue
             proximite = 1 - min(1.0, distance / NB_LIGNES_PROFONDEUR)
@@ -250,19 +283,19 @@ class FondSynthwave:
                                0.25 + 0.75 * proximite)
             epaisseur = 1 if proximite < 0.7 else 2
             pygame.draw.line(ecran, attenuer(couleur, 0.35), (0, int(y) + 1),
-                             (config.LARGEUR, int(y) + 1), epaisseur + 2)
+                             (self.largeur, int(y) + 1), epaisseur + 2)
             pygame.draw.line(ecran, couleur, (0, int(y)),
-                             (config.LARGEUR, int(y)), epaisseur)
+                             (self.largeur, int(y)), epaisseur)
         # Lignes de fuite (vers le point central de l'horizon).
         for i in range(-16, 17):
-            x_bas = POINT_FUITE_X + i * 110
+            x_bas = self.fuite_x + i * 110
             couleur = melanger(couleur_a, couleur_b, abs(i) / 16)
             pygame.draw.line(ecran, attenuer(couleur, 0.35),
-                             (POINT_FUITE_X + i * 6, HORIZON), (x_bas, bas), 4)
+                             (self.fuite_x + i * 6, self.horizon), (x_bas, bas), 4)
             pygame.draw.line(ecran, couleur,
-                             (POINT_FUITE_X + i * 6, HORIZON), (x_bas, bas), 2)
+                             (self.fuite_x + i * 6, self.horizon), (x_bas, bas), 2)
         # Ligne d'horizon brillante.
-        pygame.draw.line(ecran, attenuer(couleur_a, 0.6), (0, HORIZON + 1),
-                         (config.LARGEUR, HORIZON + 1), 5)
-        pygame.draw.line(ecran, (255, 200, 255), (0, HORIZON),
-                         (config.LARGEUR, HORIZON), 2)
+        pygame.draw.line(ecran, attenuer(couleur_a, 0.6), (0, self.horizon + 1),
+                         (self.largeur, self.horizon + 1), 5)
+        pygame.draw.line(ecran, (255, 200, 255), (0, self.horizon),
+                         (self.largeur, self.horizon), 2)

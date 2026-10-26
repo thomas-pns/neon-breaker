@@ -68,22 +68,23 @@ class EcranEnLigneBase(Navigation, EcranBase):
         self.app.remplacer(EcranTitre(self.app), transition=False)
 
     def dessiner_fond(self, image, titre=None):
-        self.app.fond.dessiner(image)
-        voile = pygame.Surface(image.get_size())
-        voile.fill((8, 0, 20))
-        voile.set_alpha(150)
-        image.blit(voile, (0, 0))
+        from ecrans.menus import fond_menu, marge_haut
+        fond_menu(self.app, image, 150)
         if self.onglet is not None:
             self.dessiner_barre(image)
             return
-        dessiner_texte(image, titre or self.titre, config.LARGEUR / 2, 50, 5, config.CYAN)
+        haut = marge_haut()
+        dessiner_texte(image, titre or self.titre, config.LARGEUR / 2, 50 + haut, 5, config.CYAN)
         en_ligne = self.app.en_ligne
-        if en_ligne.connecte:
+        if en_ligne.connecte and config.LARGEUR > config.HAUTEUR:
             dessiner_texte(image, f"{en_ligne.pseudo.upper()}  RANG {en_ligne.niveau}",
                            config.LARGEUR - 20, 22, 2, couleur_profil(en_ligne.couleur),
                            ancrage="droite", lueur=False)
 
     def pied(self, image, texte):
+        """But : rappel des touches en bas (pas au doigt ni au format vertical)."""
+        if self.app.entrees.tactile or config.HAUTEUR > config.LARGEUR:
+            return
         if math.sin(self.temps * 5) > -0.4:
             dessiner_texte(image, texte, config.LARGEUR / 2, config.HAUTEUR - 26, 2,
                            (150, 120, 200), lueur=False)

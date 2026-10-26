@@ -263,6 +263,14 @@ la production ».
   - moteur Python (pygame-web/archives) copié sur notre serveur : rien chez un tiers ;
   - dessin accéléré (copies compressées RLE, filtre CRT en un calque, halos par bandes) :
     5 fois plus rapide dans le navigateur, et un peu plus rapide sur PC aussi.
+- [x] **(fait, à publier en 2.3)** **Format vertical sur téléphone** (maquette B choisie par
+  Thomas) : image 800 px de large aux proportions du téléphone, partie avec bandeau en haut,
+  terrain, zone de glisse au centre, pouvoirs à gauche et SUPERNOVA à droite ; onglets en bas ;
+  tous les menus en vertical (accueil, JOUER, carte, casier, boutique, classements, parties en
+  ligne, profil, aide au doigt…). PC et tablette restent en paysage. Essai sur PC :
+  `NEON_VERTICAL=1` ou `/jeu/?vertical`. Reste en paysage réduit : l'écran ADMIN.
+- [ ] Format vertical : texte plus grand (petits libellés difficiles à lire sur un petit
+  téléphone).
 - [ ] Version web : à essayer sur un vrai iPhone et un vrai Android (fluidité, son, texte
   assez grand ?). Outils : `/jeu/?profil` (temps par image) et `/jeu/?banc` dans la console.
 - [ ] Version web : sauvegarde de la progression sur le compte (sinon chaque appareil a la

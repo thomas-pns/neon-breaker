@@ -202,6 +202,14 @@ class ModeArcade(ModeDeJeu):
         """But : record montré en haut à gauche."""
         return self.app.meilleur_score(self.code)
 
+    def infos_vertical(self, joueur):
+        if self.terrains[0].boss is not None:
+            return f"VAGUE {self.vague}", "BOSS !", config.ROSE
+        return f"VAGUE {self.vague}", f"DESCENTE {max(0, self.avant_descente):.1f} S", config.ROSE
+
+    def record_vertical(self):
+        return max(self.record_affiche(), self.joueurs[0].score)
+
     def dessiner_hud(self, image):
         joueur = self.joueurs[0]
         hud.panneau(image, PANNEAU_G, config.ROSE)
@@ -238,6 +246,7 @@ class ModeArcade(ModeDeJeu):
         for x in range(terrain.rect.left, terrain.rect.right, 20):
             image.fill((120, 20, 50), (x, limite, 10, 2))
         if self.etat == "pret" and math.sin(self.temps * 6) > -0.3:
-            texte = "TOUCHE POUR LANCER" if self.app.entrees.tactile else "ESPACE / CLIC : LANCER"
+            texte = ("TOUCHE LE TERRAIN : LANCER" if getattr(self.app, "vertical", False)
+                         else "TOUCHE POUR LANCER") if self.app.entrees.tactile else "ESPACE / CLIC : LANCER"
             dessiner_texte(image, texte, terrain.rect.centerx,
                            terrain.raquettes[0].y - 70, 2, config.AMBRE)

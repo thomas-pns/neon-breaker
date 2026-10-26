@@ -23,8 +23,9 @@ from moteur.police_pixel import dessiner_texte
 from moteur.rendu import figer
 from moteur.version import VERSION
 from ecrans.hud import barre, dessiner_etoiles
-from ecrans.menus import (EcranMenu, GRIS, JAUNE_SERIE, VIOLET_SERIE, bouton, carte,
-                          division_joueur, ecusson, flamme, series_locales)
+from ecrans.menus import (EcranMenu, GRIS, JAUNE_SERIE, VIOLET_SERIE, bas_contenu, bouton, carte,
+                          division_joueur, ecusson, est_vertical, flamme, haut_contenu,
+                          series_locales)
 
 ZONES = ["profil", "reprendre", "jouer", "defi", "semaine", "boutique"]
 # voisins pour les flèches : zone -> (haut, bas, gauche, droite)
@@ -39,6 +40,43 @@ RECT = {"profil": pygame.Rect(40, 86, 760, 110), "reprendre": pygame.Rect(40, 21
         "semaine": pygame.Rect(830, 262, 410, 160), "boutique": pygame.Rect(830, 438, 410, 164)}
 
 
+# Format vertical (téléphone) : les cartes l'une sous l'autre, défis côte à côte.
+VOISINS_VERTICAL = {"profil": (None, "reprendre", None, None),
+                    "reprendre": ("profil", "jouer", None, None),
+                    "jouer": ("reprendre", "defi", None, None),
+                    "defi": ("jouer", "boutique", None, "semaine"),
+                    "semaine": ("jouer", "boutique", "defi", None),
+                    "boutique": ("defi", None, None, None)}
+
+
+def rects_verticaux():
+    """
+    But : cartes de l'accueil au format vertical, empilées entre la barre du haut et
+    les onglets du bas ; la place en plus agrandit REPRENDRE et JOUER.
+    Sortie : (dict) zone -> Rect.
+    """
+    haut, bas = haut_contenu() + 14, bas_contenu() - 14
+    ecart = 22
+    hauteurs = {"profil": 110, "reprendre": 186, "jouer": 184, "defis": 160, "boutique": 150}
+    surplus = max(0, bas - haut - sum(hauteurs.values()) - 4 * ecart)
+    hauteurs["reprendre"] += min(150, surplus // 2)
+    hauteurs["jouer"] += min(150, surplus // 2)
+    ecart += max(0, surplus - 300) // 4
+    largeur = config.LARGEUR - 40
+    y = haut
+    rects = {}
+    for nom in ("profil", "reprendre", "jouer", "defis", "boutique"):
+        h = hauteurs[nom]
+        if nom == "defis":
+            moitie = (largeur - 20) // 2
+            rects["defi"] = pygame.Rect(20, y, moitie, h)
+            rects["semaine"] = pygame.Rect(40 + moitie, y, moitie, h)
+        else:
+            rects[nom] = pygame.Rect(20, y, largeur, h)
+        y += h + ecart
+    return rects
+
+
 def texte_version():
     """
     But : texte de la version affichée (menu de la roue, écran d'accueil).
@@ -51,6 +89,7 @@ class EcranTitre(EcranMenu):
     """Accueil. Attributs : choix (str : zone sélectionnée), decor (Surface : monde atteint)."""
 
     bouton_retour = False          # au doigt : pas de bouton RETOUR commun
+    vertical = True
 
     onglet = "ACCUEIL"
 
@@ -86,12 +125,15 @@ class EcranTitre(EcranMenu):
         etoiles = self.app.donnees.get("etoiles", {}).get("campagne", {})
         return self._niveaux, indice, int(etoiles.get(str(indice), 0))
 
-    def _decor(self, monde):
+    def rects(self):
+        """But : cartes de l'accueil (format paysage ou vertical)."""
+        return rects_verticaux() if est_vertical() else RECT
+
+    def _decor(self, monde, rect):
         """Bout de la carte du monde atteint, arrondi, pour la carte REPRENDRE (en cache)."""
-        if self.code_decor == monde and self.decor is not None:
+        if self.code_decor == (monde, rect.size) and self.decor is not None:
             return self.decor
         from ecrans.carte import EcranCarte
-        rect = RECT["reprendre"]
         carte_monde = EcranCarte(self.app, "campagne")
         debut = int(carte_monde.bornes.get(monde, (0, 0))[0]) + 60
         debut = max(0, min(debut, carte_monde.decors.get_width() - rect.w))
@@ -103,7 +145,7 @@ class EcranTitre(EcranMenu):
         pygame.draw.rect(masque, (255, 255, 255, 255), masque.get_rect(), border_radius=12)
         avec_alpha = decor.convert_alpha() if pygame.display.get_surface() else decor
         avec_alpha.blit(masque, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
-        self.decor, self.code_decor = figer(avec_alpha), monde
+        self.decor, self.code_decor = figer(avec_alpha), (monde, rect.size)
         return avec_alpha
 
     # --- Actions -----------------------------------------------------------------------
@@ -149,18 +191,19 @@ class EcranTitre(EcranMenu):
             self.ouvrir_reglages()
             return
         ancien = self.choix
-        haut, bas, gauche, droite = VOISINS[self.choix]
+        rects = self.rects()
+        haut, bas, gauche, droite = (VOISINS_VERTICAL if est_vertical() else VOISINS)[self.choix]
         for action, voisin in (("haut", haut), ("bas", bas), ("gauche", gauche), ("droite", droite)):
             if entrees.vient_d_appuyer(action) and voisin:
                 self.choix = voisin
                 break
         if entrees.souris_bougee:
-            for zone, rect in RECT.items():
+            for zone, rect in rects.items():
                 if rect.collidepoint(entrees.souris):
                     self.choix = zone
         if self.choix != ancien:
             self.app.audio.jouer("menu_nav")
-        clic = 1 in entrees.clics and RECT[self.choix].collidepoint(entrees.souris)
+        clic = 1 in entrees.clics and rects[self.choix].collidepoint(entrees.souris)
         if entrees.vient_d_appuyer("valider") or clic:
             self.activer(self.choix)
 
@@ -168,12 +211,13 @@ class EcranTitre(EcranMenu):
 
     def dessiner(self, image):
         self.dessiner_fond(image, 120)
-        self._dessiner_profil(image, RECT["profil"], self.choix == "profil")
-        self._dessiner_reprendre(image, RECT["reprendre"], self.choix == "reprendre")
-        self._dessiner_jouer(image, RECT["jouer"], self.choix == "jouer")
-        self._dessiner_defi(image, RECT["defi"], "defi", self.choix == "defi")
-        self._dessiner_defi(image, RECT["semaine"], "semaine", self.choix == "semaine")
-        self._dessiner_boutique(image, RECT["boutique"], self.choix == "boutique")
+        rects = self.rects()
+        self._dessiner_profil(image, rects["profil"], self.choix == "profil")
+        self._dessiner_reprendre(image, rects["reprendre"], self.choix == "reprendre")
+        self._dessiner_jouer(image, rects["jouer"], self.choix == "jouer")
+        self._dessiner_defi(image, rects["defi"], "defi", self.choix == "defi")
+        self._dessiner_defi(image, rects["semaine"], "semaine", self.choix == "semaine")
+        self._dessiner_boutique(image, rects["boutique"], self.choix == "boutique")
         if config.EST_TEST:
             dessiner_texte(image, "VERSION DE TEST - SCORES NON ENVOYES", config.LARGEUR / 2, 640, 2,
                            config.AMBRE, lueur=False)
@@ -221,7 +265,7 @@ class EcranTitre(EcranMenu):
         niveaux, indice, masque = self._campagne()
         niveau = niveaux[indice]
         couleur = COULEURS_MONDES.get(niveau.monde, config.CYAN)
-        image.blit(self._decor(niveau.monde), r.topleft)
+        image.blit(self._decor(niveau.monde, r), r.topleft)
         pygame.draw.rect(image, couleur, r, 3, border_radius=12)
         self._cadre_choix(image, r, choisi, config.BLANC)
         etat = "REPRENDRE" if indice else "COMMENCER"
@@ -251,7 +295,8 @@ class EcranTitre(EcranMenu):
             image.blit(self.rayures, (r.x + zone.x, r.y + zone.y), zone.move(x0, 0))
         self._cadre_choix(image, r, choisi, config.BLANC)
         pulse = 1.0 if not choisi else 1.0 + 0.04 * math.sin(self.temps * 5)
-        dessiner_texte(image, "JOUER", r.centerx, r.y + 76, int(10 * pulse), config.ROSE)
+        dessiner_texte(image, "JOUER", r.centerx, r.y + max(76, r.h // 2 - 20), int(10 * pulse),
+                       config.ROSE)
         dessiner_texte(image, "CAMPAGNE  -  ARCADE  -  CLASSEE  -  DUEL  -  COOP  -  DEFIS", r.centerx,
                        r.bottom - 36, 2, config.BLANC, lueur=False)
 
@@ -266,7 +311,8 @@ class EcranTitre(EcranMenu):
         else:
             jour = d.semaine_du_defi()
             modificateurs = d.defi_semaine_pour(jour)[1]
-            titre, couleur, periode, unite = "DEFI DE LA SEMAINE", VIOLET_SERIE, "semaine", "S"
+            titre, couleur, periode, unite = ("DEFI DE LA SEMAINE" if r.w > 400 else "DEFI SEMAINE",
+                                              VIOLET_SERIE, "semaine", "S")
             serie = series_locales(self.app)[1]
             import datetime
             jours_restants = 7 - datetime.date.today().isoweekday()

@@ -25,6 +25,8 @@ from ecrans.hud import panneau, barre
 class EcranMiseAJour(EcranBase):
     """Attributs : infos (dict), etat ("choix", "telechargement", "fini", "erreur")."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     transparent = True
 
     def __init__(self, app, infos):
@@ -77,6 +79,7 @@ class EcranMiseAJour(EcranBase):
         cadre = pygame.Rect(0, 0, 720, 380)
         cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2)
         panneau(image, cadre, config.AMBRE)
+        self.menu.x, self.menu.y = cadre.centerx, cadre.y + 260      # suit le format en cours
         dessiner_texte(image, "NOUVELLE VERSION !", cadre.centerx, cadre.y + 50, 5, config.AMBRE)
         dessiner_texte(image, f"{VERSION}  ->  {self.infos['version']}", cadre.centerx,
                        cadre.y + 110, 3, config.BLANC)

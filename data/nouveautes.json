@@ -1,5 +1,17 @@
 [
   {
+    "version": "2.3.0",
+    "titre": "FORMAT TELEPHONE",
+    "lignes": [
+      "SUR TELEPHONE : TOUT LE JEU EN VERTICAL",
+      "EN PARTIE : GLISSE LE DOIGT SOUS LE TERRAIN",
+      "POUVOIRS A GAUCHE, SUPERNOVA A DROITE",
+      "TOUCHE LE TERRAIN POUR LANCER LA BALLE",
+      "ONGLETS EN BAS, SOUS LE POUCE",
+      "AIDE AU DOIGT, CLASSEES ET EN LIGNE AUSSI"
+    ]
+  },
+  {
     "version": "2.2.0",
     "titre": "VERSION NAVIGATEUR",
     "lignes": [

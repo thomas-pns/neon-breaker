@@ -71,6 +71,12 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.vue_retournee = self.code == "duel" and self.numero == 2
         self.mode.vue_retournee = self.vue_retournee
         self.mode.joueur_tactile = self.mode.joueurs[self.numero - 1]   # boutons au doigt
+        # Téléphone (format vertical) : commandes du bas, terrain recopié (maquette B).
+        self.commandes_verticales = None
+        self.monde = None
+        if app.vertical:
+            from ecrans.partie_verticale import CommandesVerticales
+            self.commandes_verticales = CommandesVerticales()
         skins = debut.get("skins") or []
         for i, (joueur, pseudo) in enumerate(zip(self.mode.joueurs, debut["joueurs"])):
             joueur.nom = pseudo
@@ -84,6 +90,14 @@ class EcranPartieEnLigne(EcranTempsReel):
         self.menu_quitter = False
         self.sons_a_ignorer = []         # instants des rebonds joués ici (sons du serveur en double)
         self.diagnostic = {"intervalles": [], "lissages": 0, "sauts": 0, "trous": 0, "coupures": 0}
+
+    @property
+    def vertical(self):
+        return self.app.vertical
+
+    def _vertical_actif(self):
+        from ecrans.partie import en_vertical
+        return self.commandes_verticales is not None and en_vertical()
 
     def joueur_local(self):
         return self.mode.joueurs[self.numero - 1]
@@ -196,7 +210,10 @@ class EcranPartieEnLigne(EcranTempsReel):
         if joueur.actif("inversion"):
             direction = -direction
         terrain = joueur.terrain
-        if entrees.souris_bougee and terrain is not None and \
+        vertical = self._vertical_actif()
+        if vertical:                     # glisser en bas, toucher le terrain pour lancer
+            self.commandes_verticales.lire(self.app, self.mode, joueur)
+        elif entrees.souris_bougee and terrain is not None and \
                 terrain.rect.inflate(300, 0).collidepoint(entrees.souris):
             x = entrees.souris[0]
             if joueur.actif("inversion"):
@@ -209,7 +226,7 @@ class EcranPartieEnLigne(EcranTempsReel):
                 self.actions.add(action)
         if entrees.vient_d_appuyer("valider"):
             self.actions.add("valider")
-        if 1 in entrees.clics:
+        if 1 in entrees.clics and not vertical:
             self.actions.add("action")
         if 3 in entrees.clics:
             self.actions.add("overdrive")
@@ -428,14 +445,14 @@ class EcranPartieEnLigne(EcranTempsReel):
             dessiner_texte(image, "SYNCHRONISATION...", config.LARGEUR / 2, config.HAUTEUR / 2,
                            4, config.CYAN)
             return
-        if self.vue_retournee:
-            self._dessiner_retourne(image)
+        if self._vertical_actif():
+            from ecrans.partie_verticale import dessiner_partie
+            if self.monde is None:
+                self.monde = pygame.Surface(config.PAYSAGE)
+            dessiner_partie(self.app, self.mode, image, self.monde, self._dessiner_monde,
+                            self.joueur_local())
         else:
-            self.mode.dessiner(image)
-            self.effets.dessiner(image)
-        self.mode.dessiner_overlay(image)
-        self.mode.dessiner_message(image)
-        self.effets.dessiner_flash(image)
+            self._dessiner_monde(image)
         ping = self.temps_reel.ping
         if self.app.debug:
             self._dessiner_diagnostic(image)
@@ -466,6 +483,17 @@ class EcranPartieEnLigne(EcranTempsReel):
                 action == "pause" for _, action in self.app.entrees.boutons_dessines):
             from ecrans.tactile import bouton_pause
             bouton_pause(image, self.app)
+
+    def _dessiner_monde(self, image):
+        """Terrain(s), panneaux, effets et textes (format paysage)."""
+        if self.vue_retournee:
+            self._dessiner_retourne(image)
+        else:
+            self.mode.dessiner(image)
+            self.effets.dessiner(image)
+        self.mode.dessiner_overlay(image)
+        self.mode.dessiner_message(image)
+        self.effets.dessiner_flash(image)
 
     def _dessiner_retourne(self, image):
         """

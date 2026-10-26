@@ -328,6 +328,10 @@ class ModeCampagne(ModeDeJeu):
         hud.dessiner_vies(image, PANNEAU_G.centerx, 636, self.vies)
         self.dessiner_panneau_droit(image)
 
+    def infos_vertical(self, joueur):
+        nom = self.niveau.nom.split("  ")[-1] if "  " in self.niveau.nom else self.niveau.nom
+        return f"{self.indice + 1} / {len(self.niveaux)}", nom[:16], config.CYAN
+
     def dessiner_panneau_droit(self, image, rect=PANNEAU_D, aide="solo"):
         """Niveau, briques restantes, vitesse, commandes."""
         hud.panneau(image, rect, config.CYAN)
@@ -355,7 +359,8 @@ class ModeCampagne(ModeDeJeu):
         if self.etat == "pret" and math.sin(self.temps * 6) > -0.3:
             seul = not self.deux_joueurs or self.en_ligne
             if seul:
-                texte = "TOUCHE POUR LANCER" if self.app.entrees.tactile else "ESPACE / CLIC : LANCER"
+                texte = ("TOUCHE LE TERRAIN : LANCER" if getattr(self.app, "vertical", False)
+                         else "TOUCHE POUR LANCER") if self.app.entrees.tactile else "ESPACE / CLIC : LANCER"
             else:
                 texte = "Z  /  ↑ : LANCER"
             dessiner_texte(image, texte, terrain.rect.centerx, terrain.raquettes[0].y - 70,

@@ -31,6 +31,19 @@ COLONNES_SUCCES = 7
 LIGNES_SUCCES = 5
 
 
+def est_vertical():
+    return config.HAUTEUR > config.LARGEUR
+
+
+def colonnes_succes():
+    """But : succès par ligne (5 au format vertical, plus étroit)."""
+    return 5 if est_vertical() else COLONNES_SUCCES
+
+
+def lignes_succes():
+    return 6 if est_vertical() else LIGNES_SUCCES
+
+
 def couper_en_lignes(texte, largeur_max_caracteres, max_lignes=2):
     """
     But : couper un texte sur des espaces en lignes d'au plus largeur_max_caracteres.
@@ -55,6 +68,8 @@ def couper_en_lignes(texte, largeur_max_caracteres, max_lignes=2):
 
 class EcranJoueurs(EcranEnLigneBase):
     """Tous les joueurs du serveur."""
+
+    vertical = True               # dessiné aussi au format vertical (téléphone)
 
     titre = "JOUEURS"
     onglet = ""
@@ -117,7 +132,13 @@ class EcranJoueurs(EcranEnLigneBase):
 
     def dessiner(self, image):
         self.dessiner_fond(image)
-        cadre = pygame.Rect(190, 100, 900, 550)
+        vertical = est_vertical()
+        if vertical:
+            from ecrans.menus import bas_contenu, haut_contenu
+            cadre = pygame.Rect(20, haut_contenu() + 16, config.LARGEUR - 40,
+                                bas_contenu() - haut_contenu() - 32)
+        else:
+            cadre = pygame.Rect(190, 100, 900, 550)
         panneau(image, cadre, config.ROSE)
         self.zones = []
         self.debut = 0
@@ -126,11 +147,12 @@ class EcranJoueurs(EcranEnLigneBase):
             dessiner_texte(image, texte, cadre.centerx, cadre.centery, 3,
                            config.ROUGE if self.erreur else config.CYAN, lueur=False)
             return
-        visibles = 9
+        pas = 84 if vertical else 58
+        visibles = (cadre.h - 40) // pas if vertical else 9
         self.debut = max(0, min(self.indice - visibles // 2, len(self.joueurs) - visibles))
         for k, joueur in enumerate(self.joueurs[self.debut:self.debut + visibles]):
             i = self.debut + k
-            rect = pygame.Rect(cadre.x + 24, cadre.y + 24 + k * 58, cadre.w - 48, 50)
+            rect = pygame.Rect(cadre.x + 24, cadre.y + 24 + k * pas, cadre.w - 48, pas - 8)
             self.zones.append(rect)
             couleur = couleur_profil(joueur["couleur"])
             choisi = i == self.indice
@@ -143,25 +165,30 @@ class EcranJoueurs(EcranEnLigneBase):
             dessiner_banniere(image, joueur.get("banniere", ""),
                               pygame.Rect(rect.x + 44, rect.y + 7, 360, rect.h - 14), self.temps,
                               cadre=False, voile=130)
-            pygame.draw.circle(image, couleur, (rect.x + 26, rect.centery), 10)
-            dessiner_texte(image, joueur["pseudo"].upper(), rect.x + 52, rect.centery, 3, couleur,
+            y_nom = rect.y + 24 if vertical else rect.centery
+            pygame.draw.circle(image, couleur, (rect.x + 26, y_nom), 10)
+            dessiner_texte(image, joueur["pseudo"].upper(), rect.x + 52, y_nom, 3, couleur,
                            ancrage="gauche", lueur=choisi)
-            dessiner_texte(image, f"RANG {joueur['niveau']}", rect.x + 430, rect.centery, 2,
+            # Format vertical : rang et succès sur une deuxième ligne.
+            x_rang, y_infos = (rect.x + 52, rect.bottom - 16) if vertical else (rect.x + 430, rect.centery)
+            dessiner_texte(image, f"RANG {joueur['niveau']}", x_rang, y_infos, 2,
                            config.AMBRE, ancrage="gauche", lueur=False)
             total_succes = joueur.get("total_succes", NOMBRE_SUCCES)
-            dessiner_texte(image, f"SUCCES {joueur['succes']}/{total_succes}", rect.x + 560, rect.centery, 2,
+            dessiner_texte(image, f"SUCCES {joueur['succes']}/{total_succes}", x_rang + 130, y_infos, 2,
                            config.OR, ancrage="gauche", lueur=False)
             if joueur.get("en_ligne"):
-                dessiner_texte(image, "EN LIGNE", rect.right - 20, rect.centery, 2, config.VERT,
+                dessiner_texte(image, "EN LIGNE", rect.right - 20, y_infos, 2, config.VERT,
                                ancrage="droite", lueur=False)
             else:
                 dessiner_texte(image, date_courte(joueur["vu_le"]), rect.right - 20,
-                               rect.centery, 2, GRIS, ancrage="droite", lueur=False)
+                               y_infos, 2, GRIS, ancrage="droite", lueur=False)
         self.pied(image, f"{len(self.joueurs)} JOUEURS    ENTREE : VOIR LE PROFIL    ECHAP : RETOUR")
 
 
 class EcranProfil(EcranEnLigneBase):
     """Page de profil d'un joueur."""
+
+    vertical = True               # dessiné aussi au format vertical (téléphone)
 
     titre = "PROFIL"
     onglet = ""
@@ -232,16 +259,16 @@ class EcranProfil(EcranEnLigneBase):
                 self.app.audio.jouer("menu_ok")
             return
         ancien = self.choix
-        total = min(COLONNES_SUCCES * LIGNES_SUCCES, len(self.profil["succes"])) if self.profil else 1
+        total = min(colonnes_succes() * lignes_succes(), len(self.profil["succes"])) if self.profil else 1
         total = max(1, total)
         if entrees.vient_d_appuyer("droite"):
             self.choix = (self.choix + 1) % total
         if entrees.vient_d_appuyer("gauche"):
             self.choix = (self.choix - 1) % total
         if entrees.vient_d_appuyer("bas"):
-            self.choix = (self.choix + COLONNES_SUCCES) % total
+            self.choix = (self.choix + colonnes_succes()) % total
         if entrees.vient_d_appuyer("haut"):
-            self.choix = (self.choix - COLONNES_SUCCES) % total
+            self.choix = (self.choix - colonnes_succes()) % total
         if self.choix != ancien:
             self.app.audio.jouer("menu_nav")
 
@@ -260,8 +287,22 @@ class EcranProfil(EcranEnLigneBase):
             return
         p = self.profil
         couleur = couleur_profil(p["couleur"])
+        vertical = est_vertical()
+        if vertical:                     # téléphone : tout l'un sous l'autre
+            from ecrans.menus import bas_contenu, haut_contenu
+            y = haut_contenu() + 12
+            carte = pygame.Rect(20, y, config.LARGEUR - 40, 270)
+            bloc = pygame.Rect(20, carte.bottom + 12, config.LARGEUR - 40, 200)
+            records = pygame.Rect(20, bloc.bottom + 12, config.LARGEUR - 40, 110)
+            zone_succes = pygame.Rect(20, records.bottom + 12, config.LARGEUR - 40,
+                                      bas_contenu() - records.bottom - 24)
+            self.rect_fiche.center = (config.LARGEUR // 2, config.HAUTEUR // 2)
+        else:
+            carte = pygame.Rect(30, 96, 400, 270)
+            bloc = pygame.Rect(30, 382, 400, 290)
+            records = pygame.Rect(450, 96, 800, 110)
+            zone_succes = pygame.Rect(450, 222, 800, 450)
         # Carte d'identité.
-        carte = pygame.Rect(30, 96, 400, 270)
         panneau(image, carte, couleur)
         dessiner_banniere(image, p.get("banniere", ""),
                           pygame.Rect(carte.x + 20, carte.y + 16, carte.w - 40, 60), self.temps)
@@ -284,7 +325,6 @@ class EcranProfil(EcranEnLigneBase):
                        config.ROSE, lueur=False)
         # Statistiques.
         stats = p["stats"]
-        bloc = pygame.Rect(30, 382, 400, 290)
         panneau(image, bloc, config.CYAN)
         victoires = stats.get("victoires", {})
         boss = stats.get("boss_vaincus", {})
@@ -303,14 +343,18 @@ class EcranProfil(EcranEnLigneBase):
         if p.get("classees"):
             from reseau.classee import division
             lignes.append(("CLASSEE", f"{division(p['elo'])[0]} {p['elo']}"))
-        pas = min(29, (bloc.h - 48) / max(1, len(lignes) - 1))
+        colonnes = 2 if vertical else 1
+        par_colonne = (len(lignes) + colonnes - 1) // colonnes
+        pas = min(29, (bloc.h - 48) / max(1, par_colonne - 1))
+        largeur_colonne = bloc.w // colonnes
         for i, (libelle, valeur) in enumerate(lignes):
-            y = bloc.y + 26 + i * pas
-            dessiner_texte(image, libelle, bloc.x + 24, y, 2, GRIS, ancrage="gauche", lueur=False)
-            dessiner_texte(image, str(valeur), bloc.right - 24, y, 2, config.BLANC,
+            colonne, rang = divmod(i, par_colonne)
+            y = bloc.y + 26 + rang * pas
+            x = bloc.x + colonne * largeur_colonne
+            dessiner_texte(image, libelle, x + 24, y, 2, GRIS, ancrage="gauche", lueur=False)
+            dessiner_texte(image, str(valeur), x + largeur_colonne - 24, y, 2, config.BLANC,
                            ancrage="droite", lueur=False)
         # Records.
-        records = pygame.Rect(450, 96, 800, 110)
         panneau(image, records, config.AMBRE)
         for i, (mode, valeur) in enumerate(p["records"].items()):
             ecart = records.w // max(1, len(p["records"]))
@@ -318,7 +362,7 @@ class EcranProfil(EcranEnLigneBase):
             dessiner_texte(image, NOMS_MODES.get(mode, mode.upper()), x, records.y + 34, 2, GRIS,
                            lueur=False)
             dessiner_texte(image, f"{valeur:07d}", x, records.y + 74, 3, config.AMBRE)
-        self._grille_succes(image, pygame.Rect(450, 222, 800, 450))
+        self._grille_succes(image, zone_succes)
 
     def _grille_succes(self, image, cadre):
         """But : dessiner la grille et sa fiche. Entree(s) : image, cadre. Sortie : aucune."""
@@ -327,10 +371,11 @@ class EcranProfil(EcranEnLigneBase):
         panneau(image, cadre, config.OR)
         dessiner_texte(image, f"SUCCES  {obtenus} / {len(succes)}", cadre.centerx, cadre.y + 24,
                        2, config.OR, lueur=False)
-        largeur = (cadre.w - 40) // COLONNES_SUCCES
+        largeur = (cadre.w - 40) // colonnes_succes()
+        visibles = min(lignes_succes(), max(1, (cadre.h - 80) // 70))
         self.zones_succes = []
-        for i, entree in enumerate(succes[:COLONNES_SUCCES * LIGNES_SUCCES]):
-            ligne, colonne = divmod(i, COLONNES_SUCCES)
+        for i, entree in enumerate(succes[:colonnes_succes() * visibles]):
+            ligne, colonne = divmod(i, colonnes_succes())
             rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 46 + ligne * 70,
                                largeur - 8, 64)
             self.zones_succes.append(rect.copy())

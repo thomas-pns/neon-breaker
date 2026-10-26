@@ -74,6 +74,8 @@ class Entrees:
         self.appuis_tactiles = set()  # actions touchées pendant cette image
         self.doigts = {}              # identifiant -> "bouton" ou [x, y] (doigt sur le jeu)
         self.glissement = 0.0         # défilement vertical accumulé (listes)
+        self.balayage = 0             # doigt glissé vite : -1 vers la gauche, +1 vers la droite
+        self.depart_doigt = {}        # identifiant -> (x, y, instant) au moment du toucher
         if _manettes is not None:
             try:
                 _manettes.init()
@@ -94,6 +96,7 @@ class Entrees:
         self.molette = 0
         self.texte = ""
         self.appuis_tactiles.clear()
+        self.balayage = 0
         self.boutons, self.boutons_dessines = self.boutons_dessines, []
 
     def bouton_tactile(self, rect, action):
@@ -117,6 +120,7 @@ class Entrees:
                     self.doigts[doigt] = "bouton"
                     return
             self.doigts[doigt] = list(position)
+            self.depart_doigt[doigt] = (position[0], position[1], pygame.time.get_ticks())
             self.souris = position
             self.souris_bougee = True
             self.clics.add(1)
@@ -137,6 +141,11 @@ class Entrees:
         else:
             self.doigts.pop(doigt, None)
             self.glissement = 0.0
+            depart = self.depart_doigt.pop(doigt, None)
+            if depart is not None:              # balayage : rapide, surtout horizontal
+                dx, dy = position[0] - depart[0], position[1] - depart[1]
+                if abs(dx) > 90 and abs(dx) > 2 * abs(dy) and pygame.time.get_ticks() - depart[2] < 600:
+                    self.balayage = 1 if dx > 0 else -1
 
     def traiter(self, evenement):
         """

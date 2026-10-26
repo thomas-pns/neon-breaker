@@ -32,6 +32,8 @@ class EcranFin(EcranBase):
     rang (int ou None) : place obtenue dans le top 10.
     """
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     def musique(self):
         return None                     # silence : jingle de victoire / game over
 
@@ -80,18 +82,24 @@ class EcranFin(EcranBase):
         voile(image, 140)
         self.effets.dessiner(image)
         titre = self.resultat["titre"]
+        vertical = config.HAUTEUR > config.LARGEUR       # téléphone : tout l'un sous l'autre
+        y_titre = int(config.HAUTEUR * 0.12) if vertical else 100
+        echelle = 9 if len(titre) < 11 else 7
+        while vertical and len(titre) * 6 * echelle > config.LARGEUR - 40 and echelle > 3:
+            echelle -= 1
         if self.victoire:
             pulse = 0.5 + 0.5 * math.sin(self.temps * 4)
             couleur = self.resultat.get("couleur", (255, int(176 + 60 * pulse), int(80 * pulse)))
-            dessiner_texte(image, titre, config.LARGEUR / 2, 100, 9 if len(titre) < 11 else 7,
-                           couleur)
+            dessiner_texte(image, titre, config.LARGEUR / 2, y_titre, echelle, couleur)
         else:
-            self._titre_glitch(image, titre, 100)
+            self._titre_glitch(image, titre, y_titre, echelle)
 
         avec_top = self.a_un_top()
         largeur = 500
         cadre = pygame.Rect(0, 0, largeur, 360)
-        if avec_top:
+        if vertical:
+            cadre.midtop = (config.LARGEUR / 2, y_titre + 70)
+        elif avec_top:
             cadre.midright = (config.LARGEUR / 2 - 20, 380)
         else:
             cadre.center = (config.LARGEUR / 2, 380)
@@ -109,9 +117,14 @@ class EcranFin(EcranBase):
                            ancrage="gauche", lueur=False)
             dessiner_texte(image, valeur, cadre.right - 40, y, 2, config.BLANC,
                            ancrage="droite", lueur=False)
-        if avec_top:
+        if avec_top and vertical:
+            self._dessiner_top(image, pygame.Rect(config.LARGEUR / 2 - 250, cadre.bottom + 24,
+                                                  500, cadre.h))
+        elif avec_top:
             self._dessiner_top(image, pygame.Rect(config.LARGEUR / 2 + 20, cadre.y,
                                                   420, cadre.h))
+        self.menu.x = config.LARGEUR / 2
+        self.menu.y = config.HAUTEUR - 230 if vertical else 610
         if self.temps > 0.8:
             self.menu.dessiner(image)
 
@@ -135,16 +148,16 @@ class EcranFin(EcranBase):
             dessiner_texte(image, f"{entree['score']:07d}", cadre.right - 40, y, 2, couleur,
                            ancrage="droite", lueur=False)
 
-    def _titre_glitch(self, image, texte, y):
+    def _titre_glitch(self, image, texte, y, echelle=9):
         """
         But : titre découpé en tranches horizontales décalées au hasard,
         avec copies rouge et cyan séparées (signal vidéo abîmé).
         """
-        surface = rendre_texte(texte, 9, config.ROUGE)
+        surface = rendre_texte(texte, echelle, config.ROUGE)
         rect = surface.get_rect(center=(config.LARGEUR / 2, y))
         intense = random.random() < 0.12
         for couleur, decalage in ((config.CYAN, -4), (config.ROSE, 4)):
-            fantome = rendre_texte(texte, 9, couleur, ombre=False, lueur=False).copy()
+            fantome = rendre_texte(texte, echelle, couleur, ombre=False, lueur=False).copy()
             fantome.set_alpha(110)
             image.blit(fantome, fantome.get_rect(
                 center=(rect.centerx + decalage * (3 if intense else 1), y)))

@@ -21,7 +21,7 @@ from moteur.icones import dessiner_icone, TROPHEE
 from moteur.police_pixel import dessiner_texte
 from moteur.rendu import attenuer
 from ecrans.hud import barre, dessiner_etoiles
-from ecrans.menus import (EcranMenu, GRIS, JAUNE_SERIE, VIOLET_SERIE, bouton, carte,
+from ecrans.menus import (bas_contenu, est_vertical, haut_contenu, EcranMenu, GRIS, JAUNE_SERIE, VIOLET_SERIE, bouton, carte,
                           division_joueur, ecusson, flamme, series_locales)
 
 FAMILLES = [("solo", "SOLO", config.CYAN), ("en_ligne", "EN LIGNE", config.VERT),
@@ -66,6 +66,20 @@ ECART = 345
 Y_CARTES = 360
 
 
+def tailles():
+    """But : (GRANDE, PETITE, ECART) : plus grandes au format vertical (plus de hauteur)."""
+    if est_vertical():
+        return (480, 540), (260, 330), 390
+    return GRANDE, PETITE, ECART
+
+
+def y_cartes():
+    """But : hauteur du centre des cartes (format paysage, ou milieu du contenu en vertical)."""
+    if not est_vertical():
+        return Y_CARTES
+    return (haut_contenu() + 90 + bas_contenu() - 120) // 2
+
+
 def icone(image, code, centre, couleur, echelle):
     dessiner_icone(image, code, (int(centre[0]), int(centre[1])), couleur, echelle, defaut=TROPHEE)
 
@@ -75,6 +89,8 @@ class EcranJouer(EcranMenu):
     Carrousel des modes. Attributs : famille (int), indices (list : carte choisie
     dans chaque famille), position (float : carte affichée, glisse vers l'indice).
     """
+
+    vertical = True
 
     onglet = "JOUER"
 
@@ -168,6 +184,8 @@ class EcranJouer(EcranMenu):
             famille = (famille - 1) % len(FAMILLES)
         if entrees.vient_d_appuyer("bas"):
             famille = (famille + 1) % len(FAMILLES)
+        if entrees.balayage:                 # doigt glissé vers la gauche : carte suivante
+            indice = max(0, min(len(cartes) - 1, indice - entrees.balayage))
         if 1 in entrees.clics:
             for i, zone in enumerate(self.zones_familles):
                 if zone.collidepoint(entrees.souris):
@@ -186,6 +204,10 @@ class EcranJouer(EcranMenu):
         self.position += (indice - self.position) * min(1.0, dt * 12)
         clic_bouton = 1 in entrees.clics and self.zone_bouton is not None \
             and self.zone_bouton.collidepoint(entrees.souris) and (self.famille, indice) == ancien
+        if entrees.tactile and 1 in entrees.clics and (self.famille, indice) == ancien:
+            # Au doigt : toucher la carte du milieu lance aussi le mode (cible plus grande).
+            clic_bouton = clic_bouton or any(k == indice and zone.collidepoint(entrees.souris)
+                                             for k, zone in self.zones)
         if entrees.vient_d_appuyer("valider") or clic_bouton:
             self.lancer(self.cartes()[indice][0])
 
@@ -194,13 +216,14 @@ class EcranJouer(EcranMenu):
     def dessiner(self, image):
         self.dessiner_fond(image)
         self.zones_familles = []
+        y_familles = haut_contenu() + 30
         for k, (_, nom, couleur) in enumerate(FAMILLES):
-            cx = config.LARGEUR / 2 + (k - 1) * 210
+            cx = config.LARGEUR / 2 + (k - 1) * (250 if est_vertical() else 210)
             actif = k == self.famille
-            zone = dessiner_texte(image, nom, cx, 100, 3, couleur if actif else GRIS, lueur=actif)
-            self.zones_familles.append(zone.inflate(30, 16))
+            zone = dessiner_texte(image, nom, cx, y_familles, 3, couleur if actif else GRIS, lueur=actif)
+            self.zones_familles.append(zone.inflate(30, 30))
             if actif:
-                pygame.draw.line(image, couleur, (cx - 70, 122), (cx + 70, 122), 3)
+                pygame.draw.line(image, couleur, (cx - 70, y_familles + 22), (cx + 70, y_familles + 22), 3)
         cartes = self.cartes()
         indice = self.indices[self.famille]
         self.zones = []
@@ -209,24 +232,32 @@ class EcranJouer(EcranMenu):
         for k in ordre:
             self._dessiner_carte(image, k, cartes[k], k - self.position, k == indice)
         n = len(cartes)
+        y_points = y_cartes() + tailles()[0][1] // 2 + 27
         for k in range(n):
             pygame.draw.circle(image, config.ROSE if k == indice else (80, 60, 120),
-                               (int(config.LARGEUR / 2 - (n - 1) * 12 + k * 24), 612), 6)
+                               (int(config.LARGEUR / 2 - (n - 1) * 12 + k * 24), y_points), 6)
         if getattr(self, "minuteur", 0) > 0:
-            dessiner_texte(image, self.message, config.LARGEUR / 2, 650, 2, config.ROSE, lueur=False)
+            dessiner_texte(image, self.message, config.LARGEUR / 2, y_points + 38, 2, config.ROSE,
+                           lueur=False)
+        elif self.app.entrees.tactile:
+            dessiner_texte(image, "GLISSE POUR CHANGER DE MODE", config.LARGEUR / 2, y_points + 38, 2,
+                           GRIS, lueur=False)
         elif math.sin(self.temps * 4) > -0.5:
             dessiner_texte(image, "← → : CHOISIR     ↑ ↓ : SOLO / EN LIGNE / DEFIS     ENTREE : JOUER",
-                           config.LARGEUR / 2, 650, 2, GRIS, lueur=False)
+                           config.LARGEUR / 2, y_points + 38, 2, GRIS, lueur=False)
         self.dessiner_barre(image)
 
     def _dessiner_carte(self, image, k, donnees, ecart, choisie):
         code, nom, couleur, code_icone, lignes = donnees
+        grande, petite, espacement = tailles()
+        if est_vertical() and abs(ecart) > 1.3:
+            return                          # écran étroit : seulement les deux voisines
         proche = max(0.0, 1.0 - abs(ecart))
-        largeur = int(PETITE[0] + (GRANDE[0] - PETITE[0]) * proche)
-        hauteur = int(PETITE[1] + (GRANDE[1] - PETITE[1]) * proche)
-        decalage = ecart * ECART + (45 * (1 if ecart > 0 else -1) * min(1.0, abs(ecart)))
+        largeur = int(petite[0] + (grande[0] - petite[0]) * proche)
+        hauteur = int(petite[1] + (grande[1] - petite[1]) * proche)
+        decalage = ecart * espacement + (45 * (1 if ecart > 0 else -1) * min(1.0, abs(ecart)))
         rect = pygame.Rect(0, 0, largeur, hauteur)
-        rect.center = (int(config.LARGEUR / 2 + decalage), Y_CARTES)
+        rect.center = (int(config.LARGEUR / 2 + decalage), y_cartes())
         if rect.right < -20 or rect.left > config.LARGEUR + 20:
             return
         self.zones.append((k, rect))
@@ -249,7 +280,7 @@ class EcranJouer(EcranMenu):
         return lignes
 
     def _bouton(self, image, rect, texte, couleur):
-        b = pygame.Rect(0, 0, 260, 52)
+        b = pygame.Rect(0, 0, 360, 76) if est_vertical() else pygame.Rect(0, 0, 260, 52)
         b.midbottom = (rect.centerx, rect.bottom - 20)
         bouton(image, b, texte, couleur)
         self.zone_bouton = b

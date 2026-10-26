@@ -183,6 +183,13 @@ class ModeDuel(ModeDeJeu):
         for x in range(terrain.rect.left, terrain.rect.right, 24):
             image.fill((90, 40, 140), (x, y, 12, 2))
 
+    def score_vertical(self, joueur):
+        return self.nom_joueur(joueur)[:10], f"{joueur.points_manche} / {POINTS_VICTOIRE}", ""
+
+    def infos_vertical(self, joueur):
+        autre = next(j for j in self.joueurs if j is not joueur)
+        return f"{autre.points_manche} / {POINTS_VICTOIRE}", self.nom_joueur(autre)[:10], autre.couleur_bord
+
     def dessiner_hud(self, image):
         # En ligne, le joueur 2 voit le terrain retourné : il est en bas chez lui.
         retourne = getattr(self, "vue_retournee", False)
@@ -207,5 +214,6 @@ class ModeDuel(ModeDeJeu):
         if self.etat == "compte":
             chiffre = max(1, math.ceil(self.minuteur))
             echelle = 14 + int((self.minuteur % 1) * 6)
-            dessiner_texte(image, str(chiffre), config.LARGEUR / 2, config.HAUTEUR / 2,
+            cx, cy = self.centre_messages()
+            dessiner_texte(image, str(chiffre), cx, cy,
                            echelle, config.AMBRE)

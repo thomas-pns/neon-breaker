@@ -242,6 +242,12 @@ class ModeDefi(ModeArcade):
     def record_affiche(self):
         return record_du_jour(self.app, self.jour, self.code)
 
+    def infos_vertical(self, joueur):
+        regle = self.modificateurs[0][1] if self.modificateurs else ""
+        if len(self.modificateurs) > 1:
+            regle += " +" + str(len(self.modificateurs) - 1)
+        return self.titre, regle[:18], config.AMBRE
+
     def dessiner_hud(self, image):
         super().dessiner_hud(image)
         cx = PANNEAU_D.centerx

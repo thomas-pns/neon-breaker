@@ -85,8 +85,20 @@ CHEMIN_FOND = os.path.join(DOSSIER_RESSOURCES, "fond.png")
 
 # --- Affichage -----------------------------------------------------------
 TITRE = "NEON BREAKER"
-LARGEUR = 1280
-HAUTEUR = 720
+# Format de l'image interne. Paysage partout, sauf sur téléphone : vertical (9:16).
+# LARGEUR et HAUTEUR donnent le format EN COURS : un écran pas encore prévu pour le
+# vertical est dessiné en paysage (voir Application), et ils valent alors 1280x720.
+PAYSAGE = (1280, 720)
+VERTICAL = (800, 1422)
+LARGEUR, HAUTEUR = PAYSAGE
+
+
+def orienter(taille):
+    """But : changer le format en cours (PAYSAGE ou VERTICAL)."""
+    global LARGEUR, HAUTEUR
+    LARGEUR, HAUTEUR = taille
+
+
 FPS = 60
 PAS_PHYSIQUE = 1 / 120          # physique à pas fixe : 120 Hz
 PAS_MAX_PAR_IMAGE = 8           # garde-fou si le PC rame

@@ -33,6 +33,8 @@ class EcranCommandes(EcranBase):
     on attend la nouvelle touche), message (str).
     """
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     transparent = True
 
     def __init__(self, app):

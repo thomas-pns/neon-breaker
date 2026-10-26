@@ -38,6 +38,31 @@ JAUNE_SERIE, VIOLET_SERIE = config.AMBRE, (190, 90, 255)
 
 # --- Éléments de dessin ------------------------------------------------------------------
 
+def est_vertical():
+    """But : dessine-t-on au format vertical (téléphone) ?"""
+    return config.HAUTEUR > config.LARGEUR
+
+
+def marge_haut():
+    """
+    But : au format vertical, place laissée en haut sur un écran plus allongé que 16:9
+    (encoche, barre d'état du téléphone). Sortie : (int) pixels.
+    """
+    if not est_vertical():
+        return 0
+    return min(110, max(0, config.HAUTEUR - 1422) // 2)
+
+
+def haut_contenu():
+    """But : ordonnée sous la barre du haut (là où commence le contenu d'un onglet)."""
+    return HAUTEUR_BARRE + 6 if not est_vertical() else 92 + marge_haut()
+
+
+def bas_contenu():
+    """But : ordonnée au-dessus des onglets du bas (format vertical) ou du bas de l'écran."""
+    return config.HAUTEUR - (132 if est_vertical() else 0)
+
+
 _cache_cartes = {}
 _cache_voiles = {}
 
@@ -174,6 +199,16 @@ class Navigation:
 
     def _zones_barre(self):
         zones = {}
+        if est_vertical():
+            # Téléphone : onglets en bas (sous le pouce), le reste en haut.
+            largeur = config.LARGEUR // len(ONGLETS)
+            for i, (nom, _) in enumerate(ONGLETS):
+                zones[nom] = pygame.Rect(i * largeur + 6, config.HAUTEUR - 116, largeur - 12, 70)
+            m = marge_haut()
+            zones["profil"] = pygame.Rect(170, 16 + m, 310, 58)
+            zones["neons"] = pygame.Rect(496, 25 + m, 140, 40)
+            zones["reglages"] = pygame.Rect(config.LARGEUR - 70, 19 + m, 52, 52)
+            return zones
         x = 160
         for nom, _ in ONGLETS:
             largeur = len(nom) * 12 + 30
@@ -234,27 +269,40 @@ class Navigation:
 
     def dessiner_barre(self, image):
         """But : barre du haut (onglets, NEONS, petite bannière, roue des réglages)."""
-        bande = _cache_voiles.get("barre")
-        if bande is None:                   # opacité uniforme : copie rapide
-            bande = _cache_voiles["barre"] = pygame.Surface((config.LARGEUR, HAUTEUR_BARRE))
-            bande.fill((6, 0, 18))
-            bande.set_alpha(235)
-        image.blit(bande, (0, 0))
-        pygame.draw.line(image, attenuer(config.CYAN, 0.6), (0, HAUTEUR_BARRE),
-                         (config.LARGEUR, HAUTEUR_BARRE), 2)
-        dessiner_texte(image, "NEON", 30, 22, 3, config.CYAN, ancrage="gauche")
-        dessiner_texte(image, "BREAKER", 30, 46, 2, config.AMBRE, ancrage="gauche", lueur=False)
+        vertical = est_vertical()
+        hauteur_barre = haut_contenu() - 6 if vertical else HAUTEUR_BARRE
+        bandes = [(0, hauteur_barre)]
+        if vertical:
+            bandes.append((config.HAUTEUR - 132, 132))
+        for y, hauteur in bandes:
+            cle = ("barre", config.LARGEUR, hauteur)
+            bande = _cache_voiles.get(cle)
+            if bande is None:                   # opacité uniforme : copie rapide
+                bande = _cache_voiles[cle] = pygame.Surface((config.LARGEUR, hauteur))
+                bande.fill((6, 0, 18))
+                bande.set_alpha(235)
+            image.blit(bande, (0, y))
+            ligne = y + hauteur if y == 0 else y
+            pygame.draw.line(image, attenuer(config.CYAN, 0.6), (0, ligne), (config.LARGEUR, ligne), 2)
+        haut_logo = marge_haut()
+        dessiner_texte(image, "NEON", 30, 22 + haut_logo + (8 if vertical else 0), 3, config.CYAN,
+                       ancrage="gauche")
+        dessiner_texte(image, "BREAKER", 30, 46 + haut_logo + (8 if vertical else 0), 2, config.AMBRE,
+                       ancrage="gauche", lueur=False)
         zones = self._zones_barre()
         souris = self.app.entrees.souris
         for nom, couleur in ONGLETS:
             r = zones[nom]
+            texte = nom if not vertical or len(nom) < 11 else "CLASSEMT"
             if nom == self.onglet:
-                pygame.draw.rect(image, couleur, r, border_radius=6)
-                dessiner_texte(image, nom, r.centerx, r.centery, 2, (10, 0, 25), lueur=False,
+                pygame.draw.rect(image, couleur, r, border_radius=10 if vertical else 6)
+                dessiner_texte(image, texte, r.centerx, r.centery, 2, (10, 0, 25), lueur=False,
                                ombre=False)
             else:
                 survol = r.collidepoint(souris)
-                dessiner_texte(image, nom, r.centerx, r.centery, 2,
+                if vertical:
+                    pygame.draw.rect(image, attenuer(couleur, 0.5), r, 2, border_radius=10)
+                dessiner_texte(image, texte, r.centerx, r.centery, 2,
                                config.BLANC if survol else GRIS, lueur=False)
         en_ligne = self.app.en_ligne
         profil = zones["profil"]
@@ -306,6 +354,8 @@ class EcranMenu(Navigation, EcranBase):
 
 class EcranReglages(EcranBase):
     """Menu déroulant de la roue : posé par-dessus l'écran actuel."""
+
+    vertical = True               # dessiné aussi au format vertical (téléphone)
 
     transparent = True
 
@@ -405,18 +455,23 @@ class EcranReglages(EcranBase):
 
     def dessiner(self, image):
         options = self.options()
-        cadre = pygame.Rect(config.LARGEUR - 250, HAUTEUR_BARRE + 6, 234, 22 + 40 * len(options))
+        if est_vertical():             # téléphone : plus grand, sous la roue
+            pas = 64
+            cadre = pygame.Rect(config.LARGEUR - 420, haut_contenu(), 400, 22 + pas * len(options))
+        else:
+            pas = 40
+            cadre = pygame.Rect(config.LARGEUR - 250, HAUTEUR_BARRE + 6, 234, 22 + pas * len(options))
         carte(image, cadre, config.CYAN, True, alpha=245)
         self.zones = []
         for i, (nom, _) in enumerate(options):
-            ligne = pygame.Rect(cadre.x + 8, cadre.y + 10 + i * 40, cadre.w - 16, 36)
+            ligne = pygame.Rect(cadre.x + 8, cadre.y + 10 + i * pas, cadre.w - 16, pas - 4)
             self.zones.append(ligne)
             choisi = i == self.indice
             if choisi:
                 pygame.draw.rect(image, (40, 15, 80), ligne, border_radius=6)
             couleur = config.ROUGE if nom.startswith("QUITTER") else (
                 config.BLANC if choisi else GRIS)
-            dessiner_texte(image, nom, ligne.x + 16, ligne.centery, 2, couleur, ancrage="gauche",
+            dessiner_texte(image, nom, ligne.x + 16, ligne.centery, 3 if pas > 40 else 2, couleur, ancrage="gauche",
                            lueur=False)
             if nom == "NOUVEAUTES" and nouvelle_version_non_vue(self.app):
                 pygame.draw.circle(image, config.ROSE, (ligne.right - 16, ligne.centery), 5)

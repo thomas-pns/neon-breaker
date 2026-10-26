@@ -63,6 +63,9 @@ def main():
     if ok and "--rapide" not in sys.argv:
         ok = lancer("AUTOTEST DES ECRANS", [sys.executable, "main.py"],
                     dict(env, NEON_AUTOTEST="1"))
+    if ok and "--rapide" not in sys.argv:          # format vertical (téléphone)
+        ok = lancer("AUTOTEST DES ECRANS (VERTICAL)", [sys.executable, "main.py"],
+                    dict(env, NEON_AUTOTEST="1", NEON_VERTICAL="1"))
     print("\nTOUT PASSE" if ok else "\nDES VERIFICATIONS ECHOUENT", flush=True)
     return 0 if ok else 1
 

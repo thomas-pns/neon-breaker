@@ -71,6 +71,22 @@ def demarre():
         pass
 
 
+def telephone():
+    """But : est-ce un téléphone (écran tactile, petit) ? Il a alors le format vertical."""
+    try:
+        return bool(_neon().telephone())
+    except Exception:
+        return False
+
+
+def proportion():
+    """But : hauteur / largeur de la page (téléphone en portrait : environ 2,1). 0 si inconnue."""
+    try:
+        return float(_neon().proportion())
+    except Exception:
+        return 0.0
+
+
 def parametre(nom):
     """But : l'adresse de la page contient-elle ?nom (ex. ?profil) ? Sortie : (bool)."""
     try:

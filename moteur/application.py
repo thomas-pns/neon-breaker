@@ -30,6 +30,24 @@ from moteur.rendu import Ecran, FiltreCRT
 DUREE_TRANSITION = 0.45
 
 
+def choisir_format():
+    """
+    But : format de l'image : vertical sur téléphone, paysage ailleurs.
+    Sortie : config.VERTICAL ou config.PAYSAGE.
+    """
+    if os.environ.get("NEON_VERTICAL") == "1":
+        return config.VERTICAL
+    if config.EST_WEB:
+        from moteur import web
+        if web.parametre("vertical") or web.telephone():
+            # Image aussi allongée que l'écran du téléphone (pas de bandes noires) : la
+            # zone des commandes, en bas, s'agrandit.
+            proportion = max(16 / 9, min(2.25, web.proportion() or 16 / 9))
+            config.VERTICAL = (config.VERTICAL[0], int(config.VERTICAL[0] * proportion))
+            return config.VERTICAL
+    return config.PAYSAGE
+
+
 class Transition:
     """
     Balayage façon cassette VHS : des bandes horizontales bruitées
@@ -110,11 +128,17 @@ class Application:
                 os.path.join(config.DOSSIER_RESSOURCES, "icone.png")))
         except (pygame.error, FileNotFoundError):
             pass
-        self.ecran = Ecran(plein_ecran)
+        # Format de l'image : vertical sur téléphone (ou pour essayer : NEON_VERTICAL=1,
+        # ou ?vertical dans l'adresse de la version web), paysage partout ailleurs.
+        self.format = choisir_format()
+        self.vertical = self.format == config.VERTICAL
+        config.orienter(self.format)
+        self.ecran = Ecran(plein_ecran, self.format)
+        self.image_paysage = None          # écrans pas encore prévus pour le vertical
         self.entrees = Entrees(self.ecran)
         self.audio = Audio()
         self.fond = FondSynthwave()
-        self.crt = FiltreCRT(config.LARGEUR, config.HAUTEUR)
+        self.crt = FiltreCRT(*self.format)
         self.horloge = pygame.time.Clock()
         self.pile = Pile()
         self.transition = None
@@ -271,10 +295,10 @@ class Application:
             pygame.event.pump()
             image = self.ecran.image
             image.fill(config.CIEL_HAUT)
-            dessiner_texte(image, "CHARGEMENT", config.LARGEUR / 2, 320, 4,
-                           config.CYAN)
-            pygame.draw.rect(image, config.ROSE, (440, 380, 400, 20), 2)
-            image.fill(config.ROSE, (444, 384, int(392 * valeur), 12))
+            cx, cy = config.LARGEUR // 2, config.HAUTEUR // 2
+            dessiner_texte(image, "CHARGEMENT", cx, cy - 40, 4, config.CYAN)
+            pygame.draw.rect(image, config.ROSE, (cx - 200, cy + 20, 400, 20), 2)
+            image.fill(config.ROSE, (cx - 196, cy + 24, int(392 * valeur), 12))
             self.ecran.presenter()
 
         self.audio.charger(progression)
@@ -374,9 +398,39 @@ class Application:
     def _image(self):
         """Une image du jeu : événements, mise à jour, dessin."""
         dt = min(self.horloge.tick(config.FPS) / 1000, 0.1)
+        self.regler_format()
         self._evenements()
         self._mettre_a_jour(dt)
+        self.regler_format()              # un écran a pu arriver entre-temps
         self._dessiner()
+
+    def pile_dessin(self):
+        """But : écrans à dessiner, du sommet vers le bas (les transparents laissent voir)."""
+        actif = self.ecran_actif()
+        if actif is None:
+            return []
+        pile = [actif]
+        while pile[-1].transparent and pile[-1].dessous:
+            pile.append(pile[-1].dessous)
+        return pile
+
+    def regler_format(self):
+        """
+        But : au format vertical, les écrans pas encore prévus pour lui sont dessinés en
+        paysage (1280x720), réduits au milieu de l'image. Règle le format en cours
+        (config.LARGEUR, config.HAUTEUR) et la zone qui convertit la souris.
+        """
+        if not self.vertical:
+            return
+        paysage = not all(ecran.vertical for ecran in self.pile_dessin())
+        config.orienter(config.PAYSAGE if paysage else config.VERTICAL)
+        if paysage:
+            largeur = config.VERTICAL[0]
+            hauteur = largeur * config.PAYSAGE[1] // config.PAYSAGE[0]
+            self.ecran.sous_zone = pygame.Rect(0, (config.VERTICAL[1] - hauteur) // 2,
+                                               largeur, hauteur)
+        else:
+            self.ecran.sous_zone = None
 
     def _version_recue(self, resultat):
         """Une version plus récente existe : proposer la mise à jour."""
@@ -438,16 +492,28 @@ class Application:
         actif = self.ecran_actif()
         if actif is None:
             return
-        pile_dessin = [actif]
-        while pile_dessin[-1].transparent and pile_dessin[-1].dessous:
-            pile_dessin.append(pile_dessin[-1].dessous)
-        for ecran in reversed(pile_dessin):
-            ecran.dessiner(image)
-        if self.entrees.tactile and getattr(actif, "bouton_retour", True):
+        sous_zone = self.ecran.sous_zone
+        if sous_zone is not None:          # écran pas encore vertical : dessiné en paysage
+            if self.image_paysage is None:
+                self.image_paysage = pygame.Surface(config.PAYSAGE)
+            cible = self.image_paysage
+        else:
+            cible = image
+        for ecran in reversed(self.pile_dessin()):
+            ecran.dessiner(cible)
+        onglets_en_bas = (sous_zone is None and self.vertical and hasattr(actif, "dessiner_barre")
+                          and getattr(actif, "onglet", None) is not None)
+        if self.entrees.tactile and getattr(actif, "bouton_retour", True) and not onglets_en_bas:
             from ecrans.tactile import bouton_retour        # au doigt : pas de touche Échap
-            bouton_retour(image, self)
+            bouton_retour(cible, self)
         if self.transition is not None:
-            self.transition.dessiner(image)
+            self.transition.dessiner(cible)
+        if sous_zone is not None:
+            config.orienter(config.VERTICAL)
+            self.fond.dessiner(image)
+            image.fill((70, 70, 90), special_flags=pygame.BLEND_RGB_MULT)
+            image.blit(pygame.transform.smoothscale(cible, sous_zone.size), sous_zone)
+            pygame.draw.rect(image, config.VIOLET, sous_zone.inflate(4, 4), 2)
         if self.notifications:
             self._dessiner_notifications(image)
         self.crt.appliquer(image)

@@ -15,9 +15,16 @@ ToDo List:
     Démo automatique sur l'écran titre (une IA joue).
 """
 
+import pygame
+
 from moteur import config
 from moteur.effets import GestionnaireEffets
 from ecrans.base import EcranBase
+
+
+def en_vertical():
+    """But : dessine-t-on en ce moment au format vertical (et non en paysage réduit) ?"""
+    return (config.LARGEUR, config.HAUTEUR) == config.VERTICAL
 
 
 class EcranPartie(EcranBase):
@@ -41,6 +48,18 @@ class EcranPartie(EcranBase):
                                                 garder_bord=self.mode.deux_joueurs)
         self.accumulateur = 0.0
         self.fini = False
+        # Téléphone (format vertical) : commandes du bas et terrain recopié (maquette B).
+        self.commandes_verticales = None
+        self.monde = None
+        if self.vertical:
+            from ecrans.partie_verticale import CommandesVerticales
+            self.commandes_verticales = CommandesVerticales()
+            self.mode.souris_active = False         # la souris est en coordonnées verticales
+
+    @property
+    def vertical(self):
+        """Format vertical : les parties à un seul joueur (à deux, sur un téléphone...)."""
+        return self.app.vertical and len(self.mode.joueurs) == 1
 
     def reprendre(self):
         """Au retour de pause, on ignore la touche qui a fermé le menu."""
@@ -60,6 +79,8 @@ class EcranPartie(EcranBase):
             self.app.audio.jouer("pause")
             self.app.empiler(EcranPause(self.app, self))
             return
+        if self.commandes_verticales is not None and en_vertical():
+            self.commandes_verticales.lire(self.app, mode)
         dt_jeu = dt * self.effets.facteur_temps()
         self.accumulateur += dt_jeu
         pas = 0
@@ -92,7 +113,22 @@ class EcranPartie(EcranBase):
     def tremblement(self):
         return self.effets.decalage_tremblement()
 
+    def _dessiner_monde(self, image):
+        """Terrain, effets et textes, sans les panneaux (format vertical)."""
+        for terrain in self.mode.terrains:
+            terrain.dessiner(image)
+        self.effets.dessiner(image)
+        self.mode.dessiner_overlay(image)
+        self.mode.dessiner_message(image)
+        self.effets.dessiner_flash(image)
+
     def dessiner(self, image):
+        if self.commandes_verticales is not None and en_vertical():
+            from ecrans.partie_verticale import dessiner_partie
+            if self.monde is None:
+                self.monde = pygame.Surface(config.PAYSAGE)
+            dessiner_partie(self.app, self.mode, image, self.monde, self._dessiner_monde)
+            return
         self.app.fond.dessiner(image)
         self.mode.dessiner(image)
         self.effets.dessiner(image)

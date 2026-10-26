@@ -24,6 +24,8 @@ from ecrans.hud import panneau
 class EcranPause(EcranBase):
     """Pause : la partie reste visible, assombrie, et ne bouge plus."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     transparent = True
     attenuer_musique = True
 
