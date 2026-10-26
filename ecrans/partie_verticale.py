@@ -34,6 +34,8 @@ MARGE_TERRAIN = 20
 
 def decalage():
     """But : marge ajoutée en haut sur un écran plus allongé que 16:9."""
+    if config.MARGE_HAUT_ECRAN:                 # zone sûre connue (iPhone : encoche)
+        return config.MARGE_HAUT_ECRAN
     return min(110, max(0, config.VERTICAL[1] - 1422) // 2)
 
 
@@ -62,7 +64,7 @@ def disposition(terrain):
     Sortie : (dict) "glisse", "supernova" (Rect) et "pouvoirs" (list de Rect).
     """
     haut = zone_ecran(terrain).bottom + 14
-    hauteur = config.VERTICAL[1] - 24 - haut
+    hauteur = config.VERTICAL[1] - 24 - config.MARGE_BAS_ECRAN - haut
     colonne = 120
     ecart = 14
     case = (hauteur - 2 * ecart) // 3
@@ -93,10 +95,11 @@ class CommandesVerticales:
         zones = disposition(terrain)
         glisse = zones["glisse"]
         souris = entrees.souris
-        if 1 in entrees.clics:
-            if glisse.collidepoint(souris):
-                self.prise = (souris[0], joueur.raquette.x)
-            elif zone_ecran(terrain).collidepoint(souris):
+        pose = entrees.doigt_pose if entrees.tactile else (souris if 1 in entrees.clics else None)
+        if pose is not None:               # au doigt : dès qu'il se pose (réactif)
+            if glisse.collidepoint(pose):
+                self.prise = (pose[0], joueur.raquette.x)
+            elif zone_ecran(terrain).collidepoint(pose):
                 entrees.forcer("action", joueur.profil)
                 entrees.forcer("action", "solo")        # en ligne : commandes du profil solo
         if entrees.tactile:

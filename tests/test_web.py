@@ -72,14 +72,24 @@ class TestTactile(unittest.TestCase):
             self.entrees.bouton_tactile(rect, action)
         self.entrees.debut_image()
 
-    def test_toucher_le_jeu_vaut_un_clic(self):
+    def test_toucher_franc_vaut_un_clic(self):
+        """Le clic part quand le doigt se lève sans avoir glissé (pas de clic involontaire)."""
         self.nouvelle_image()
         self.entrees.traiter(doigt(pygame.FINGERDOWN, 640, 500))
         self.assertTrue(self.entrees.tactile)
+        self.assertEqual(self.entrees.doigt_pose, (640, 500))     # le jeu réagit tout de suite
+        self.assertNotIn(1, self.entrees.clics)
+        self.entrees.traiter(doigt(pygame.FINGERUP, 645, 503))
         self.assertIn(1, self.entrees.clics)
         self.assertEqual(self.souris(), (640, 500))
+
+    def test_glisser_ne_clique_pas(self):
+        self.nouvelle_image()
+        self.entrees.traiter(doigt(pygame.FINGERDOWN, 640, 500))
         self.entrees.traiter(doigt(pygame.FINGERMOTION, 700, 505))
         self.assertEqual(self.souris(), (700, 505))
+        self.entrees.traiter(doigt(pygame.FINGERUP, 760, 505))
+        self.assertNotIn(1, self.entrees.clics)
 
     def test_bouton_sans_clic_ni_raquette(self):
         self.nouvelle_image([(pygame.Rect(1050, 600, 200, 50), "pause")])

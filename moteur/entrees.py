@@ -76,6 +76,9 @@ class Entrees:
         self.glissement = 0.0         # défilement vertical accumulé (listes)
         self.balayage = 0             # doigt glissé vite : -1 vers la gauche, +1 vers la droite
         self.depart_doigt = {}        # identifiant -> (x, y, instant) au moment du toucher
+        # Doigt qui vient de se poser (position) : pour le jeu, qui réagit tout de suite.
+        # Les menus, eux, reçoivent le clic quand le doigt se lève sans avoir glissé.
+        self.doigt_pose = None
         if _manettes is not None:
             try:
                 _manettes.init()
@@ -97,6 +100,7 @@ class Entrees:
         self.texte = ""
         self.appuis_tactiles.clear()
         self.balayage = 0
+        self.doigt_pose = None
         self.boutons, self.boutons_dessines = self.boutons_dessines, []
 
     def bouton_tactile(self, rect, action):
@@ -123,7 +127,7 @@ class Entrees:
             self.depart_doigt[doigt] = (position[0], position[1], pygame.time.get_ticks())
             self.souris = position
             self.souris_bougee = True
-            self.clics.add(1)
+            self.doigt_pose = position
         elif evenement.type == pygame.FINGERMOTION:
             precedent = self.doigts.get(doigt)
             if not isinstance(precedent, list):
@@ -144,6 +148,12 @@ class Entrees:
             depart = self.depart_doigt.pop(doigt, None)
             if depart is not None:              # balayage : rapide, surtout horizontal
                 dx, dy = position[0] - depart[0], position[1] - depart[1]
+                duree = pygame.time.get_ticks() - depart[2]
+                if abs(dx) < 30 and abs(dy) < 30 and duree < 900:
+                    # Toucher franc (le doigt n'a pas glissé) : c'est un clic, à l'endroit
+                    # où il s'est posé (évite les clics involontaires en faisant glisser).
+                    self.souris = (depart[0], depart[1])
+                    self.clics.add(1)
                 if abs(dx) > 90 and abs(dx) > 2 * abs(dy) and pygame.time.get_ticks() - depart[2] < 600:
                     self.balayage = 1 if dx > 0 else -1
 

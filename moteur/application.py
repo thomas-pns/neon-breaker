@@ -44,6 +44,7 @@ def choisir_format():
             # zone des commandes, en bas, s'agrandit.
             proportion = max(16 / 9, min(2.25, web.proportion() or 16 / 9))
             config.VERTICAL = (config.VERTICAL[0], int(config.VERTICAL[0] * proportion))
+            config.MARGE_HAUT_ECRAN, config.MARGE_BAS_ECRAN = web.marges(config.VERTICAL[0])
             return config.VERTICAL
     return config.PAYSAGE
 

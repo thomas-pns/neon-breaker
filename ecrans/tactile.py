@@ -74,7 +74,8 @@ def bouton_pause(image, app, centre=(config.LARGEUR - 40, 40)):
 
 def bouton_retour(image, app):
     """But : bouton RETOUR (flèche) en bas à gauche des menus, à la place de la touche Échap."""
-    rect = pygame.Rect(14, config.HAUTEUR - 70, 56, 56)
+    bas = config.MARGE_BAS_ECRAN if config.HAUTEUR > config.LARGEUR else 0
+    rect = pygame.Rect(14, config.HAUTEUR - 70 - bas, 56, 56)
     pygame.draw.rect(image, (20, 5, 40), rect, border_radius=28)
     pygame.draw.rect(image, config.CYAN, rect, 3, border_radius=28)
     cx, cy = rect.center

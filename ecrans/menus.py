@@ -50,7 +50,14 @@ def marge_haut():
     """
     if not est_vertical():
         return 0
+    if config.MARGE_HAUT_ECRAN:                 # zone sûre connue (iPhone : encoche)
+        return config.MARGE_HAUT_ECRAN + 6
     return min(110, max(0, config.HAUTEUR - 1422) // 2)
+
+
+def marge_bas():
+    """But : au format vertical, place laissée en bas (barre d'accueil de l'iPhone)."""
+    return config.MARGE_BAS_ECRAN if est_vertical() else 0
 
 
 def haut_contenu():
@@ -60,7 +67,7 @@ def haut_contenu():
 
 def bas_contenu():
     """But : ordonnée au-dessus des onglets du bas (format vertical) ou du bas de l'écran."""
-    return config.HAUTEUR - (132 if est_vertical() else 0)
+    return config.HAUTEUR - (132 + marge_bas() if est_vertical() else 0)
 
 
 _cache_cartes = {}
@@ -203,7 +210,8 @@ class Navigation:
             # Téléphone : onglets en bas (sous le pouce), le reste en haut.
             largeur = config.LARGEUR // len(ONGLETS)
             for i, (nom, _) in enumerate(ONGLETS):
-                zones[nom] = pygame.Rect(i * largeur + 6, config.HAUTEUR - 116, largeur - 12, 70)
+                zones[nom] = pygame.Rect(i * largeur + 6, config.HAUTEUR - 116 - marge_bas(),
+                                         largeur - 12, 76)
             m = marge_haut()
             zones["profil"] = pygame.Rect(170, 16 + m, 310, 58)
             zones["neons"] = pygame.Rect(496, 25 + m, 140, 40)
@@ -273,7 +281,7 @@ class Navigation:
         hauteur_barre = haut_contenu() - 6 if vertical else HAUTEUR_BARRE
         bandes = [(0, hauteur_barre)]
         if vertical:
-            bandes.append((config.HAUTEUR - 132, 132))
+            bandes.append((config.HAUTEUR - 132 - marge_bas(), 132 + marge_bas()))
         for y, hauteur in bandes:
             cle = ("barre", config.LARGEUR, hauteur)
             bande = _cache_voiles.get(cle)
