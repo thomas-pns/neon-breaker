@@ -30,6 +30,8 @@ COULEURS_RANGS = [config.AMBRE, (220, 220, 240), (230, 140, 80)]
 class EcranClassementsMondiaux(EcranEnLigneBase):
     """Attributs : onglet (int), donnees (dict mode -> réponse du serveur)."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     titre = "CLASSEMENTS MONDIAUX"
     onglet = "CLASSEMENTS"
 
@@ -109,12 +111,40 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
                 dessiner_texte(image, str(ligne.get("score", 0)), x + 160, y, 2, teinte,
                                ancrage="droite", lueur=False)
 
+    def _ligne_verticale(self, image, cadre, ligne, i, y, teinte, donnees, unite):
+        """Une ligne du classement au format vertical (téléphone) : plus haute, sur 2 niveaux."""
+        dessiner_texte(image, f"{i + 1:2d}", cadre.x + 30, y, 3, teinte, ancrage="gauche", lueur=i == 0)
+        dessiner_banniere(image, ligne.get("banniere", ""),
+                          pygame.Rect(cadre.x + 90, y - 18, 380, 36), self.temps, cadre=False, voile=130)
+        pygame.draw.circle(image, couleur_profil(ligne["couleur"]), (cadre.x + 104, y), 8)
+        dessiner_texte(image, ligne["pseudo"].upper(), cadre.x + 122, y - 4, 3, teinte, ancrage="gauche",
+                       lueur=i == 0)
+        if donnees["type"] == "classe":
+            from reseau.classee import division
+            nom, couleur, _, _ = division(ligne["valeur"])
+            detail, couleur_detail, valeur = nom, couleur, ligne["valeur"]
+        elif donnees["type"] == "series":
+            detail, couleur_detail = f"RANG {ligne['niveau']}  MAX {ligne.get('record', 0)}", GRIS
+            valeur = f"{ligne['valeur']} J"
+        else:
+            detail, couleur_detail = f"RANG {ligne['niveau']}", GRIS
+            valeur = ligne["valeur"] if unite == "VICTOIRES" else f"{ligne['valeur']:07d}"
+        dessiner_texte(image, detail, cadre.x + 124, y + 26, 2, couleur_detail, ancrage="gauche",
+                       lueur=False)
+        dessiner_texte(image, str(valeur), cadre.right - 24, y, 3, teinte, ancrage="droite", lueur=i == 0)
+
     def dessiner(self, image):
         self.dessiner_fond(image)
+        from ecrans.menus import bas_contenu, est_vertical, haut_contenu
+        vertical = est_vertical()
         self.zones_onglets = []
         for i, mode in enumerate(ONGLETS):
-            rect = pygame.Rect(0, 0, 106, 40)
-            rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 112), 104)
+            if vertical:                     # téléphone : onglets sur plusieurs lignes, 4 par ligne
+                ligne, colonne = divmod(i, 4)
+                rect = pygame.Rect(20 + colonne * 192, haut_contenu() + 16 + ligne * 60, 180, 50)
+            else:
+                rect = pygame.Rect(0, 0, 106, 40)
+                rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 112), 104)
             self.zones_onglets.append(rect)
             choisi = i == self.indice_onglet
             pygame.draw.rect(image, config.CYAN if choisi else (60, 30, 90), rect,
@@ -124,6 +154,11 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
         mode = ONGLETS[self.indice_onglet]
         cadre = pygame.Rect(0, 0, 760, 500)
         cadre.midtop = (config.LARGEUR / 2, 140)
+        pas = 43
+        if vertical:
+            haut = self.zones_onglets[-1].bottom + 24
+            cadre = pygame.Rect(20, haut, config.LARGEUR - 40, min(860, bas_contenu() - 20 - haut))
+            pas = min(76, (cadre.h - 90) // 10)
         panneau(image, cadre, config.CYAN)
         if mode == "records":
             self._dessiner_records(image, cadre)
@@ -162,11 +197,14 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
                            (120, 90, 170), lueur=False)
         moi = self.app.en_ligne.pseudo.lower()
         for i, ligne in enumerate(donnees["lignes"][:10]):
-            y = cadre.y + 64 + i * 43
+            y = cadre.y + 64 + i * pas
             teinte = COULEURS_RANGS[i] if i < 3 else config.BLANC
             if ligne["pseudo"].lower() == moi:
                 pygame.draw.rect(image, (50, 20, 80), (cadre.x + 16, y - 18, cadre.w - 32, 36),
                                  border_radius=6)
+            if vertical:                     # étroit : rang de joueur et séries sous le pseudo
+                self._ligne_verticale(image, cadre, ligne, i, y, teinte, donnees, unite)
+                continue
             dessiner_texte(image, f"{i + 1:2d}", cadre.x + 50, y, 3, teinte, ancrage="gauche",
                            lueur=i == 0)
             dessiner_banniere(image, ligne.get("banniere", ""),

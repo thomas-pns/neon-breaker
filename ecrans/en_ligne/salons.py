@@ -86,6 +86,8 @@ class EcranSalons(EcranTempsReel):
     indice (int : ligne choisie), mode_creation (int), niveau (int).
     """
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     titre = "PARTIES EN LIGNE"
 
     def __init__(self, app, creer=None):
@@ -125,7 +127,7 @@ class EcranSalons(EcranTempsReel):
         super().mettre_a_jour(dt)
         self.traiter_reseau()
         entrees = self.app.entrees
-        if pygame.KSCAN_ESCAPE in entrees.appuis:
+        if pygame.KSCAN_ESCAPE in entrees.appuis or "retour" in entrees.appuis_tactiles:
             self.retour_hub()
             return
         if self.temps_reel.etat in ("erreur", "ferme"):
@@ -147,6 +149,12 @@ class EcranSalons(EcranTempsReel):
             self.app.audio.jouer("menu_nav")
         ligne_creation = len(self.salons)
         sens = int(entrees.vient_d_appuyer("droite")) - int(entrees.vient_d_appuyer("gauche"))
+        fleches = getattr(self, "fleches", None)
+        if 1 in entrees.clics and fleches is not None:
+            for valeur, zone in zip((-1, 1), fleches):
+                if zone.collidepoint(entrees.souris):
+                    sens, self.indice = valeur, ligne_creation
+                    entrees.clics.discard(1)      # changer de mode, pas créer
         if sens and self.indice == ligne_creation:
             self.mode_creation = (self.mode_creation + sens) % len(MODES)
             self.app.audio.jouer("menu_nav")
@@ -168,7 +176,13 @@ class EcranSalons(EcranTempsReel):
     def dessiner(self, image):
         self.dessiner_fond(image)
         self.zones = []
-        liste = pygame.Rect(60, 100, 820, 520)
+        from ecrans.menus import bas_contenu, est_vertical, marge_haut
+        vertical = est_vertical()
+        if vertical:                         # téléphone : la liste, puis les joueurs en ligne dessous
+            haut = 100 + marge_haut()
+            liste = pygame.Rect(20, haut, config.LARGEUR - 40, bas_contenu() - haut - 330)
+        else:
+            liste = pygame.Rect(60, 100, 820, 520)
         panneau(image, liste, config.CYAN)
         dessiner_texte(image, f"PARTIES OUVERTES  {len(self.salons)} / {self.maximum}",
                        liste.x + 24, liste.y + 26, 2, GRIS, ancrage="gauche", lueur=False)
@@ -189,8 +203,11 @@ class EcranSalons(EcranTempsReel):
         self._cadre(image, rect, choisi, COULEURS_MODES[mode])
         dessiner_texte(image, "CHERCHER :" if mode == "classe" else "CREER :", rect.x + 24,
                        rect.centery, 3, config.BLANC, ancrage="gauche", lueur=False)
-        dessiner_texte(image, f"< {NOMS_MODES[mode]} >", rect.x + 360, rect.centery, 4,
-                       COULEURS_MODES[mode], lueur=choisi)
+        texte = dessiner_texte(image, f"< {NOMS_MODES[mode]} >", rect.x + 360, rect.centery, 4,
+                               COULEURS_MODES[mode], lueur=choisi)
+        # Flèches touchables (doigt ou souris) pour changer de mode sans clavier.
+        self.fleches = (pygame.Rect(texte.x - 30, rect.y, 70, rect.h),
+                        pygame.Rect(texte.right - 40, rect.y, 70, rect.h))
         if mode == "classe":
             from reseau.classee import division
             nom, couleur, _, _ = division(self.app.en_ligne.elo)
@@ -212,16 +229,22 @@ class EcranSalons(EcranTempsReel):
                                rect.centery, 2, GRIS, ancrage="droite", lueur=False)
             self.zones.append(rect)
 
-        cote = pygame.Rect(910, 100, 310, 520)
+        if vertical:
+            cote = pygame.Rect(20, liste.bottom + 20, config.LARGEUR - 40, 250)
+        else:
+            cote = pygame.Rect(910, 100, 310, 520)
         panneau(image, cote, config.ROSE)
         dessiner_texte(image, f"EN LIGNE ({len(self.joueurs_en_ligne)})", cote.centerx,
                        cote.y + 30, 2, config.ROSE, lueur=False)
-        for k, pseudo in enumerate(self.joueurs_en_ligne[:14]):
-            yy = cote.y + 70 + k * 30
-            pygame.draw.circle(image, config.VERT, (cote.x + 30, yy), 5)
-            dessiner_texte(image, pseudo.upper(), cote.x + 48, yy, 2, config.BLANC,
+        par_colonne = 6 if vertical else 14
+        for k, pseudo in enumerate(self.joueurs_en_ligne[:2 * par_colonne if vertical else 14]):
+            colonne, ligne = divmod(k, par_colonne)
+            x = cote.x + 30 + colonne * 370
+            yy = cote.y + 70 + ligne * 30
+            pygame.draw.circle(image, config.VERT, (x, yy), 5)
+            dessiner_texte(image, pseudo.upper(), x + 18, yy, 2, config.BLANC,
                            ancrage="gauche", lueur=False)
-        self.dessiner_etat_connexion(image, 650)
+        self.dessiner_etat_connexion(image, cote.bottom + 30 if vertical else 650)
         self.pied(image, "↑↓ : CHOISIR   ←→ : MODE   ENTREE : REJOINDRE / CREER"
                          "   ECHAP : RETOUR")
 
@@ -257,6 +280,8 @@ class EcranFileClassee(EcranTempsReel):
     joueurs dans la file). Le serveur envoie « debut » dès qu'une paire est formée.
     """
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     titre = "PARTIE CLASSEE"
 
     def __init__(self, app, mode="duel"):
@@ -285,7 +310,7 @@ class EcranFileClassee(EcranTempsReel):
         if getattr(self, "partie_lancee", False):
             return
         entrees = self.app.entrees
-        if pygame.KSCAN_ESCAPE in entrees.appuis:   # pas Espace : on le tape par réflexe
+        if pygame.KSCAN_ESCAPE in entrees.appuis or "retour" in entrees.appuis_tactiles:   # pas Espace : on le tape par réflexe
             self.app.audio.jouer("menu_ok")
             self._annuler()
 
@@ -295,7 +320,7 @@ class EcranFileClassee(EcranTempsReel):
         en_ligne = self.app.en_ligne
         nom, couleur, minimum, suivante = division(en_ligne.elo)
         cadre = pygame.Rect(0, 0, 640, 470)
-        cadre.center = (config.LARGEUR / 2, 380)
+        cadre.center = (config.LARGEUR / 2, 380 if config.LARGEUR > config.HAUTEUR else config.HAUTEUR / 2)
         panneau(image, cadre, couleur)
         # Écran radar : des cercles qui s'élargissent depuis l'écusson de division.
         centre = (cadre.centerx, cadre.y + 150)
@@ -327,12 +352,14 @@ class EcranFileClassee(EcranTempsReel):
         if en_ligne.classees < 10:
             dessiner_texte(image, f"PLACEMENT : {en_ligne.classees} / 10 PARTIES", cadre.centerx,
                            cadre.y + 424, 2, config.AMBRE, lueur=False)
-        self.dessiner_etat_connexion(image, 650)
+        self.dessiner_etat_connexion(image, cadre.bottom + 40)
         self.pied(image, "ECHAP : ANNULER")
 
 
 class EcranSalon(EcranTempsReel):
     """Salon d'attente avant une partie en ligne."""
+
+    vertical = True               # dessiné aussi au format vertical (téléphone)
 
     titre = "SALON"
 
@@ -373,7 +400,7 @@ class EcranSalon(EcranTempsReel):
         super().mettre_a_jour(dt)
         self.traiter_reseau()
         entrees = self.app.entrees
-        if pygame.KSCAN_ESCAPE in entrees.appuis:
+        if pygame.KSCAN_ESCAPE in entrees.appuis or "retour" in entrees.appuis_tactiles:
             self._quitter()
             return
         options = self.options()
@@ -401,9 +428,14 @@ class EcranSalon(EcranTempsReel):
                                              if mode == "coop" else "")
         self.dessiner_fond(image, titre)
         couleur_mode = COULEURS_MODES.get(mode, config.CYAN)
+        vertical = config.HAUTEUR > config.LARGEUR
+        haut = 150 + (min(110, max(0, config.HAUTEUR - 1422) // 2) if vertical else 0)
         for place in range(2):
-            rect = pygame.Rect(0, 0, 440, 260)
-            rect.center = (config.LARGEUR / 2 + (place * 2 - 1) * 250, 280)
+            rect = pygame.Rect(0, 0, 440 if not vertical else 640, 260 if not vertical else 230)
+            if vertical:                     # téléphone : les deux joueurs l'un sous l'autre
+                rect.midtop = (config.LARGEUR / 2, haut + place * 250)
+            else:
+                rect.center = (config.LARGEUR / 2 + (place * 2 - 1) * 250, 280)
             joueurs = self.salon["joueurs"]
             if place < len(joueurs):
                 joueur = joueurs[place]
@@ -428,8 +460,8 @@ class EcranSalon(EcranTempsReel):
                                (120, 90, 170), lueur=False)
         self.zones = []
         for i, (libelle, _) in enumerate(self.options()):
-            rect = pygame.Rect(0, 0, 300, 52)
-            rect.center = (config.LARGEUR / 2, 470 + i * 62)
+            rect = pygame.Rect(0, 0, 300 if not vertical else 400, 52 if not vertical else 64)
+            rect.center = (config.LARGEUR / 2, 470 + i * 62 if not vertical else haut + 560 + i * 80)
             choisi = i == self.indice
             pygame.draw.rect(image, couleur_mode if choisi else (16, 4, 36), rect, border_radius=8)
             pygame.draw.rect(image, couleur_mode, rect, 2, border_radius=8)
@@ -437,8 +469,8 @@ class EcranSalon(EcranTempsReel):
                            (20, 0, 30) if choisi else couleur_mode, lueur=False)
             self.zones.append(rect)
         if self.suis_hote() and len(self.salon["joueurs"]) < 2 and math.sin(self.temps * 3) > 0:
-            dessiner_texte(image, "EN ATTENTE D'UN DEUXIEME JOUEUR", config.LARGEUR / 2, 425, 2,
-                           GRIS, lueur=False)
-        self.dessiner_etat_connexion(image, 660)
+            dessiner_texte(image, "EN ATTENTE D'UN DEUXIEME JOUEUR", config.LARGEUR / 2,
+                           425 if not vertical else haut + 515, 2, GRIS, lueur=False)
+        self.dessiner_etat_connexion(image, 660 if not vertical else config.HAUTEUR - 120)
         self.pied(image, "EN JEU : ←→ / Q D / SOURIS  -  ESPACE LANCER  -  1 2 3 POUVOIRS"
                          "  -  MAJ OVERDRIVE")
