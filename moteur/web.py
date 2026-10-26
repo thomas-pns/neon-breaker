@@ -87,6 +87,19 @@ def proportion():
         return 0.0
 
 
+def marges(largeur_image):
+    """
+    But : zones sûres de l'écran (encoche, barre d'accueil de l'iPhone), converties en
+    pixels de l'image du jeu. Entrée : largeur_image (int). Sortie : (haut, bas).
+    """
+    try:
+        valeurs = json.loads(str(_neon().marges()))
+        echelle = largeur_image / max(1.0, float(valeurs.get("largeur", 0)) or largeur_image)
+        return int(valeurs.get("haut", 0) * echelle), int(valeurs.get("bas", 0) * echelle)
+    except Exception:
+        return 0, 0
+
+
 def parametre(nom):
     """But : l'adresse de la page contient-elle ?nom (ex. ?profil) ? Sortie : (bool)."""
     try:

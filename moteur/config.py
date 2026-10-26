@@ -91,6 +91,9 @@ TITRE = "NEON BREAKER"
 PAYSAGE = (1280, 720)
 VERTICAL = (800, 1422)
 LARGEUR, HAUTEUR = PAYSAGE
+# Zones sûres du téléphone (encoche en haut, barre d'accueil en bas), en pixels de
+# l'image verticale : rien d'important ne doit être dessiné dessous.
+MARGE_HAUT_ECRAN, MARGE_BAS_ECRAN = 0, 0
 
 
 def orienter(taille):

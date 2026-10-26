@@ -1,5 +1,15 @@
 [
   {
+    "version": "2.3.1",
+    "titre": "CORRECTIFS IPHONE",
+    "lignes": [
+      "LE JEU PREND TOUT L'ECRAN, SOUS L'ENCOCHE AUSSI",
+      "RIEN SOUS LA CAMERA NI SOUS LA BARRE D'ACCUEIL",
+      "PLUS DE TOUCHERS INVOLONTAIRES DANS LES MENUS :",
+      "L'ACTION PART QUAND LE DOIGT SE LEVE SANS GLISSER"
+    ]
+  },
+  {
     "version": "2.3.0",
     "titre": "FORMAT TELEPHONE",
     "lignes": [

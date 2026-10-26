@@ -210,7 +210,9 @@ config = {
     xtermjs : "{{cookiecutter.xtermjs}}" ,
     _sdl2 : "canvas",
     user_canvas : 0,
-    user_canvas_managed : 0,
+    // Téléphone : la page place elle-même le canevas (plein écran, voir placer_canevas).
+    user_canvas_managed : (matchMedia("(pointer: coarse)").matches
+                           && Math.min(screen.width, screen.height) < 600) ? 1 : 0,
     ume_block : {{cookiecutter.ume_block}},
     can_close : {{cookiecutter.can_close}},
     archive : "{{cookiecutter.archive}}",
@@ -313,7 +315,46 @@ window.neon = {
 const tactile = window.matchMedia("(pointer: coarse)").matches
 const telephone = tactile && Math.min(screen.width, screen.height) < 600
 window.neon.telephone = () => telephone
-window.neon.proportion = () => Math.max(innerWidth, innerHeight) / Math.min(innerWidth, innerHeight)
+// Hauteur réelle de l'écran : ouvert depuis l'écran d'accueil de l'iPhone, la page passe
+// sous la barre d'état mais innerHeight ne la compte pas (le jeu restait trop haut).
+function hauteur_ecran() {
+    const plein = navigator.standalone || matchMedia("(display-mode: standalone)").matches
+                  || matchMedia("(display-mode: fullscreen)").matches
+    const portrait = innerHeight >= innerWidth
+    if (plein && portrait) return Math.max(innerHeight, screen.height)
+    return innerHeight
+}
+window.neon.proportion = () => {
+    const h = hauteur_ecran()
+    return Math.max(innerWidth, h) / Math.min(innerWidth, h)
+}
+// Zones sûres (encoche, barre d'accueil), en pixels de la page.
+window.neon.marges = () => {
+    const mesure = document.createElement("div")
+    mesure.style.cssText = "position:fixed;visibility:hidden;padding-top:env(safe-area-inset-top);" +
+                           "padding-bottom:env(safe-area-inset-bottom)"
+    document.body.appendChild(mesure)
+    const style = getComputedStyle(mesure)
+    const marges = {haut: parseFloat(style.paddingTop) || 0, bas: parseFloat(style.paddingBottom) || 0,
+                    largeur: innerWidth}
+    mesure.remove()
+    return JSON.stringify(marges)
+}
+// Téléphone : le canevas couvre tout l'écran (l'image du jeu a déjà ses proportions).
+function placer_canevas() {
+    if (!telephone) return
+    const canevas = document.getElementById("canvas")
+    if (!canevas) return
+    canevas.style.position = "fixed"
+    canevas.style.left = "0px"
+    canevas.style.top = "0px"
+    canevas.style.margin = "0"
+    canevas.style.width = innerWidth + "px"
+    canevas.style.height = hauteur_ecran() + "px"
+}
+addEventListener("resize", () => setTimeout(placer_canevas, 50))
+addEventListener("orientationchange", () => setTimeout(placer_canevas, 300))
+setInterval(placer_canevas, 1000)
 document.documentElement.classList.add(telephone ? "telephone" : (tactile ? "tablette" : "bureau"))
 function plein_ecran() {
     if (!tactile || document.fullscreenElement) return
