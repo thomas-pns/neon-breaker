@@ -30,6 +30,8 @@ def curseur(valeur):
 class EcranOptions(EcranBase):
     """Réglages du jeu, par-dessus l'écran précédent (qui reste visible)."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     transparent = True
 
     def __init__(self, app):
@@ -163,7 +165,8 @@ class EcranOptions(EcranBase):
         cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2 + 10)
         panneau(image, cadre, config.CYAN)
         decalage = math.sin(self.temps * 3) * 3
-        dessiner_texte(image, "OPTIONS", config.LARGEUR / 2, 138 + decalage, 6, config.CYAN)
+        dessiner_texte(image, "OPTIONS", config.LARGEUR / 2, cadre.y + 48 + decalage, 6, config.CYAN)
+        self.menu.x, self.menu.y = config.LARGEUR / 2, cadre.y + 110     # suit le format en cours
         self.menu.dessiner(image)
         dessiner_texte(image, "↑↓ : CHOISIR   ←→ : REGLER   ECHAP : RETOUR", config.LARGEUR / 2,
                        cadre.bottom - 26, 2, (150, 120, 200), lueur=False)

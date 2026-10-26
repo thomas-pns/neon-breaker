@@ -25,6 +25,8 @@ from ecrans.hud import panneau, barre
 class EcranMiseAJour(EcranBase):
     """Attributs : infos (dict), etat ("choix", "telechargement", "fini", "erreur")."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     transparent = True
 
     def __init__(self, app, infos):

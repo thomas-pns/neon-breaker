@@ -24,6 +24,8 @@ from ecrans.en_ligne.commun import EcranEnLigneBase, ChampTexte, CARACTERES_PSEU
 class EcranConnexion(EcranEnLigneBase):
     """Attributs : champs (list de ChampTexte), focus (int), inscription (bool)."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     def __init__(self, app, inscription=False):
         super().__init__(app)
         self.inscription = inscription

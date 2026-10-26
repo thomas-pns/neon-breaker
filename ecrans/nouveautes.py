@@ -30,6 +30,8 @@ def charger_nouveautes():
 class EcranNouveautes(EcranBase):
     """Ecran de consultation des nouveautes, navigable au clavier et a la souris."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     def __init__(self, app):
         super().__init__(app)
         self.versions = charger_nouveautes()
@@ -74,11 +76,17 @@ class EcranNouveautes(EcranBase):
         """But : dessiner la liste et le detail selectionne. Entree(s) : image (Surface). Sortie : aucune."""
         self.app.fond.dessiner(image)
         voile(image, 175)
-        dessiner_texte(image, "NOUVEAUTES", config.LARGEUR / 2, 48, 5, config.CYAN)
+        vertical = config.HAUTEUR > config.LARGEUR
+        haut = (50 + min(110, max(0, config.HAUTEUR - 1422) // 2)) if vertical else 0
+        dessiner_texte(image, "NOUVEAUTES", config.LARGEUR / 2, 48 + haut, 5, config.CYAN)
         self.zones = []
         hauteur = min(58, 500 // max(1, len(self.versions)))
         for i, version in enumerate(self.versions):
-            rect = pygame.Rect(105, 115 + i * hauteur, 300, hauteur - 8)
+            if vertical:                     # téléphone : versions en pastilles, 4 par ligne
+                ligne, colonne = divmod(i, 4)
+                rect = pygame.Rect(24 + colonne * 190, 110 + haut + ligne * 64, 178, 54)
+            else:
+                rect = pygame.Rect(105, 115 + i * hauteur, 300, hauteur - 8)
             self.zones.append(rect)
             couleur = config.AMBRE if i == self.indice else config.VIOLET
             panneau(image, rect, couleur)
@@ -86,13 +94,18 @@ class EcranNouveautes(EcranBase):
                            3, couleur)
         if self.ouvert is not None and self.versions:
             version = self.versions[self.ouvert]
-            rect = pygame.Rect(445, 115, 730, 500)
+            if vertical:
+                haut_detail = self.zones[-1].bottom + 30 if self.zones else 120 + haut
+                rect = pygame.Rect(24, haut_detail, config.LARGEUR - 48, 500)
+            else:
+                rect = pygame.Rect(445, 115, 730, 500)
             panneau(image, rect, config.CYAN)
             dessiner_texte(image, version.get("titre", ""), rect.centerx, rect.y + 45,
                            4, config.AMBRE)
             for i, ligne in enumerate(version.get("lignes", [])):
                 dessiner_texte(image, ligne, rect.x + 36, rect.y + 105 + i * 36,
                                2, config.BLANC, ancrage="gauche", lueur=False)
-        dessiner_texte(image, "HAUT / BAS : VERSION    ENTREE / CLIC : OUVRIR    ECHAP : RETOUR",
-                       config.LARGEUR / 2, config.HAUTEUR - 26, 2,
-                       (150, 120, 200), lueur=False)
+        if not vertical:
+            dessiner_texte(image, "HAUT / BAS : VERSION    ENTREE / CLIC : OUVRIR    ECHAP : RETOUR",
+                           config.LARGEUR / 2, config.HAUTEUR - 26, 2,
+                           (150, 120, 200), lueur=False)

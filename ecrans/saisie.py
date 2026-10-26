@@ -49,6 +49,8 @@ def nom_par_defaut(app, numero):
 class EcranSaisieNom(EcranBase):
     """Attributs : lettres (list de 3 indices dans ALPHABET), case (int)."""
 
+    vertical = True               # dessiné aussi au format vertical (téléphone)
+
     def musique(self):
         """But : demander le silence pendant la saisie. Entree(s) : aucune. Sortie : None."""
         return None

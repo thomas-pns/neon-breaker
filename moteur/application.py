@@ -501,7 +501,9 @@ class Application:
             cible = image
         for ecran in reversed(self.pile_dessin()):
             ecran.dessiner(cible)
-        if self.entrees.tactile and getattr(actif, "bouton_retour", True):
+        onglets_en_bas = (sous_zone is None and self.vertical and hasattr(actif, "dessiner_barre")
+                          and getattr(actif, "onglet", None) is not None)
+        if self.entrees.tactile and getattr(actif, "bouton_retour", True) and not onglets_en_bas:
             from ecrans.tactile import bouton_retour        # au doigt : pas de touche Échap
             bouton_retour(cible, self)
         if self.transition is not None:
