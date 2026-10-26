@@ -77,11 +77,12 @@ class EcranOptions(EcranBase):
              lambda s: self._basculer("tremblement")),
             (f"PARTICULES : {r['particules'].upper()}", lambda: self._particules(1),
              self._particules),
-            ("PLEIN ECRAN  (F11)", self.app.ecran.basculer_plein_ecran),
-            ("COMMANDES / MANETTE", self._commandes),
+        ] + ([] if config.EST_WEB else [("PLEIN ECRAN  (F11)", self.app.ecran.basculer_plein_ecran)]) + (
+            [] if getattr(self.app, "vertical", False) else [("COMMANDES / MANETTE", self._commandes)]) + [
             (f"FANTOME DES DEFIS : {self._nom_fantome()}", lambda: self._fantome(1), self._fantome),
             (f"NOM DES RECORDS J1 : {self._nom_defaut(1)}", lambda: self._saisir_nom(1)),
-            (f"NOM DES RECORDS J2 : {self._nom_defaut(2)}", lambda: self._saisir_nom(2)),
+        ] + ([] if getattr(self.app, "vertical", False) else [
+            (f"NOM DES RECORDS J2 : {self._nom_defaut(2)}", lambda: self._saisir_nom(2))]) + [
             ("BULLES D'AIDE : " + ("REACTIVEES" if self.bulles_reactivees else "REVOIR"),
              self._revoir_bulles),
             ("RETOUR", self._retour),
@@ -163,10 +164,16 @@ class EcranOptions(EcranBase):
         voile(image, 225)
         cadre = pygame.Rect(0, 0, 720, 560)
         cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2 + 10)
+        if config.HAUTEUR > config.LARGEUR:  # téléphone : cadre à la hauteur des options
+            _, ecart, _ = self.menu.mise_en_page()
+            cadre = pygame.Rect(0, 0, config.LARGEUR - 40, 180 + ecart * len(self.menu.options))
+            cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2)
         panneau(image, cadre, config.CYAN)
         decalage = math.sin(self.temps * 3) * 3
         dessiner_texte(image, "OPTIONS", config.LARGEUR / 2, cadre.y + 48 + decalage, 6, config.CYAN)
-        self.menu.x, self.menu.y = config.LARGEUR / 2, cadre.y + 110     # suit le format en cours
+        vertical = config.HAUTEUR > config.LARGEUR
+        self.menu.x, self.menu.y = config.LARGEUR / 2, cadre.y + (140 if vertical else 110)
         self.menu.dessiner(image)
-        dessiner_texte(image, "↑↓ : CHOISIR   ←→ : REGLER   ECHAP : RETOUR", config.LARGEUR / 2,
-                       cadre.bottom - 26, 2, (150, 120, 200), lueur=False)
+        if not vertical and not self.app.entrees.tactile:
+            dessiner_texte(image, "↑↓ : CHOISIR   ←→ : REGLER   ECHAP : RETOUR", config.LARGEUR / 2,
+                           cadre.bottom - 26, 2, (150, 120, 200), lueur=False)

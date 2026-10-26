@@ -17,6 +17,7 @@ import math
 
 import pygame
 
+from moteur import config
 from moteur.police_pixel import dessiner_texte, taille_texte
 
 
@@ -95,6 +96,17 @@ class MenuVertical:
         self.zones = []
         self.temps = 0.0
 
+    def mise_en_page(self):
+        """
+        But : (échelle du texte, écart entre options, largeur touchable). Au format
+        vertical (téléphone), options plus grandes, et toute la ligne se touche.
+        """
+        if config.HAUTEUR > config.LARGEUR:
+            beaucoup = len(self.options) > 10
+            return (max(self.echelle, 3 if beaucoup else 4), max(self.ecart, 64 if beaucoup else 84),
+                    config.LARGEUR - 120)
+        return self.echelle, self.ecart, None
+
     def mettre_a_jour(self, dt, entrees, audio):
         """
         But : déplacer la sélection et déclencher l'option choisie.
@@ -130,8 +142,9 @@ class MenuVertical:
         Entrée : image (Surface). Sortie : aucune.
         """
         self.zones = []
+        echelle, ecart, largeur_ligne = self.mise_en_page()
         for i, (texte, *_) in enumerate(self.options):
-            y = self.y + i * self.ecart
+            y = self.y + i * ecart
             choisi = i == self.indice
             if choisi:
                 # 8 paliers seulement : le texte lumineux reste en cache (un flou par
@@ -142,12 +155,20 @@ class MenuVertical:
             else:
                 couleur = (170, 140, 220)
                 libelle = texte
-            dessiner_texte(image, libelle, self.x, y, self.echelle, couleur,
+            if largeur_ligne:                # téléphone : une vraie ligne à toucher
+                ligne = pygame.Rect(0, 0, largeur_ligne, ecart - 12)
+                ligne.center = (int(self.x), int(y))
+                pygame.draw.rect(image, (40, 15, 80) if choisi else (16, 4, 36), ligne, border_radius=12)
+                pygame.draw.rect(image, couleur, ligne, 2, border_radius=12)
+                self.zones.append(ligne)
+                libelle = texte
+            dessiner_texte(image, libelle, self.x, y, echelle, couleur,
                            lueur=choisi)
-            largeur, hauteur = taille_texte(f"> {texte} <", self.echelle)
-            self.zones.append(pygame.Rect(self.x - largeur / 2,
-                                          y - hauteur / 2 - 8,
-                                          largeur, hauteur + 16))
+            if not largeur_ligne:
+                largeur, hauteur = taille_texte(f"> {texte} <", echelle)
+                self.zones.append(pygame.Rect(self.x - largeur / 2,
+                                              y - hauteur / 2 - 8,
+                                              largeur, hauteur + 16))
 
 
 def voile(image, alpha=170, couleur=(8, 0, 20)):
