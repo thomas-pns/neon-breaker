@@ -315,14 +315,16 @@ window.neon = {
 const tactile = window.matchMedia("(pointer: coarse)").matches
 const telephone = tactile && Math.min(screen.width, screen.height) < 600
 window.neon.telephone = () => telephone
-// Hauteur réelle de l'écran : ouvert depuis l'écran d'accueil de l'iPhone, la page passe
-// sous la barre d'état mais innerHeight ne la compte pas (le jeu restait trop haut).
+// Hauteur VISIBLE de la page. Depuis iOS 26 (bug WebKit 301994, encore là en iOS 27),
+// une app ouverte depuis l'écran d'accueil ne peut pas dessiner tout en bas de l'écran :
+// on s'arrête à innerHeight (sinon le bas du jeu, les onglets, serait caché).
 function hauteur_ecran() {
-    const plein = navigator.standalone || matchMedia("(display-mode: standalone)").matches
-                  || matchMedia("(display-mode: fullscreen)").matches
-    const portrait = innerHeight >= innerWidth
-    if (plein && portrait) return Math.max(innerHeight, screen.height)
     return innerHeight
+}
+// Bas de l'écran inaccessible (ce bug) : la barre d'accueil est déjà dans cette zone.
+function bas_cache() {
+    const plein = navigator.standalone || matchMedia("(display-mode: standalone)").matches
+    return plein && innerHeight >= innerWidth && screen.height - innerHeight > 20
 }
 window.neon.proportion = () => {
     const h = hauteur_ecran()
@@ -335,7 +337,8 @@ window.neon.marges = () => {
                            "padding-bottom:env(safe-area-inset-bottom)"
     document.body.appendChild(mesure)
     const style = getComputedStyle(mesure)
-    const marges = {haut: parseFloat(style.paddingTop) || 0, bas: parseFloat(style.paddingBottom) || 0,
+    const marges = {haut: parseFloat(style.paddingTop) || 0,
+                    bas: bas_cache() ? 0 : (parseFloat(style.paddingBottom) || 0),
                     largeur: innerWidth}
     mesure.remove()
     return JSON.stringify(marges)
@@ -390,7 +393,7 @@ window.addEventListener("touchend", plein_ecran)
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #0a021e;
+            background-color: #060012;   /* même teinte que la barre d'onglets du bas */
             font-family: monospace;
             touch-action: none;
             -webkit-user-select: none;

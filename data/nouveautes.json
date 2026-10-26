@@ -1,5 +1,15 @@
 [
   {
+    "version": "2.3.2",
+    "titre": "CORRECTIFS IPHONE",
+    "lignes": [
+      "IOS 26 ET 27 : LE BAS DE L'ECRAN EST RESERVE,",
+      "LE JEU S'ARRETE AU-DESSUS (PLUS RIEN DE COUPE)",
+      "PAUSE ET OPTIONS : GRANDS BOUTONS AU DOIGT",
+      "NAVIGATEUR : OPTIONS INUTILES RETIREES"
+    ]
+  },
+  {
     "version": "2.3.1",
     "titre": "CORRECTIFS IPHONE",
     "lignes": [

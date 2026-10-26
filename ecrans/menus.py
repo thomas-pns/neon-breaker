@@ -364,6 +364,7 @@ class EcranReglages(EcranBase):
     """Menu déroulant de la roue : posé par-dessus l'écran actuel."""
 
     vertical = True               # dessiné aussi au format vertical (téléphone)
+    bouton_retour = False         # on le ferme en touchant à côté (pas sur les onglets)
 
     transparent = True
 

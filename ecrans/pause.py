@@ -41,8 +41,8 @@ class EcranPause(EcranBase):
             ("AIDE", self._aide),
             ("OPTIONS", self._options),
             ("ACCUEIL", self._menu),
-            ("QUITTER", self._quitter),
-        ], config.LARGEUR / 2, 290, 3, 50)
+        ] + ([] if config.EST_WEB else [("QUITTER", self._quitter)]),
+            config.LARGEUR / 2, 290, 3, 50)
 
     def _reprendre(self):
         self.app.depiler()
@@ -77,7 +77,13 @@ class EcranPause(EcranBase):
         voile(image, 150)
         cadre = pygame.Rect(0, 0, 480, 430)
         cadre.center = (config.LARGEUR / 2, 385)
+        if config.HAUTEUR > config.LARGEUR:  # téléphone : grand, au milieu de l'écran
+            _, ecart, _ = self.menu.mise_en_page()
+            cadre = pygame.Rect(0, 0, config.LARGEUR - 60, 170 + ecart * len(self.menu.options))
+            cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2)
+        self.menu.x, self.menu.y = config.LARGEUR / 2, cadre.y + (150 if config.HAUTEUR > config.LARGEUR
+                                                                   else 120)
         panneau(image, cadre, config.ROSE)
         decalage = math.sin(self.temps * 3) * 3
-        dessiner_texte(image, "PAUSE", config.LARGEUR / 2, 222 + decalage, 6, config.ROSE)
+        dessiner_texte(image, "PAUSE", config.LARGEUR / 2, cadre.y + 52 + decalage, 6, config.ROSE)
         self.menu.dessiner(image)
