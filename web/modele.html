@@ -315,11 +315,11 @@ window.neon = {
 const tactile = window.matchMedia("(pointer: coarse)").matches
 const telephone = tactile && Math.min(screen.width, screen.height) < 600
 window.neon.telephone = () => telephone
-// Hauteur VISIBLE de la page. Depuis iOS 26 (bug WebKit 301994, encore là en iOS 27),
-// une app ouverte depuis l'écran d'accueil ne peut pas dessiner tout en bas de l'écran :
-// on s'arrête à innerHeight (sinon le bas du jeu, les onglets, serait caché).
+// Hauteur de la page, telle que le CSS la donne (100 %). Comme dans Parlotte : sur iPhone
+// (iOS 26/27), une hauteur calculée en JavaScript ou une page « fixée » laisse une bande
+// vide en bas ; seul le CSS à 100 % couvre bien tout l'écran.
 function hauteur_ecran() {
-    return innerHeight
+    return document.documentElement.clientHeight || innerHeight
 }
 window.neon.proportion = () => {
     const h = hauteur_ecran()
@@ -339,16 +339,17 @@ window.neon.marges = () => {
     return JSON.stringify(marges)
 }
 // Téléphone : le canevas couvre tout l'écran (l'image du jeu a déjà ses proportions).
+// Tailles en % (pas en pixels, pas de position fixe) : voir hauteur_ecran.
 function placer_canevas() {
     if (!telephone) return
     const canevas = document.getElementById("canvas")
     if (!canevas) return
-    canevas.style.position = "fixed"
-    canevas.style.left = "0px"
-    canevas.style.top = "0px"
+    canevas.style.position = "absolute"
+    canevas.style.left = "0"
+    canevas.style.top = "0"
     canevas.style.margin = "0"
-    canevas.style.width = innerWidth + "px"
-    canevas.style.height = hauteur_ecran() + "px"
+    canevas.style.width = "100%"
+    canevas.style.height = "100%"
 }
 addEventListener("resize", () => setTimeout(placer_canevas, 50))
 addEventListener("orientationchange", () => setTimeout(placer_canevas, 300))
@@ -371,12 +372,12 @@ window.addEventListener("touchend", plein_ecran)
 
     <title>NEON BREAKER</title>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <!-- Barre d'état opaque : avec « black-translucent », iOS 26 et 27 calculent mal la
-         hauteur d'une app de l'écran d'accueil (bande vide en bas, bug WebKit 301994). -->
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <!-- Barre d'état « normale », comme Parlotte : avec « black-translucent » (et même
+         « black »), iOS 26 et 27 rendent l'app de l'écran d'accueil trop courte. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="NEON BREAKER">
     <meta name="theme-color" content="#0a021e">
     <link rel="manifest" href="manifest.json">
