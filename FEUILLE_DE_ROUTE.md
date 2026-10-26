@@ -147,10 +147,9 @@ touche **votre** raquette. Pistes, de la plus rentable à la plus lourde :
   SUNSET, GRIDLOCK, CORE). Versement rétroactif pour les niveaux déjà réussis, d'après
   l'historique des parties sur le serveur.
 - [x] **(fait en 2.0 : 19 bannières, dont 4 légendaires animées)** **Bannières** affichées
-  derrière le pseudo (salon, profil, liste des joueurs, classements). Restent à faire :
-  - titres (« LE GOAT », « ZEUS », « LE MONSTRE »…) ;
-  - bannières de boss offertes en récompense (« A ETEINT LE SOLEIL » pour SUNSET, etc.) ;
-  - bannières animées : flammes, étincelles, éclairs, glitch.
+  derrière le pseudo (salon, profil, liste des joueurs, classements). Bannières de boss et
+  bannières animées faites en 2.1. Reste à faire :
+  - titres (« LE GOAT », « ZEUS », « LE MONSTRE »…).
 - [x] **(fait en 2.0)** **Boutique tournante** : 6 objets par jour (2 skins, 4 bannières), dont
   un à -30 %. Les légendaires ne sortent que de la boîte mystère.
 - [x] **(fait en 2.0)** **Boîte mystère** (220 NEONS) : un objet au hasard, jamais en double
@@ -251,10 +250,30 @@ la production ».
 - [x] **(fait en 2.1)** Skins complets (balle, traînée, son) et bannières de boss.
 - [x] **(fait en 2.1)** Mode admin (NEON_ADMINS sur le serveur) et bot de test (F8).
 - [ ] Liste d'amis et classement entre amis.
-- [ ] **Version navigateur (prochaine priorité)** avec pygbag, hébergée sur le NAS :
-  - rien à installer : un lien, et sur iPhone « Ajouter à l'écran d'accueil » (comme une app) ;
+- [ ] **Version navigateur pour téléphone et tablette (prochaine priorité)** avec pygbag,
+  hébergée sur le NAS :
+  - rien à installer : un lien, et « Ajouter à l'écran d'accueil » (comme une app) sur iPhone,
+    iPad et Android ;
+  - écran adapté : jeu en paysage (message « tourne ton téléphone » en portrait), menus et
+    boutons assez grands pour le doigt, HUD lisible sur un petit écran ;
   - d'abord le solo (Campagne, Arcade, défis), avec des commandes tactiles (glisser pour
     bouger, toucher pour lancer, boutons pour les pouvoirs) ;
   - musiques en fichiers audio (numpy n'existe pas dans le navigateur) ;
   - ensuite le compte et les scores (requêtes web), puis le jeu en ligne (WebSocket du
     navigateur à la place de la bibliothèque websockets).
+
+## Idées retenues le 26/10 (après la 2.1)
+
+- [ ] **Accessibilité** (dans OPTIONS) :
+  - palette pour daltoniens (briques, capsules et pouvoirs distinguables sans la couleur,
+    avec les icônes et des motifs) ;
+  - flashs réduits (moins de secousses d'écran, d'éclairs et de clignotements) ;
+  - texte plus grand dans les menus et le HUD.
+- [ ] **Mode spectateur** : depuis la liste des parties en ligne, regarder une partie en
+  cours (le serveur envoie déjà les instantanés ; le spectateur ne joue pas et n'est pas compté
+  dans la partie). Plus tard : regarder les parties classées des meilleurs joueurs.
+- [ ] **Succès à paliers** : bronze, argent et or pour les succès qui comptent quelque chose
+  (briques cassées, parties, séries, victoires en ligne…), avec une récompense en NEONS à chaque
+  palier. Ajouter des succès pour les nouveautés : classée (première victoire, divisions),
+  étoiles de la Campagne, boutique, saisons.
+
