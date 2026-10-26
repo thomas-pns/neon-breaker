@@ -321,11 +321,6 @@ window.neon.telephone = () => telephone
 function hauteur_ecran() {
     return innerHeight
 }
-// Bas de l'écran inaccessible (ce bug) : la barre d'accueil est déjà dans cette zone.
-function bas_cache() {
-    const plein = navigator.standalone || matchMedia("(display-mode: standalone)").matches
-    return plein && innerHeight >= innerWidth && screen.height - innerHeight > 20
-}
 window.neon.proportion = () => {
     const h = hauteur_ecran()
     return Math.max(innerWidth, h) / Math.min(innerWidth, h)
@@ -338,7 +333,7 @@ window.neon.marges = () => {
     document.body.appendChild(mesure)
     const style = getComputedStyle(mesure)
     const marges = {haut: parseFloat(style.paddingTop) || 0,
-                    bas: bas_cache() ? 0 : (parseFloat(style.paddingBottom) || 0),
+                    bas: parseFloat(style.paddingBottom) || 0,
                     largeur: innerWidth}
     mesure.remove()
     return JSON.stringify(marges)
@@ -379,7 +374,9 @@ window.addEventListener("touchend", plein_ecran)
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- Barre d'état opaque : avec « black-translucent », iOS 26 et 27 calculent mal la
+         hauteur d'une app de l'écran d'accueil (bande vide en bas, bug WebKit 301994). -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="NEON BREAKER">
     <meta name="theme-color" content="#0a021e">
     <link rel="manifest" href="manifest.json">
