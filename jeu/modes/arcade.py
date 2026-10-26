@@ -202,7 +202,7 @@ class ModeArcade(ModeDeJeu):
         """But : record montré en haut à gauche."""
         return self.app.meilleur_score(self.code)
 
-    def infos_vertical(self):
+    def infos_vertical(self, joueur):
         if self.terrains[0].boss is not None:
             return f"VAGUE {self.vague}", "BOSS !", config.ROSE
         return f"VAGUE {self.vague}", f"DESCENTE {max(0, self.avant_descente):.1f} S", config.ROSE

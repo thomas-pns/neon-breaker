@@ -44,13 +44,16 @@ GRIS = (170, 140, 220)
 
 def zone_monde(terrain):
     """But : zone de l'image paysage recopiée (le terrain et sa lueur)."""
-    return terrain.rect.inflate(2 * MARGE_TERRAIN, 2 * MARGE_TERRAIN)
+    return terrain.rect.inflate(2 * MARGE_TERRAIN, 2 * MARGE_TERRAIN).clip(
+        pygame.Rect((0, 0), config.PAYSAGE))
 
 
 def zone_ecran(terrain):
-    """But : où cette zone est posée dans l'image verticale (centrée)."""
+    """But : où cette zone est posée dans l'image verticale (centrée, réduite si trop large)."""
     zone = zone_monde(terrain)
-    return pygame.Rect((config.VERTICAL[0] - zone.w) // 2, 186 + decalage(), zone.w, zone.h)
+    largeur = min(zone.w, config.VERTICAL[0])
+    hauteur = zone.h * largeur // zone.w
+    return pygame.Rect((config.VERTICAL[0] - largeur) // 2, 186 + decalage(), largeur, hauteur)
 
 
 def disposition(terrain):
@@ -81,9 +84,9 @@ class CommandesVerticales:
     def __init__(self):
         self.prise = None
 
-    def lire(self, app, mode):
-        joueur = mode.joueur_au_doigt()
-        if joueur is None or joueur.raquette is None:
+    def lire(self, app, mode, joueur=None):
+        joueur = joueur or mode.joueur_au_doigt()
+        if joueur is None or joueur.raquette is None or joueur.terrain is None:
             return
         entrees = app.entrees
         terrain = joueur.terrain
@@ -93,8 +96,9 @@ class CommandesVerticales:
         if 1 in entrees.clics:
             if glisse.collidepoint(souris):
                 self.prise = (souris[0], joueur.raquette.x)
-            elif zone_ecran(terrain).collidepoint(souris) and mode.etat in ("pret", "jeu"):
+            elif zone_ecran(terrain).collidepoint(souris):
                 entrees.forcer("action", joueur.profil)
+                entrees.forcer("action", "solo")        # en ligne : commandes du profil solo
         if entrees.tactile:
             if not entrees.doigts:
                 self.prise = None
@@ -114,25 +118,31 @@ class CommandesVerticales:
         joueur.raquette.viser_souris(max(terrain.rect.left, min(terrain.rect.right, x)))
 
 
-def dessiner_partie(app, mode, effets, image, monde, dessiner_monde):
+def dessiner_partie(app, mode, image, monde, dessiner_monde, joueur=None):
     """
     But : dessiner une partie au format vertical.
-    Entrées : app ; mode (ModeDeJeu) ; effets (GestionnaireEffets ou None) ;
-              image (Surface verticale) ; monde (Surface paysage de travail) ;
-              dessiner_monde (fonction(Surface)) : dessine terrain, effets, textes.
+    Entrées : app ; mode (ModeDeJeu) ; image (Surface verticale) ; monde (Surface
+              paysage de travail) ; dessiner_monde (fonction(Surface)) : dessine le
+              terrain, les effets et les textes ; joueur : celui qui joue ici.
     """
-    terrain = mode.terrains[0]
+    joueur = joueur or mode.joueur_au_doigt() or mode.joueurs[0]
+    terrain = joueur.terrain or mode.terrains[0]
     source, cible = zone_monde(terrain), zone_ecran(terrain)
     app.fond.dessiner(image)
     # Le terrain est transparent : on lui met dessous le fond vertical.
-    monde.blit(image, source.topleft, cible)
+    if source.size == cible.size:
+        monde.blit(image, source.topleft, cible)
+    else:
+        monde.blit(pygame.transform.smoothscale(image.subsurface(cible), source.size), source)
     config.orienter(config.PAYSAGE)
     try:
         dessiner_monde(monde)
     finally:
         config.orienter(config.VERTICAL)
-    image.blit(monde, cible.topleft, source)
-    joueur = mode.joueur_au_doigt() or mode.joueurs[0]
+    if source.size == cible.size:
+        image.blit(monde, cible.topleft, source)
+    else:                                  # terrain plus large que l'écran (Coop)
+        image.blit(pygame.transform.smoothscale(monde.subsurface(source), cible.size), cible)
     dessiner_bandeau(image, mode, joueur)
     dessiner_commandes(image, app, mode, joueur, terrain)
 
@@ -142,11 +152,13 @@ def dessiner_bandeau(image, mode, joueur):
     r = bandeau_rect()
     hud.panneau(image, r, joueur.couleur_bord)
     gauche = r.x + 130
-    hud.etiquette(image, "SCORE", gauche, r.y + 24)
-    dessiner_texte(image, f"{joueur.score:07d}", gauche, r.y + 58, 4, config.AMBRE)
-    hud.etiquette(image, f"RECORD {mode.record_vertical():07d}", gauche, r.y + 94)
+    titre_g, valeur_g, sous_g = mode.score_vertical(joueur)
+    hud.etiquette(image, titre_g, gauche, r.y + 24)
+    dessiner_texte(image, valeur_g, gauche, r.y + 58, 4, config.AMBRE)
+    if sous_g:
+        hud.etiquette(image, sous_g, gauche, r.y + 94)
     hud.dessiner_multiplicateur(image, r.centerx - 6, r.y + 56, joueur, mode.temps, 5)
-    titre, sous_titre, couleur = mode.infos_vertical()
+    titre, sous_titre, couleur = mode.infos_vertical(joueur)
     droite = r.right - 130
     dessiner_texte(image, titre, droite, r.y + 34, 4 if len(titre) <= 8 else 3, couleur)
     if sous_titre:

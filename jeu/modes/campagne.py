@@ -328,7 +328,7 @@ class ModeCampagne(ModeDeJeu):
         hud.dessiner_vies(image, PANNEAU_G.centerx, 636, self.vies)
         self.dessiner_panneau_droit(image)
 
-    def infos_vertical(self):
+    def infos_vertical(self, joueur):
         nom = self.niveau.nom.split("  ")[-1] if "  " in self.niveau.nom else self.niveau.nom
         return f"{self.indice + 1} / {len(self.niveaux)}", nom[:16], config.CYAN
 

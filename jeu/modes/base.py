@@ -435,12 +435,33 @@ class ModeDeJeu:
     def dessiner_hud(self, image):
         """But : affichage tête haute propre au mode."""
 
-    def infos_vertical(self):
+    def centre_messages(self):
+        """
+        But : centre des grands messages (compte à rebours, bandeau). Milieu de l'écran,
+        sauf au format vertical : milieu du terrain de ce joueur (seul visible).
+        Sortie : (x, y).
+        """
+        joueur = getattr(self, "joueur_tactile", None)
+        if getattr(self.app, "vertical", False) and joueur is not None and joueur.terrain:
+            return joueur.terrain.rect.centerx, joueur.terrain.rect.centery
+        return config.LARGEUR / 2, config.HAUTEUR / 2
+
+    def infos_vertical(self, joueur):
         """
         But : (format vertical, téléphone) information propre au mode, à droite du
-        bandeau du haut. Sortie : (titre, sous-titre, couleur).
+        bandeau du haut. Entrée : joueur (celui de cet appareil).
+        Sortie : (titre, sous-titre, couleur).
         """
+        autres = [j for j in self.joueurs if j is not joueur]
+        if autres:                         # à plusieurs : le score de l'autre
+            return f"{autres[0].score:07d}", self.nom_joueur(autres[0]), autres[0].couleur_bord
         return self.code.upper(), "", config.CYAN
+
+    def score_vertical(self, joueur):
+        """But : (titre, valeur, sous-titre) à gauche du bandeau vertical."""
+        if len(self.joueurs) > 1:
+            return "SCORE", f"{joueur.score:07d}", self.nom_joueur(joueur)
+        return "SCORE", f"{joueur.score:07d}", f"RECORD {self.record_vertical():07d}"
 
     def record_vertical(self):
         """But : record affiché dans le bandeau vertical."""
@@ -452,6 +473,7 @@ class ModeDeJeu:
         if self.temps_message > 0:
             alpha = 255 if self.temps_message > 0.3 else int(255 * self.temps_message / 0.3)
             echelle = 6 if len(self.message) < 14 else 4
-            y = config.HAUTEUR / 2 - 40 + math.sin(self.temps * 4) * 4
-            dessiner_texte(image, self.message, config.LARGEUR / 2, y, echelle,
+            cx, cy = self.centre_messages()
+            y = cy - 40 + math.sin(self.temps * 4) * 4
+            dessiner_texte(image, self.message, cx, y, echelle,
                            self.couleur_message, alpha=alpha)

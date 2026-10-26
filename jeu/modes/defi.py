@@ -242,7 +242,7 @@ class ModeDefi(ModeArcade):
     def record_affiche(self):
         return record_du_jour(self.app, self.jour, self.code)
 
-    def infos_vertical(self):
+    def infos_vertical(self, joueur):
         regle = self.modificateurs[0][1] if self.modificateurs else ""
         if len(self.modificateurs) > 1:
             regle += " +" + str(len(self.modificateurs) - 1)

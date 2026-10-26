@@ -245,7 +245,7 @@ class ModeCourse(ModeDeJeu):
             t = fleche["t"]
             x = fleche["x0"] + (fleche["x1"] - fleche["x0"]) * (1 - (1 - t) ** 2)
             sens = 1 if fleche["x1"] > fleche["x0"] else -1
-            y = config.HAUTEUR / 2
+            y = self.centre_messages()[1]
             for k in range(3):
                 cx = x - sens * k * 22
                 pygame.draw.lines(image, fleche["couleur"], False,
@@ -254,5 +254,6 @@ class ModeCourse(ModeDeJeu):
         if self.etat == "compte":
             chiffre = max(1, math.ceil(self.minuteur))
             echelle = 14 + int((self.minuteur % 1) * 6)
-            dessiner_texte(image, str(chiffre), config.LARGEUR / 2, config.HAUTEUR / 2 + 40,
+            cx, cy = self.centre_messages()
+            dessiner_texte(image, str(chiffre), cx, cy + 40,
                            echelle, config.AMBRE)

@@ -127,8 +127,7 @@ class EcranPartie(EcranBase):
             from ecrans.partie_verticale import dessiner_partie
             if self.monde is None:
                 self.monde = pygame.Surface(config.PAYSAGE)
-            dessiner_partie(self.app, self.mode, self.effets, image, self.monde,
-                            self._dessiner_monde)
+            dessiner_partie(self.app, self.mode, image, self.monde, self._dessiner_monde)
             return
         self.app.fond.dessiner(image)
         self.mode.dessiner(image)
