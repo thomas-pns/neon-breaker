@@ -1,0 +1,546 @@
+<html lang="en-us"><script src="{{cookiecutter.cdn}}pythons.js" type=module id=site data-LINES={{cookiecutter.LINES}} data-CONSOLE={{cookiecutter.CONSOLE}} data-python=python{{cookiecutter.PYBUILD}} data-os=vtx,fs,snd,gui async defer>#<!--
+
+print("""
+Loading {{cookiecutter.title}} from {{cookiecutter.archive}}.apk
+    Pygbag Version : {{cookiecutter.version}}
+    Template Version : 0.9.0
+    Python  : {{cookiecutter.PYBUILD}}
+    CDN URL : {{cookiecutter.cdn}}
+    Screen  : {{cookiecutter.width}}x{{cookiecutter.height}}
+    Title   : {{cookiecutter.title}}
+    Folder  : {{cookiecutter.directory}}
+    Authors : {{cookiecutter.authors}}
+    SPDX-License-Identifier: {{cookiecutter.spdx}}
+
+""")
+
+
+# screen pixels (real, hardware)
+WIDTH=1024  # {{cookiecutter.width}}
+HEIGHT=600  # {{cookiecutter.height}}
+
+# reference/idealized screen pixels
+REFX = 1980
+REFY = 1080
+
+def u(real, ref, v):
+    if abs(v)<0.9999999:
+        result = int( (float(real)/100.0) * (v*1000))
+        if v<0:
+            return real-result
+        return result
+    return int( (real/ref) * v )
+
+def ux(*argv):
+    global WIDTH, REFX
+    acc = 0
+    for v in argv:
+        acc += u(WIDTH, REFX, v)
+    return acc
+
+def uy(*argv):
+    global HEIGHT, REFY
+    acc = 0
+    for v in argv:
+        acc += u(HEIGHT, REFY, v)
+    return acc
+
+
+
+
+# do not rename
+async def custom_site():
+
+    import sys
+    import asyncio
+    import platform
+    import json
+    from pathlib import Path
+
+
+
+    import embed
+
+
+    platform.document.body.style.background = "#0a021e"
+
+    import pygame
+
+    def compose():
+        pygame.display.update()
+        window.chromakey(None, *screen.get_colorkey(), 40)
+
+    pygame.init()
+    pygame.font.init()
+
+    screen = pygame.display.set_mode([ux(.100),uy(.100)], pygame.SRCALPHA, 32)
+    screen.set_colorkey( (0,0,0,0), pygame.RLEACCEL )
+    screen.fill( (0,0,0,0) )
+
+    compose()
+
+    # NEON BREAKER : l'écran CHARGEMENT (HTML) reste affiché jusqu'au démarrage du jeu.
+    platform.window.canvas.style.visibility = "visible"
+
+
+
+    apk = "{{cookiecutter.archive}}.apk"
+
+    bundle = "{{cookiecutter.archive}}"
+
+    # the C or js loader could do that but be explicit.
+    appdir = Path(f"/data/data/{bundle}") # /data/data/{{cookiecutter.archive}}
+    appdir.mkdir()
+
+
+    # mount apk
+
+    cfg = {
+        "io": "url",
+        "type":"mount",
+        "mount" : {
+            "point" : appdir.as_posix(),
+            "path" : "/",
+        },
+        "path" : f"/ => {appdir.as_posix()}",
+    }
+
+
+    track = platform.window.MM.prepare(apk, json.dumps(cfg))
+
+    marginx = ux(.020) # 20%
+    marginy = uy(.045) # 45%
+
+
+    def pg_bar(pos):
+        nonlocal marginx, marginy
+        # resolution of progress bar, recalculate since it may not be know yet.
+        total = track.len or 10  # avoid div0
+        slot = ux(.060)/ total # 60%
+
+        platform.window.neon.progression(int(track.pos * 100 / total))
+
+    # wait until zip mount + overlayfs is complete
+    while not track.ready:
+        pg_bar(track.pos)
+        compose()
+        await asyncio.sleep(.1)
+
+    # fill it up in case it was cached and instant download
+    pg_bar(track.len)
+    compose()
+
+
+    # preloader will change dir and prepend it to sys.path
+    platform.run_main(PyConfig, loaderhome= appdir / "assets", loadermain=None)
+
+
+    # wait preloading complete
+    # that includes images and wasm compilation of bundled modules
+    while embed.counter()<0:
+        await asyncio.sleep(.1)
+
+    main = appdir / "assets" / "main.py"
+
+    # start async top level machinery and add a console.
+    await TopLevel_async_handler.start_toplevel(platform.shell, console=window.python.config.debug)
+
+    # now that apk is mounted we have access to font cache
+    # but we need to fill __file__ that is not yet set
+    __import__(__name__).__file__ = str(main)
+
+
+    # now make a prompt
+    fnt = pygame.sysfont.SysFont("freesans",  uy(80) )
+
+    def ui_callback(pkg, error=None):
+        if error:
+            platform.window.console.error(f"NEON chargement : {error}")
+
+    # test/wait if user media interaction required
+    if not platform.window.MM.UME:
+        # Le son ne peut démarrer qu'après un geste : on invite à toucher l'écran.
+        platform.window.neon.pret()
+        while not platform.window.MM.UME:
+            await asyncio.sleep(.1)
+
+    # cleanup
+    screen.fill( (0,0,0,0) )
+    pygame.display.flip()
+
+    await shell.runpy(main, callback=ui_callback)
+
+
+
+import asyncio
+
+asyncio.run( custom_site() )
+
+
+
+
+
+
+
+
+
+
+
+
+# BEGIN BLOCK
+#
+# now this is the html part you can (and should) customize
+# It is not mandatory : pygame-script when it reads the first line (also called
+# shebang ) of above code create absolute minimal widget set
+# required for running with default rules
+#
+# do not alter that comment block it is separating python code from html code
+# =============================================================================
+# --></script><head><!--
+//=============================================================================
+// NEON BREAKER : modèle de page pour pygbag (version navigateur).
+// La partie Python ci-dessus (écran de chargement) vient du modèle par défaut
+// de pygbag 0.9, avec nos couleurs. Ne pas modifier le bloc de séparation.
+//=============================================================================
+
+--><script type="application/javascript">
+// END BLOCK
+
+config = {
+    xtermjs : "{{cookiecutter.xtermjs}}" ,
+    _sdl2 : "canvas",
+    user_canvas : 0,
+    user_canvas_managed : 0,
+    ume_block : {{cookiecutter.ume_block}},
+    can_close : {{cookiecutter.can_close}},
+    archive : "{{cookiecutter.archive}}",
+    gui_debug : 3,
+    cdn : "{{cookiecutter.cdn}}",
+    autorun : {{cookiecutter.autorun}},
+    PYBUILD : "{{cookiecutter.PYBUILD}}"
+}
+
+// Pont entre le jeu (Python) et le navigateur : requêtes HTTP et WebSocket.
+// Le jeu n'a pas de fils d'exécution : il lance une requête, puis relève les
+// réponses à chaque image (voir moteur/web.py).
+window.neon = {
+    numero: 0,
+    finies: [],
+    requete(methode, url, corps, jeton) {
+        const n = ++this.numero
+        const entetes = {"Content-Type": "application/json"}
+        if (jeton) entetes["Authorization"] = "Bearer " + jeton
+        const arret = new AbortController()
+        const minuteur = setTimeout(() => arret.abort(), 8000)
+        fetch(url, {method: methode, headers: entetes, body: corps || undefined, signal: arret.signal})
+            .then(r => r.text().then(t => this.finies.push([n, r.status, t])))
+            .catch(() => this.finies.push([n, 0, ""]))
+            .finally(() => clearTimeout(minuteur))
+        return n
+    },
+    reponses() {
+        const texte = JSON.stringify(this.finies)
+        this.finies = []
+        return texte
+    },
+    socket: null,
+    ws_etat: "ferme",
+    ws_erreur: "",
+    recus: [],
+    ws_ouvrir(url) {
+        this.ws_fermer()
+        this.recus = []
+        this.ws_erreur = ""
+        this.ws_etat = "connexion"
+        let socket
+        try {
+            socket = new WebSocket(url)
+        } catch (e) {
+            this.ws_etat = "erreur"
+            this.ws_erreur = String(e)
+            return
+        }
+        this.socket = socket
+        socket.onopen = () => { if (this.socket === socket) this.ws_etat = "ouvert" }
+        socket.onmessage = (e) => { if (this.socket === socket) this.recus.push(e.data) }
+        socket.onerror = () => { if (this.socket === socket) this.ws_erreur = "erreur du WebSocket" }
+        socket.onclose = (e) => {
+            if (this.socket !== socket) return
+            if (this.ws_etat !== "ferme") {
+                this.ws_etat = "erreur"
+                if (e.code !== 1000) this.ws_erreur = "fermee, code " + e.code + " " + (e.reason || "")
+            }
+            this.socket = null
+        }
+    },
+    ws_envoyer(texte) {
+        if (this.socket && this.socket.readyState === 1) this.socket.send(texte)
+    },
+    ws_messages() {
+        const texte = JSON.stringify(this.recus)
+        this.recus = []
+        return texte
+    },
+    ws_fermer() {
+        this.ws_etat = "ferme"
+        if (this.socket) {
+            try { this.socket.close(1000) } catch (e) {}
+        }
+        this.socket = null
+    },
+    // Écran CHARGEMENT : avancement, invite à toucher l'écran, puis départ du jeu.
+    progression(pourcent) {
+        const barre = document.getElementById("progress")
+        if (barre) { barre.hidden = false; barre.max = 100; barre.value = pourcent }
+    },
+    pret() {
+        const etat = document.querySelector("#transfer .etat")
+        if (etat) {
+            etat.textContent = tactile ? "TOUCHE L'ECRAN POUR JOUER" : "CLIQUE POUR JOUER"
+            etat.classList.add("invite")
+        }
+        const barre = document.getElementById("progress")
+        if (barre) barre.hidden = true
+    },
+    parti() {
+        const transfert = document.getElementById("transfer")
+        if (transfert) transfert.hidden = true
+    },
+}
+
+// Téléphone ou tablette : plein écran et paysage au premier toucher (Android ;
+// sur iPhone, « Sur l'écran d'accueil » donne le plein écran).
+const tactile = window.matchMedia("(pointer: coarse)").matches
+function plein_ecran() {
+    if (!tactile || document.fullscreenElement) return
+    const racine = document.documentElement
+    if (racine.requestFullscreen) {
+        racine.requestFullscreen({navigationUI: "hide"}).then(() => {
+            if (screen.orientation && screen.orientation.lock)
+                screen.orientation.lock("landscape").catch(() => {})
+        }).catch(() => {})
+    }
+}
+window.addEventListener("pointerup", plein_ecran)
+window.addEventListener("touchend", plein_ecran)
+
+</script>
+
+    <title>NEON BREAKER</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="NEON BREAKER">
+    <meta name="theme-color" content="#0a021e">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icone-180.png">
+    <link rel="icon" type="image/png" href="icone-192.png">
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0a021e;
+            font-family: monospace;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            overscroll-behavior: none;
+        }
+
+        /* Écran de téléchargement (avant que le jeu ne dessine lui-même). */
+        #transfer {
+            position: fixed;
+            inset: 0;
+            z-index: 30;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 22px;
+            background: linear-gradient(#0a021e, #2a0a52 65%, #5a0f6e);
+        }
+        #transfer[hidden] { display: none; }
+        #transfer .titre {
+            font-size: clamp(30px, 7vw, 64px);
+            font-weight: bold;
+            color: #00e5ff;
+            text-shadow: 0 0 18px #00e5ff, 4px 4px 0 #ff2bd6;
+            letter-spacing: 4px;
+        }
+        #status { display: none; }      /* messages d'emscripten, en anglais */
+        #transfer .etat {
+            font-weight: bold;
+            color: #ffb000;
+            text-shadow: 0 0 10px #ffb000;
+            letter-spacing: 2px;
+        }
+        #progress { height: 14px; width: min(320px, 70vw); accent-color: #ff2bd6; }
+        div.emscripten { text-align: center; }
+
+        /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
+        canvas.emscripten {
+            border: 0px none;
+            background-color: transparent;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            padding: 0;
+            margin: 0 auto;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            touch-action: none;
+            outline: none;
+        }
+
+        .bottomright { position: absolute; top: 40%; right: 0px; }
+        .trinfo { position: relative; right: 0px; }
+        .framed { position: relative; top: 150px; right: 10px; }
+
+        #tourner {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: linear-gradient(#0a021e, #3c0e6e 60%, #ff2ba0);
+            color: #00e5ff;
+            text-shadow: 0 0 12px #00e5ff;
+            font-size: 22px;
+            font-weight: bold;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            text-align: center;
+            padding: 24px;
+        }
+        #tourner .icone { font-size: 64px; color: #ffb000; text-shadow: 0 0 14px #ffb000; }
+        @media (orientation: portrait) and (pointer: coarse) {
+            #tourner { display: flex; }
+        }
+
+        #transfer .etat.invite { font-size: 22px; animation: battement 1.2s ease-in-out infinite; }
+        @keyframes battement { 50% { opacity: 0.35; } }
+    </style>
+
+    <script src="{{cookiecutter.cdn}}/browserfs.min.js"></script>
+
+</head>
+
+<body>
+
+    <div id="transfer" align=center>
+        <div class="titre">NEON BREAKER</div>
+        <div class="etat">CHARGEMENT...</div>
+        <div class="emscripten" id="status"></div>
+        <div class="emscripten">
+            <progress value="0" max="100" id="progress"></progress>
+        </div>
+    </div>
+
+    <canvas class="emscripten" id="canvas"
+width="1px"
+height="1px"
+    oncontextmenu="event.preventDefault()" tabindex=1>
+    </canvas>
+
+    <div id="tourner">
+        <div class="icone">&#x21BB;</div>
+        <div>TOURNE TON TELEPHONE<br>EN MODE PAYSAGE</div>
+    </div>
+
+    <div id=html></div>
+
+    <div id=crt class=bottomright>
+        <div id="system" hidden>
+            <div class="button-container">
+                <button id="aiostop" disabled>AIO</button>
+                <button id="aiopaused_true" disabled>AIO</button>
+                <button id="aiopaused_false" disabled>AIO</button>
+                <button id="pygame_mixer_music_pause" disabled>Music</button>
+            </div>
+            <div class="button-container">
+                <div id=load_min>min</div>
+                <div id=load_avg>avg</div>
+                <div id=load_max>max</div>
+                <button id="load_rst" disabled>RESET</button>
+            </div>
+            <div id="level"></div>
+            <div id="stateBattery"></div>
+        </div>
+        <div id=box hidden=true>
+            <div id="info" class="trinfo"></div>
+            <iframe id="iframe" class="framed" name="iframe"
+                width="470px" height="90%"
+                allowtransparency="true"
+                style="z-index: 10;"
+                frameborder="0"
+                sandbox="allow-same-origin allow-top-navigation allow-scripts allow-pointer-lock"
+                allow="autoplay; fullscreen *; gamepad"
+                src="{{cookiecutter.cdn}}empty.html"
+                scrolling="no">
+            </iframe>
+        </div>
+    </div>
+
+    <div id="dlg" hidden>
+        <input type="file" id="dlg_multifile" multiple accept="image/*">
+        <label for="dlg_multifile">Select files</label>
+    </div>
+
+    <div id="pyconsole">
+        <div id="terminal" tabIndex=1 align="left"></div>
+    </div>
+
+    <script type="application/javascript">
+
+    async function custom_onload(debug_hidden) {
+        pyconsole.hidden = debug_hidden
+        system.hidden = debug_hidden
+        transfer.hidden = false          // écran CHARGEMENT, caché quand le jeu démarre
+        info.hidden = debug_hidden
+        box.hidden = debug_hidden
+    }
+
+    function custom_prerun() {
+    }
+
+    function custom_postrun() {
+        // Les flèches et la barre d'espace ne font pas défiler la page.
+        window.addEventListener("keydown", function(e) {
+            if (["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Tab"].indexOf(e.code) > -1) {
+                if (!python.config.debug)
+                    e.preventDefault();
+            }
+        }, false);
+    }
+
+    function debug() {
+        // Outils de développement : taper debug() dans la console du navigateur.
+        python.config.debug = true
+        custom_onload(false)
+        Module.PyRun_SimpleString("shell.uptime()")
+        window_resize()
+    }
+
+    function info_inline(data) {
+        document.getElementById("info").innerHTML = data
+    }
+
+    function frame_online(url) {
+        window.frames["iframe"].location = url;
+    }
+
+    </script>
+
+</body>
+</html>

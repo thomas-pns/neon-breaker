@@ -34,9 +34,16 @@ class EcranMiseAJour(EcranBase):
         self.progression = 0.0
         self.erreur = ""
         options = [("PLUS TARD", self.app.depiler)]
-        if infos.get("auto"):
+        if config.EST_WEB:
+            options.insert(0, ("RECHARGER LA PAGE", self._recharger))
+        elif infos.get("auto"):
             options.insert(0, ("METTRE A JOUR", self._lancer))
         self.menu = MenuVertical(options, config.LARGEUR / 2, 430, 3, 50)
+
+    def _recharger(self):
+        """Version web : la nouvelle version est déjà sur le serveur, il suffit de recharger."""
+        from moteur import web
+        web.recharger()
 
     def _lancer(self):
         from reseau.mise_a_jour import mettre_a_jour
@@ -74,7 +81,7 @@ class EcranMiseAJour(EcranBase):
         dessiner_texte(image, f"{VERSION}  ->  {self.infos['version']}", cadre.centerx,
                        cadre.y + 110, 3, config.BLANC)
         if self.etat == "choix":
-            if not self.infos.get("auto"):
+            if not self.infos.get("auto") and not config.EST_WEB:
                 dessiner_texte(image, "LANCE DEPUIS LE CODE : FAITES UN GIT PULL", cadre.centerx,
                                cadre.y + 160, 2, config.CYAN, lueur=False)
             self.menu.dessiner(image)

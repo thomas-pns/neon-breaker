@@ -199,9 +199,9 @@ class ModeDuel(ModeDeJeu):
             hud.bloc_joueur_vertical(image, rect, joueur, 160, self.temps, score=False,
                                      touche_overdrive="MAJ" if self.en_ligne else (
                                          "S" if joueur.numero == 1 else "↓"))
-            hud.etiquette(image, "COMMANDES", rect.centerx, 486, config.ROSE)
-            hud.dessiner_commandes(image, rect, "solo" if self.en_ligne else aide, 512,
-                                    self.app)
+            au_doigt = self.joueur_au_doigt()
+            hud.bloc_commandes(image, rect, "solo" if self.en_ligne else aide, 486, self.app,
+                               joueur if joueur is au_doigt else None)
 
     def dessiner_overlay(self, image):
         if self.etat == "compte":

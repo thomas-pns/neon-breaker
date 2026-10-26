@@ -18,7 +18,7 @@ import unicodedata
 
 import pygame
 
-from moteur.rendu import halo
+from moteur.rendu import figer, halo
 
 # Chaque glyphe : 7 lignes de 5 caractères, "#" = pixel allumé.
 GLYPHES = {
@@ -131,7 +131,7 @@ def _glyphe(car, echelle, couleur):
                 if pixel == "#":
                     surface.fill(couleur, (colonne * echelle, ligne * echelle,
                                            echelle, echelle))
-        _cache_glyphes[cle] = surface
+        _cache_glyphes[cle] = figer(surface)
     return surface
 
 
@@ -185,7 +185,7 @@ def rendre_texte(texte, echelle, couleur, ombre=True, lueur=True):
 
     if len(_cache_textes) > TAILLE_CACHE_MAX:
         _cache_textes.clear()
-    _cache_textes[cle] = surface
+    _cache_textes[cle] = figer(surface)
     return surface
 
 

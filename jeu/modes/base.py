@@ -173,6 +173,16 @@ class ModeDeJeu:
             direction = -direction
         return direction
 
+    def joueur_au_doigt(self):
+        """
+        But : joueur qui joue au doigt sur cet appareil (boutons à l'écran) : le seul
+        joueur en local, ou le joueur local en ligne (attribut joueur_tactile).
+        Sortie : (Joueur ou None).
+        """
+        if hasattr(self, "joueur_tactile"):
+            return self.joueur_tactile
+        return self.joueurs[0] if len(self.joueurs) == 1 else None
+
     def lire_commandes(self):
         """But : lancement, pouvoirs et OVERDRIVE de chaque joueur."""
         entrees = self.app.entrees

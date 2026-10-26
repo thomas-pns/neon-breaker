@@ -6,9 +6,12 @@ name: Serveur (image Docker)
 on:
   push:
     branches: [main, "dev/**"]
+    # L'image contient aussi la version navigateur (tout le jeu) : elle est refaite
+    # dès que le code du jeu change.
     paths: ["serveur/**", "jeu/**", "moteur/**", "reseau/**", "structures/**",
-            "ecrans/hud.py", "ecrans/base.py", "data/niveaux/**", "Dockerfile",
-            "outils/entree_docker.sh", ".github/workflows/serveur.yml"]
+            "ecrans/**", "main.py", "data/**", "web/**", "Dockerfile",
+            "outils/entree_docker.sh", "outils/construire_web.py", "outils/banc_web.py",
+            ".github/workflows/serveur.yml"]
   workflow_dispatch:
 
 permissions:
@@ -27,8 +30,12 @@ jobs:
       - name: Vérification (le serveur démarre et répond)
         run: |
           docker run -d --name essai -p 8765:8765 -e NEON_JETON_DEPLOIEMENT=essai "$IMAGE:latest"
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/api/sante && exit 0; sleep 1; done
-          docker logs essai; exit 1
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8765/api/sante && break; sleep 1; done
+          curl -sf http://127.0.0.1:8765/api/sante || { docker logs essai; exit 1; }
+          # Version navigateur : la page, le jeu et le moteur Python sont servis.
+          curl -sf -o /dev/null http://127.0.0.1:8765/jeu/
+          curl -sf -o /dev/null http://127.0.0.1:8765/jeu/neonbreaker.apk
+          curl -sf -o /dev/null -H "Accept-Encoding: gzip" http://127.0.0.1:8765/archives/0.9/cpython312/main.wasm
       - name: Connexion à ghcr.io
         if: github.ref == 'refs/heads/main'
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin

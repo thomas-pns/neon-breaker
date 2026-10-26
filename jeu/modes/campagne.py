@@ -347,15 +347,17 @@ class ModeCampagne(ModeDeJeu):
                   vitesse / (config.BALLE_VITESSE_MAX * 1.3), config.ROSE)
         if self.hardcore:
             dessiner_texte(image, "HARDCORE x2", cx, 362, 2, config.ROUGE)
-        hud.etiquette(image, "COMMANDES", cx, 500, config.ROSE)
-        hud.dessiner_commandes(image, rect, aide, 528, self.app)
+        hud.bloc_commandes(image, rect, aide, 500, self.app, self.joueur_au_doigt())
 
     def dessiner_overlay(self, image):
         """Texte « lancer », bilan de niveau."""
         terrain = self.terrains[0]
         if self.etat == "pret" and math.sin(self.temps * 6) > -0.3:
-            texte = "ESPACE / CLIC : LANCER" if (not self.deux_joueurs or self.en_ligne) \
-                else "Z  /  ↑ : LANCER"
+            seul = not self.deux_joueurs or self.en_ligne
+            if seul:
+                texte = "TOUCHE POUR LANCER" if self.app.entrees.tactile else "ESPACE / CLIC : LANCER"
+            else:
+                texte = "Z  /  ↑ : LANCER"
             dessiner_texte(image, texte, terrain.rect.centerx, terrain.raquettes[0].y - 70,
                            2, config.AMBRE)
         if self.etat == "bilan":

@@ -250,17 +250,23 @@ la production ».
 - [x] **(fait en 2.1)** Skins complets (balle, traînée, son) et bannières de boss.
 - [x] **(fait en 2.1)** Mode admin (NEON_ADMINS sur le serveur) et bot de test (F8).
 - [ ] Liste d'amis et classement entre amis.
-- [ ] **Version navigateur pour téléphone et tablette (prochaine priorité)** avec pygbag,
-  hébergée sur le NAS :
-  - rien à installer : un lien, et « Ajouter à l'écran d'accueil » (comme une app) sur iPhone,
+- [x] **(fait, à publier en 2.2)** **Version navigateur pour téléphone et tablette** avec pygbag,
+  servie par le serveur du NAS sur `/jeu/` (lien sur la page d'accueil du serveur) :
+  - rien à installer : un lien, et « Sur l'écran d'accueil » (comme une app) sur iPhone,
     iPad et Android ;
-  - écran adapté : jeu en paysage (message « tourne ton téléphone » en portrait), menus et
-    boutons assez grands pour le doigt, HUD lisible sur un petit écran ;
-  - d'abord le solo (Campagne, Arcade, défis), avec des commandes tactiles (glisser pour
-    bouger, toucher pour lancer, boutons pour les pouvoirs) ;
-  - musiques en fichiers audio (numpy n'existe pas dans le navigateur) ;
-  - ensuite le compte et les scores (requêtes web), puis le jeu en ligne (WebSocket du
-    navigateur à la place de la bibliothèque websockets).
+  - tout le jeu : solo, compte, scores, boutique et jeu en ligne (requêtes et WebSocket
+    passent par le JavaScript de la page, voir `moteur/web.py`) ;
+  - au doigt : glisser pour bouger, toucher pour lancer, boutons POUVOIRS, SUPERNOVA,
+    PAUSE et RETOUR, clavier du téléphone pour le pseudo et le mot de passe ;
+  - paysage (message « tourne ton téléphone » en portrait), plein écran sur Android ;
+  - sons et musiques fabriqués d'avance en .ogg, sauvegarde dans le navigateur ;
+  - moteur Python (pygame-web/archives) copié sur notre serveur : rien chez un tiers ;
+  - dessin accéléré (copies compressées RLE, filtre CRT en un calque, halos par bandes) :
+    5 fois plus rapide dans le navigateur, et un peu plus rapide sur PC aussi.
+- [ ] Version web : à essayer sur un vrai iPhone et un vrai Android (fluidité, son, texte
+  assez grand ?). Outils : `/jeu/?profil` (temps par image) et `/jeu/?banc` dans la console.
+- [ ] Version web : sauvegarde de la progression sur le compte (sinon chaque appareil a la
+  sienne).
 
 ## Idées retenues le 26/10 (après la 2.1)
 

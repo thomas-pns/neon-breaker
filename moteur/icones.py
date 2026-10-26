@@ -17,7 +17,7 @@ Réalisé le 25/10/2026
 
 import pygame
 
-from moteur.rendu import attenuer, melanger, halo_rect
+from moteur.rendu import attenuer, figer, melanger, halo_rect
 
 TAILLE = 9
 CONTOUR = (14, 0, 28)
@@ -565,7 +565,7 @@ def surface_icone(code, couleur, echelle=2, defaut=None):
             image.fill(CONTOUR, (1 + c * echelle + dx, 1 + l * echelle + dy, echelle, echelle))
     for c, l, car in cellules:
         image.fill(teintes[car], (1 + c * echelle, 1 + l * echelle, echelle, echelle))
-    _CACHE[cle] = image
+    _CACHE[cle] = figer(image)
     return image
 
 

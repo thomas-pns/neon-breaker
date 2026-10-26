@@ -16,6 +16,9 @@ DOSSIER_DONNEES = os.environ.get("NEON_DONNEES_SERVEUR", "/data")
 CHEMIN_BASE = os.path.join(DOSSIER_DONNEES, "neon.sqlite3")
 DOSSIER_BUILDS = os.path.join(DOSSIER_DONNEES, "builds")
 PORT = int(os.environ.get("NEON_PORT", "8765"))
+# Version navigateur (fabriquée par outils/construire_web.py) : jeu/ et archives/.
+DOSSIER_WEB = os.environ.get("NEON_WEB", os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "build", "web"))
 
 # Jeton secret utilisé par GitHub Actions pour envoyer les exécutables.
 JETON_DEPLOIEMENT = os.environ.get("NEON_JETON_DEPLOIEMENT", "")

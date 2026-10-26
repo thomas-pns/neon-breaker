@@ -25,6 +25,9 @@ import pygame
 #   - les DONNÉES du joueur (sauvegarde, sons générés, journal), qui doivent
 #     survivre aux mises à jour : dossier utilisateur du système.
 EST_EXECUTABLE = getattr(sys, "frozen", False)
+# Version navigateur (pygbag, Python compilé en WebAssembly) : pas de fils
+# d'exécution, sauvegarde dans le navigateur, sons livrés en .ogg.
+EST_WEB = sys.platform == "emscripten"
 RACINE = getattr(sys, "_MEIPASS",
                  os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DOSSIER_RESSOURCES = os.path.join(RACINE, "data")
@@ -58,6 +61,8 @@ def _dossier_utilisateur():
     """
     if os.environ.get("NEON_DONNEES"):
         dossier = os.environ["NEON_DONNEES"]
+    elif EST_WEB:
+        dossier = os.path.expanduser("~/neonbreaker")   # en mémoire : voir moteur/web.py
     elif not EST_EXECUTABLE:
         dossier = DOSSIER_RESSOURCES            # lancé depuis le code source
     elif sys.platform == "win32":
@@ -75,6 +80,7 @@ def _dossier_utilisateur():
 DOSSIER_DATA = _dossier_utilisateur()
 DOSSIER_SONS = os.path.join(DOSSIER_DATA, "sons")
 DOSSIER_NIVEAUX = os.path.join(DOSSIER_RESSOURCES, "niveaux")
+DOSSIER_SONS_WEB = os.path.join(DOSSIER_RESSOURCES, "sons_web")   # .ogg de la version web
 CHEMIN_FOND = os.path.join(DOSSIER_RESSOURCES, "fond.png")
 
 # --- Affichage -----------------------------------------------------------

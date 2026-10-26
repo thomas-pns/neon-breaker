@@ -104,6 +104,29 @@ def lancer(app):
         if app.audio.actif and len(app.audio.musiques) < 6:
             raise RuntimeError(f"musiques manquantes : {sorted(app.audio.musiques)}")
         print(f"AUTOTEST pause + options : OK ({len(app.audio.musiques)} musiques)")
+        # Au doigt (téléphone) : boutons à l'écran, toucher les pouvoirs, SUPERNOVA, PAUSE.
+        app.entrees.tactile = True
+        for code in ("campagne", "arcade", "duel"):
+            app.remplacer(EcranPartie(app, fabrique_mode(code)), transition=False)
+            for image in range(60):
+                app.entrees.debut_image()
+                if image == 20:
+                    app.entrees.forcer("action", "solo")
+                for action in ("pouvoir1", "overdrive") if image == 40 else ():
+                    app.entrees.appuis_tactiles.add(action)
+                app._mettre_a_jour(1 / 60)
+                app._dessiner()
+            actions = {action for _, action in app.entrees.boutons_dessines}
+            if "pause" not in actions:
+                raise RuntimeError(f"tactile {code} : pas de bouton PAUSE ({actions})")
+        app.remplacer(EcranTitre(app), transition=False)
+        app.entrees.appuis_tactiles.add("retour")
+        for image in range(10):
+            app._mettre_a_jour(1 / 60)
+            app._dessiner()
+            app.entrees.debut_image()
+        app.entrees.tactile = False
+        print("AUTOTEST tactile : OK")
     except Exception:
         traceback.print_exc()
         print("AUTOTEST : ECHEC")

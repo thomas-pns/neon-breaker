@@ -19,8 +19,9 @@ import copy
 import json
 import os
 
-from moteur import config
+from moteur import config, web
 
+CLE_WEB = "neonbreaker.sauvegarde"      # version navigateur : stockage local
 CHEMIN = os.path.join(config.DOSSIER_DATA, "sauvegarde.json")
 
 DEFAUT = {
@@ -57,8 +58,11 @@ def charger(chemin=CHEMIN):
     Entrée : chemin (str). Sortie : (dict) données (défaut si absent/corrompu).
     """
     try:
-        with open(chemin, encoding="utf-8") as fichier:
-            lu = json.load(fichier)
+        if config.EST_WEB and chemin == CHEMIN:
+            lu = json.loads(web.lire(CLE_WEB) or "{}")
+        else:
+            with open(chemin, encoding="utf-8") as fichier:
+                lu = json.load(fichier)
         if not isinstance(lu, dict):
             raise ValueError("format inattendu")
         return fusionner(DEFAUT, lu)
@@ -71,6 +75,8 @@ def enregistrer(donnees, chemin=CHEMIN):
     But : écrire la sauvegarde de façon atomique.
     Entrées : donnees (dict), chemin (str). Sortie : (bool) succès.
     """
+    if config.EST_WEB and chemin == CHEMIN:
+        return web.ecrire(CLE_WEB, json.dumps(donnees, ensure_ascii=False))
     temporaire = chemin + ".tmp"
     try:
         os.makedirs(os.path.dirname(chemin), exist_ok=True)

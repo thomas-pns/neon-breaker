@@ -105,6 +105,16 @@ class ChampTexte:
 
     def saisir(self, entrees):
         """But : ajouter les caractères tapés ; Retour arrière efface."""
+        if config.EST_WEB and entrees.tactile and 1 in entrees.clics \
+                and self.rect.collidepoint(entrees.souris):
+            # Téléphone : pas de clavier physique, on ouvre celui du navigateur.
+            from moteur import web
+            reponse = web.demander_texte(self.libelle, "" if self.masque else self.valeur)
+            if reponse is not None:
+                self.valeur = "".join(c for c in reponse if c.isprintable() and (
+                    self.autorises is None or c in self.autorises))[:self.maximum]
+            entrees.clics.discard(1)
+            return
         for caractere in entrees.texte:
             if len(self.valeur) >= self.maximum or not caractere.isprintable():
                 continue

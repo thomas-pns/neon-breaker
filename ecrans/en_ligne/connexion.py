@@ -32,7 +32,7 @@ class EcranConnexion(EcranEnLigneBase):
         self.mdp = ChampTexte("MOT DE PASSE", masque=True, maximum=32)
         self.champs = [self.pseudo, self.mdp]
         self.adresse = None
-        if not adresse_serveur(app.reglages):
+        if not adresse_serveur(app.reglages) and not config.EST_WEB:   # web : le site lui-même
             self.adresse = ChampTexte("ADRESSE DU SERVEUR (HTTPS://...)", maximum=60)
             self.champs.append(self.adresse)
         self.boutons = []

@@ -56,6 +56,16 @@ def main():
     data/erreurs.log avant de la réafficher.
     Entrée : aucune. Sortie : aucune.
     """
+    if config.EST_WEB:
+        import asyncio
+        from moteur import web
+        try:
+            app = Application()
+            asyncio.run(app.lancer_web(EcranTitre(app)))
+        except Exception:
+            web.journal("NEON ERREUR\n" + traceback.format_exc())   # console du navigateur
+            raise
+        return
     arguments = lire_arguments()
     if os.environ.get("NEON_AUTOTEST") == "1":
         from outils.autotest import lancer as autotest

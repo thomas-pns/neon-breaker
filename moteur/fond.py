@@ -20,7 +20,7 @@ import random
 import pygame
 
 from moteur import config
-from moteur.rendu import halo_cercle, melanger, attenuer
+from moteur.rendu import figer, halo_cercle, melanger, attenuer
 
 HORIZON = 430
 POINT_FUITE_X = config.LARGEUR // 2
@@ -65,6 +65,7 @@ class FondSynthwave:
         self.progression = 0.0
         self.ciel = self._creer_ciel()
         self.soleil = self._creer_soleil(150)
+        self._soleils_rayes = {}
         self.montagnes = self._creer_montagnes()
         aleatoire = random.Random(7)
         self.etoiles = [(aleatoire.randint(0, config.LARGEUR),
@@ -85,6 +86,7 @@ class FondSynthwave:
         self.palette = PALETTES[monde]
         self.ciel = self._creer_ciel()
         self.soleil = self._creer_soleil(150)
+        self._soleils_rayes = {}
 
     # --- Pré-calculs -------------------------------------------------------
 
@@ -148,7 +150,7 @@ class FondSynthwave:
                     pygame.draw.line(surface, (*config.VIOLET, 90),
                                      ((x + px) / 2, (y + py) / 2 + 30),
                                      (x, y), 1)
-        return surface
+        return figer(surface)
 
     def _creer_sol(self):
         """
@@ -203,21 +205,32 @@ class FondSynthwave:
                             rayon=40)
         ecran.blit(lueur, lueur.get_rect(center=(POINT_FUITE_X, centre_y)),
                    special_flags=pygame.BLEND_RGB_ADD)
-        soleil = self.soleil.copy()
-        # Bandes horizontales transparentes, plus épaisses vers le bas.
-        debut = rayon * 0.45
-        cycle = (self.temps * 12) % 20
-        y = debut + cycle
-        while y < rayon * 2:
-            epaisseur = 1 + (y - debut) / (rayon * 2 - debut) * 11
-            soleil.fill((0, 0, 0, 0), (0, int(y), rayon * 2, int(epaisseur)))
-            y += 20
+        soleil = self._soleil_raye(rayon, int((self.temps * 12) % 20))
         zone = soleil.get_rect(center=(POINT_FUITE_X, centre_y))
         # On coupe ce qui dépasse sous l'horizon.
         visible = HORIZON - zone.top
         if visible > 0:
             ecran.blit(soleil, zone.topleft,
                        (0, 0, zone.width, min(zone.height, visible)))
+
+    def _soleil_raye(self, rayon, decalage):
+        """
+        But : soleil avec ses bandes horizontales transparentes, plus épaisses vers
+        le bas, décalées de 0 à 19 px (elles descendent lentement). Les 20 images
+        sont gardées en cache, compressées (copie rapide, surtout dans le navigateur).
+        Entrées : rayon (int) ; decalage (int 0..19). Sortie : (Surface SRCALPHA).
+        """
+        soleil = self._soleils_rayes.get(decalage)
+        if soleil is None:
+            soleil = self.soleil.copy()
+            debut = rayon * 0.45
+            y = debut + decalage
+            while y < rayon * 2:
+                epaisseur = 1 + (y - debut) / (rayon * 2 - debut) * 11
+                soleil.fill((0, 0, 0, 0), (0, int(y), rayon * 2, int(epaisseur)))
+                y += 20
+            self._soleils_rayes[decalage] = soleil = figer(soleil)
+        return soleil
 
     def _dessiner_grille(self, ecran):
         """Grille en perspective : lignes de fuite + lignes de profondeur."""

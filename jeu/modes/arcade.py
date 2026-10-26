@@ -229,8 +229,7 @@ class ModeArcade(ModeDeJeu):
         hud.etiquette(image, "BRIQUES", cx, 250)
         dessiner_texte(image, str(self.terrains[0].briques_restantes()), cx, 280, 4,
                        config.AMBRE)
-        hud.etiquette(image, "COMMANDES", cx, 500, config.ROSE)
-        hud.dessiner_commandes(image, PANNEAU_D, "solo", 528, self.app)
+        hud.bloc_commandes(image, PANNEAU_D, "solo", 500, self.app, self.joueur_au_doigt())
 
     def dessiner_overlay(self, image):
         terrain = self.terrains[0]
@@ -239,5 +238,6 @@ class ModeArcade(ModeDeJeu):
         for x in range(terrain.rect.left, terrain.rect.right, 20):
             image.fill((120, 20, 50), (x, limite, 10, 2))
         if self.etat == "pret" and math.sin(self.temps * 6) > -0.3:
-            dessiner_texte(image, "ESPACE / CLIC : LANCER", terrain.rect.centerx,
+            texte = "TOUCHE POUR LANCER" if self.app.entrees.tactile else "ESPACE / CLIC : LANCER"
+            dessiner_texte(image, texte, terrain.rect.centerx,
                            terrain.raquettes[0].y - 70, 2, config.AMBRE)
