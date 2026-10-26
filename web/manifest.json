@@ -3,7 +3,7 @@
   "short_name": "NEON BREAKER",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
+  "display": "standalone",
   "orientation": "any",
   "background_color": "#0a021e",
   "theme_color": "#0a021e",

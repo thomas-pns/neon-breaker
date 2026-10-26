@@ -1,5 +1,13 @@
 [
   {
+    "version": "2.3.3",
+    "titre": "ESSAI IPHONE",
+    "lignes": [
+      "BARRE D'ETAT NOIRE EN HAUT : LE JEU DEVRAIT",
+      "ALLER JUSQU'EN BAS DE L'ECRAN (BUG D'IOS 26/27)"
+    ]
+  },
+  {
     "version": "2.3.2",
     "titre": "CORRECTIFS IPHONE",
     "lignes": [
