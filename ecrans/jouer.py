@@ -204,6 +204,10 @@ class EcranJouer(EcranMenu):
         self.position += (indice - self.position) * min(1.0, dt * 12)
         clic_bouton = 1 in entrees.clics and self.zone_bouton is not None \
             and self.zone_bouton.collidepoint(entrees.souris) and (self.famille, indice) == ancien
+        if entrees.tactile and 1 in entrees.clics and (self.famille, indice) == ancien:
+            # Au doigt : toucher la carte du milieu lance aussi le mode (cible plus grande).
+            clic_bouton = clic_bouton or any(k == indice and zone.collidepoint(entrees.souris)
+                                             for k, zone in self.zones)
         if entrees.vient_d_appuyer("valider") or clic_bouton:
             self.lancer(self.cartes()[indice][0])
 
@@ -276,7 +280,7 @@ class EcranJouer(EcranMenu):
         return lignes
 
     def _bouton(self, image, rect, texte, couleur):
-        b = pygame.Rect(0, 0, 260, 52)
+        b = pygame.Rect(0, 0, 360, 76) if est_vertical() else pygame.Rect(0, 0, 260, 52)
         b.midbottom = (rect.centerx, rect.bottom - 20)
         bouton(image, b, texte, couleur)
         self.zone_bouton = b
