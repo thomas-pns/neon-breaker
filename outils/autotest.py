@@ -89,7 +89,9 @@ def lancer(app):
                 if image % 30 == 10:
                     app.entrees.forcer("action", "solo")
                     app.entrees.forcer("action", "j1")
+                app.regler_format()
                 app._mettre_a_jour(1 / 60)
+                app.regler_format()
                 app._dessiner()
             print(f"AUTOTEST {nom} : OK")
         # Pause puis options par-dessus une partie, et musique chargée.
@@ -99,7 +101,9 @@ def lancer(app):
         app.empiler(EcranOptions(app))
         for image in range(30):
             app.entrees.debut_image()
+            app.regler_format()
             app._mettre_a_jour(1 / 60)
+            app.regler_format()
             app._dessiner()
         if app.audio.actif and len(app.audio.musiques) < 6:
             raise RuntimeError(f"musiques manquantes : {sorted(app.audio.musiques)}")
@@ -114,7 +118,9 @@ def lancer(app):
                     app.entrees.forcer("action", "solo")
                 for action in ("pouvoir1", "overdrive") if image == 40 else ():
                     app.entrees.appuis_tactiles.add(action)
+                app.regler_format()
                 app._mettre_a_jour(1 / 60)
+                app.regler_format()
                 app._dessiner()
             actions = {action for _, action in app.entrees.boutons_dessines}
             if "pause" not in actions:
@@ -122,7 +128,9 @@ def lancer(app):
         app.remplacer(EcranTitre(app), transition=False)
         app.entrees.appuis_tactiles.add("retour")
         for image in range(10):
+            app.regler_format()
             app._mettre_a_jour(1 / 60)
+            app.regler_format()
             app._dessiner()
             app.entrees.debut_image()
         app.entrees.tactile = False

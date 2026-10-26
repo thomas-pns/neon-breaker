@@ -31,6 +31,9 @@ class EcranBase:
     """
 
     transparent = False
+    # Sait se dessiner au format vertical (téléphone) ? Sinon, il y est dessiné en
+    # paysage, réduit au milieu de l'écran (en attendant sa version verticale).
+    vertical = False
 
     def __init__(self, app):
         self.app = app

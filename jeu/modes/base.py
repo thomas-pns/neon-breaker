@@ -435,6 +435,17 @@ class ModeDeJeu:
     def dessiner_hud(self, image):
         """But : affichage tête haute propre au mode."""
 
+    def infos_vertical(self):
+        """
+        But : (format vertical, téléphone) information propre au mode, à droite du
+        bandeau du haut. Sortie : (titre, sous-titre, couleur).
+        """
+        return self.code.upper(), "", config.CYAN
+
+    def record_vertical(self):
+        """But : record affiché dans le bandeau vertical."""
+        return max(self.app.meilleur_score(self.code), self.joueurs[0].score)
+
     def dessiner_message(self, image):
         """But : bandeau central temporaire."""
         from moteur.police_pixel import dessiner_texte

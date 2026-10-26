@@ -308,16 +308,20 @@ window.neon = {
     },
 }
 
-// Téléphone ou tablette : plein écran et paysage au premier toucher (Android ;
-// sur iPhone, « Sur l'écran d'accueil » donne le plein écran).
+// Téléphone : jeu vertical. Tablette : paysage. Plein écran et orientation bloquée au
+// premier toucher (Android ; sur iPhone, « Sur l'écran d'accueil » donne le plein écran).
 const tactile = window.matchMedia("(pointer: coarse)").matches
+const telephone = tactile && Math.min(screen.width, screen.height) < 600
+window.neon.telephone = () => telephone
+window.neon.proportion = () => Math.max(innerWidth, innerHeight) / Math.min(innerWidth, innerHeight)
+document.documentElement.classList.add(telephone ? "telephone" : (tactile ? "tablette" : "bureau"))
 function plein_ecran() {
     if (!tactile || document.fullscreenElement) return
     const racine = document.documentElement
     if (racine.requestFullscreen) {
         racine.requestFullscreen({navigationUI: "hide"}).then(() => {
             if (screen.orientation && screen.orientation.lock)
-                screen.orientation.lock("landscape").catch(() => {})
+                screen.orientation.lock(telephone ? "portrait" : "landscape").catch(() => {})
         }).catch(() => {})
     }
 }
@@ -424,9 +428,10 @@ window.addEventListener("touchend", plein_ecran)
             padding: 24px;
         }
         #tourner .icone { font-size: 64px; color: #ffb000; text-shadow: 0 0 14px #ffb000; }
-        @media (orientation: portrait) and (pointer: coarse) {
-            #tourner { display: flex; }
-        }
+        /* Téléphone : le jeu est vertical ; tablette : paysage. */
+        @media (orientation: portrait) { .tablette #tourner { display: flex; } }
+        @media (orientation: landscape) { .telephone #tourner { display: flex; } }
+        .tablette #tourner .portrait, .telephone #tourner .paysage { display: none; }
 
         #transfer .etat.invite { font-size: 22px; animation: battement 1.2s ease-in-out infinite; }
         @keyframes battement { 50% { opacity: 0.35; } }
@@ -455,7 +460,8 @@ height="1px"
 
     <div id="tourner">
         <div class="icone">&#x21BB;</div>
-        <div>TOURNE TON TELEPHONE<br>EN MODE PAYSAGE</div>
+        <div class="paysage">TOURNE TA TABLETTE<br>EN MODE PAYSAGE</div>
+        <div class="portrait">TOURNE TON TELEPHONE<br>EN MODE PORTRAIT</div>
     </div>
 
     <div id=html></div>

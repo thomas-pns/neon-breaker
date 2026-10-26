@@ -195,7 +195,7 @@ class FiltreCRT:
         Sortie : aucune.
         """
         self.actif = True
-        self.calque = self._creer_calque(largeur, hauteur)
+        self.calques = {(largeur, hauteur): self._creer_calque(largeur, hauteur)}
         self.aberration = 0.0
 
     @staticmethod
@@ -263,7 +263,10 @@ class FiltreCRT:
                 image.blit(rouge, (decalage, 0),
                            special_flags=pygame.BLEND_RGB_ADD)
         if self.actif:
-            image.blit(self.calque, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+            taille = image.get_size()
+            if taille not in self.calques:          # autre format (téléphone : vertical)
+                self.calques[taille] = self._creer_calque(*taille)
+            image.blit(self.calques[taille], (0, 0), special_flags=pygame.BLEND_RGB_MULT)
 
 
 class Ecran:
@@ -272,15 +275,20 @@ class Ecran:
     est ensuite mise à l'échelle (avec bandes noires) dans la fenêtre.
     """
 
-    def __init__(self, plein_ecran=False):
+    def __init__(self, plein_ecran=False, taille=None):
         """
         But : créer la fenêtre et l'image interne.
-        Entrée : plein_ecran (bool). Sortie : aucune.
+        Entrées : plein_ecran (bool) ; taille ((l, h)) : format de l'image interne
+                  (config.PAYSAGE, ou config.VERTICAL sur téléphone).
         """
-        self.image = pygame.Surface((config.LARGEUR, config.HAUTEUR))
+        self.taille = tuple(taille or config.PAYSAGE)
+        self.image = pygame.Surface(self.taille)
+        # Écran pas encore prévu pour le vertical : dessiné en paysage dans cette zone
+        # de l'image (None sinon). Sert aussi à convertir la souris.
+        self.sous_zone = None
         self.plein_ecran = plein_ecran
         self.fenetre = None
-        self.zone = pygame.Rect(0, 0, config.LARGEUR, config.HAUTEUR)
+        self.zone = pygame.Rect(0, 0, *self.taille)
         self.tremblement = (0, 0)
         self._ouvrir()
 
@@ -289,14 +297,16 @@ class Ecran:
         But : (ré)ouvrir la fenêtre selon le mode courant.
         Entrée : aucune. Sortie : aucune.
         """
+        largeur, hauteur = self.taille
         if config.EST_WEB:
             # La page met le canevas à l'échelle de l'écran (téléphone, tablette).
-            self.fenetre = pygame.display.set_mode((config.LARGEUR, config.HAUTEUR))
+            self.fenetre = pygame.display.set_mode(self.taille)
         elif self.plein_ecran:
             self.fenetre = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        elif hauteur > largeur:          # essai du format téléphone sur PC
+            self.fenetre = pygame.display.set_mode((450, 800), pygame.RESIZABLE)
         else:
-            self.fenetre = pygame.display.set_mode(
-                (config.LARGEUR, config.HAUTEUR), pygame.RESIZABLE)
+            self.fenetre = pygame.display.set_mode(self.taille, pygame.RESIZABLE)
         self._calculer_zone()
 
     def basculer_plein_ecran(self):
@@ -323,9 +333,9 @@ class Ecran:
         Entrée : aucune. Sortie : aucune.
         """
         largeur, hauteur = self.fenetre.get_size()
-        echelle = min(largeur / config.LARGEUR, hauteur / config.HAUTEUR)
-        zone_l = int(config.LARGEUR * echelle)
-        zone_h = int(config.HAUTEUR * echelle)
+        echelle = min(largeur / self.taille[0], hauteur / self.taille[1])
+        zone_l = int(self.taille[0] * echelle)
+        zone_h = int(self.taille[1] * echelle)
         self.zone = pygame.Rect((largeur - zone_l) // 2,
                                 (hauteur - zone_h) // 2, zone_l, zone_h)
 
@@ -336,8 +346,12 @@ class Ecran:
         Entrée : position (tuple) (x, y) fenêtre.
         Sortie : (tuple) (x, y) internes.
         """
-        x = (position[0] - self.zone.x) * config.LARGEUR / max(1, self.zone.w)
-        y = (position[1] - self.zone.y) * config.HAUTEUR / max(1, self.zone.h)
+        x = (position[0] - self.zone.x) * self.taille[0] / max(1, self.zone.w)
+        y = (position[1] - self.zone.y) * self.taille[1] / max(1, self.zone.h)
+        if self.sous_zone is not None:          # écran dessiné en paysage, réduit
+            zone = self.sous_zone
+            x = (x - zone.x) * config.PAYSAGE[0] / zone.w
+            y = (y - zone.y) * config.PAYSAGE[1] / zone.h
         return x, y
 
     def presenter(self):
@@ -348,10 +362,10 @@ class Ecran:
         """
         self.fenetre.fill(config.NOIR)
         dx, dy = self.tremblement
-        if self.zone.size == (config.LARGEUR, config.HAUTEUR):
+        if self.zone.size == self.taille:
             self.fenetre.blit(self.image, (self.zone.x + dx, self.zone.y + dy))
         else:
-            echelle = self.zone.w / config.LARGEUR
+            echelle = self.zone.w / self.taille[0]
             image = pygame.transform.smoothscale(self.image, self.zone.size)
             self.fenetre.blit(image, (self.zone.x + int(dx * echelle),
                                       self.zone.y + int(dy * echelle)))
