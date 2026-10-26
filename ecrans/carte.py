@@ -79,7 +79,10 @@ class EcranCarte(EcranBase):
     Attributs : code ("campagne"/"coop"), niveaux, positions, chemin (points
     de la courbe), debloque (int), indice (int), camera (float),
     marqueur (float : position du marqueur, en indice de niveau), etoiles (dict).
+    Format vertical (téléphone) : la carte est une bande de 800x720 au milieu de l'écran.
     """
+
+    vertical = True
 
     def __init__(self, app, code):
         super().__init__(app)
@@ -96,7 +99,12 @@ class EcranCarte(EcranBase):
         self.segments = [courbe(self.positions[i:i + 2]) if i + 1 < len(self.positions) else []
                          for i in range(len(self.positions))]
         self.bornes = self._bornes_mondes()
-        self.decors = self._creer_decors()
+        format_en_cours = (config.LARGEUR, config.HAUTEUR)
+        config.orienter(config.PAYSAGE)          # le décor est toujours haut de 720 px
+        try:
+            self.decors = self._creer_decors()
+        finally:
+            config.orienter(format_en_cours)
         self.zones = []
 
     # --- Décor -----------------------------------------------------------------------
@@ -365,6 +373,67 @@ class EcranCarte(EcranBase):
                            ancrage="gauche", lueur=False)
 
     def dessiner(self, image):
+        if config.HAUTEUR > config.LARGEUR:
+            self._dessiner_vertical(image)
+            return
+        self._dessiner_carte(image)
+        titre = "CAMPAGNE" if self.code == "campagne" else "COOP"
+        dessiner_texte(image, titre, 30, 40, 4, config.CYAN, ancrage="gauche")
+        self._dessiner_total(image, config.LARGEUR - 30, 40)
+        self._dessiner_infos(image)
+        if math.sin(self.temps * 5) > -0.4:
+            dessiner_texte(image, "FLECHES : CHOISIR    ENTREE : JOUER    ECHAP : RETOUR",
+                           config.LARGEUR / 2, config.HAUTEUR - 22, 2, (150, 120, 200), lueur=False)
+
+    def _dessiner_total(self, image, x, y):
+        total = sum(nombre_etoiles(m) for m in self.etoiles.values())
+        zone = dessiner_texte(image, f"{total} / {3 * len(self.niveaux)}", x, y,
+                              3, config.OR, ancrage="droite")
+        dessiner_etoiles(image, 1, (zone.x - 22, zone.centery), 12, total=1)
+
+    def _dessiner_vertical(self, image):
+        """Téléphone : titre en haut, la carte (800x720) au milieu, la fiche du niveau en bas."""
+        from ecrans.menus import marge_haut
+        self.app.fond.dessiner(image)
+        image.fill((60, 50, 80), special_flags=pygame.BLEND_RGB_MULT)
+        haut = marge_haut()
+        titre = "CAMPAGNE" if self.code == "campagne" else "COOP"
+        dessiner_texte(image, titre, config.LARGEUR / 2, 60 + haut, 6, config.CYAN)
+        self._dessiner_total(image, config.LARGEUR / 2 + 90, 120 + haut)
+        y_carte = 170 + haut
+        bande = image.subsurface(pygame.Rect(0, y_carte, config.LARGEUR, config.PAYSAGE[1]))
+        format_en_cours = (config.LARGEUR, config.HAUTEUR)
+        config.orienter((config.LARGEUR, config.PAYSAGE[1]))
+        try:
+            self._dessiner_carte(bande)
+        finally:
+            config.orienter(format_en_cours)
+        self.zones = [zone.move(0, y_carte) for zone in self.zones]   # en coordonnées de l'écran
+        pygame.draw.line(image, (120, 60, 160), (0, y_carte), (config.LARGEUR, y_carte), 2)
+        pygame.draw.line(image, (120, 60, 160), (0, y_carte + bande.get_height()),
+                         (config.LARGEUR, y_carte + bande.get_height()), 2)
+        self._dessiner_infos_vertical(image, y_carte + bande.get_height() + 24)
+
+    def _dessiner_infos_vertical(self, image, y):
+        niveau = self.niveaux[self.indice]
+        cadre = pygame.Rect(20, y, config.LARGEUR - 40, 250)
+        couleur = config.ROUGE if niveau.boss else COULEURS_MONDES.get(niveau.monde, config.CYAN)
+        panneau(image, cadre, couleur)
+        nom = niveau.nom.split("  ")[-1] if "  " in niveau.nom else niveau.nom
+        entete = f"BOSS  {niveau.boss.upper()}" if niveau.boss else f"NIVEAU {self.indice + 1}  {nom}"
+        dessiner_texte(image, entete[:24], cadre.centerx, cadre.y + 36, 4, couleur)
+        masque = self.etoiles.get(self.indice, 0)
+        criteres = ["FINIR LE NIVEAU", "SANS PERDRE DE VIE", f"EN MOINS DE {temps_cible(niveau)} S"]
+        for k, texte in enumerate(criteres):
+            ligne_y = cadre.y + 92 + k * 40
+            dessiner_etoiles(image, 0, (cadre.x + 60, ligne_y), 11, total=1, masque=(masque >> k) & 1)
+            dessiner_texte(image, texte, cadre.x + 86, ligne_y, 3 if k == 0 else 2,
+                           config.OR if (masque >> k) & 1 else (150, 120, 190), ancrage="gauche",
+                           lueur=False)
+        dessiner_texte(image, "TOUCHE UN NIVEAU POUR JOUER", cadre.centerx, cadre.bottom + 36, 2,
+                       (150, 120, 200), lueur=False)
+
+    def _dessiner_carte(self, image):
         source = pygame.Rect(int(self.camera), 0, config.LARGEUR, config.HAUTEUR)
         image.blit(self.decors, (0, 0), source)
         self._dessiner_sol(image)
@@ -374,13 +443,3 @@ class EcranCarte(EcranBase):
         for i in range(len(self.niveaux)):
             self._dessiner_noeud(image, i)
         self._dessiner_marqueur(image)
-        titre = "CAMPAGNE" if self.code == "campagne" else "COOP"
-        dessiner_texte(image, titre, 30, 40, 4, config.CYAN, ancrage="gauche")
-        total = sum(nombre_etoiles(m) for m in self.etoiles.values())
-        zone = dessiner_texte(image, f"{total} / {3 * len(self.niveaux)}", config.LARGEUR - 30, 40,
-                              3, config.OR, ancrage="droite")
-        dessiner_etoiles(image, 1, (zone.x - 22, zone.centery), 12, total=1)
-        self._dessiner_infos(image)
-        if math.sin(self.temps * 5) > -0.4:
-            dessiner_texte(image, "FLECHES : CHOISIR    ENTREE : JOUER    ECHAP : RETOUR",
-                           config.LARGEUR / 2, config.HAUTEUR - 22, 2, (150, 120, 200), lueur=False)

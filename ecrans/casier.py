@@ -42,10 +42,25 @@ def comment_obtenir(banniere):
     return NOMS_RARETES[banniere["rarete"]]
 
 
+def grille():
+    """
+    But : disposition de la grille : (colonnes, lignes visibles, x, y, catégories en haut ?).
+    Format vertical (téléphone) : catégories en onglets en haut, grille de 3 colonnes.
+    """
+    from ecrans.menus import bas_contenu, est_vertical, haut_contenu
+    if not est_vertical():
+        return COLONNES, LIGNES_VISIBLES, X_GRILLE, Y_GRILLE, False
+    y = haut_contenu() + 90
+    lignes = max(1, (bas_contenu() - 80 - y) // (CASE[1] + 14))
+    largeur = 3 * CASE[0] + 2 * 18
+    return 3, lignes, (config.LARGEUR - largeur) // 2 - 8, y, True
+
+
 class EcranCasier(EcranMenu):
     """Attributs : categorie (int), indice (int), dans_liste (bool : focus sur les catégories)."""
 
     onglet = "CASIER"
+    vertical = True
 
     def __init__(self, app):
         super().__init__(app)
@@ -123,6 +138,7 @@ class EcranCasier(EcranMenu):
             self.aller("ACCUEIL")
             return
         objets = self.objets()
+        colonnes, lignes_visibles, _, _, _ = grille()
         ancien = (self.categorie, self.indice, self.dans_liste)
         if self.dans_liste:
             if entrees.vient_d_appuyer("haut"):
@@ -135,16 +151,16 @@ class EcranCasier(EcranMenu):
                 self.indice, self.premiere_ligne = 0, 0
         else:
             if entrees.vient_d_appuyer("gauche"):
-                if self.indice % COLONNES == 0:
+                if self.indice % colonnes == 0:
                     self.dans_liste = True
                 else:
                     self.indice -= 1
             if entrees.vient_d_appuyer("droite"):
                 self.indice = min(len(objets) - 1, self.indice + 1)
             if entrees.vient_d_appuyer("bas"):
-                self.indice = min(len(objets) - 1, self.indice + COLONNES)
-            if entrees.vient_d_appuyer("haut") and self.indice >= COLONNES:
-                self.indice -= COLONNES
+                self.indice = min(len(objets) - 1, self.indice + colonnes)
+            if entrees.vient_d_appuyer("haut") and self.indice >= colonnes:
+                self.indice -= colonnes
             if entrees.vient_d_appuyer("valider"):
                 self.equiper(objets[self.indice])
         if 1 in entrees.clics:
@@ -158,12 +174,12 @@ class EcranCasier(EcranMenu):
                     self.indice, self.dans_liste = i, False
         if entrees.molette:
             self.premiere_ligne = max(0, self.premiere_ligne - entrees.molette)
-        ligne = self.indice // COLONNES
+        ligne = self.indice // colonnes
         if ligne < self.premiere_ligne:
             self.premiere_ligne = ligne
-        if ligne >= self.premiere_ligne + LIGNES_VISIBLES:
-            self.premiere_ligne = ligne - LIGNES_VISIBLES + 1
-        derniere = max(0, (len(self.objets()) - 1) // COLONNES - LIGNES_VISIBLES + 1)
+        if ligne >= self.premiere_ligne + lignes_visibles:
+            self.premiere_ligne = ligne - lignes_visibles + 1
+        derniere = max(0, (len(self.objets()) - 1) // colonnes - lignes_visibles + 1)
         self.premiere_ligne = min(self.premiere_ligne, derniere)
         if (self.categorie, self.indice, self.dans_liste) != ancien:
             self.app.audio.jouer("menu_nav")
@@ -173,10 +189,14 @@ class EcranCasier(EcranMenu):
     def dessiner(self, image):
         self.dessiner_fond(image)
         self.zones_categories = []
+        colonnes, lignes_visibles, x_grille, y_grille, en_haut = grille()
         for k, (code, nom) in enumerate(CATEGORIES):
-            self.categorie = self.categorie
             objets_categorie = self._compte(code)
-            r = pygame.Rect(40, Y_GRILLE + k * 64, 300, 52)
+            if en_haut:
+                largeur = (config.LARGEUR - 40 - 2 * 12) // len(CATEGORIES)
+                r = pygame.Rect(20 + k * (largeur + 12), y_grille - 80, largeur, 58)
+            else:
+                r = pygame.Rect(40, Y_GRILLE + k * 64, 300, 52)
             self.zones_categories.append(r)
             actif = k == self.categorie
             carte(image, r, config.ROSE if actif else (90, 60, 130), actif and self.dans_liste)
@@ -184,28 +204,32 @@ class EcranCasier(EcranMenu):
                            config.BLANC if actif else GRIS, ancrage="gauche", lueur=False)
         objets = self.objets()
         self.zones = []
-        debut = self.premiere_ligne * COLONNES
-        for i in range(debut, min(len(objets), debut + COLONNES * LIGNES_VISIBLES)):
-            col, lig = (i - debut) % COLONNES, (i - debut) // COLONNES
-            r = pygame.Rect(X_GRILLE + col * (CASE[0] + 18), Y_GRILLE + lig * (CASE[1] + 14), *CASE)
+        debut = self.premiere_ligne * colonnes
+        for i in range(debut, min(len(objets), debut + colonnes * lignes_visibles)):
+            col, lig = (i - debut) % colonnes, (i - debut) // colonnes
+            r = pygame.Rect(x_grille + col * (CASE[0] + 18), y_grille + lig * (CASE[1] + 14), *CASE)
             self.zones.append((i, r))
             self._dessiner_objet(image, r, objets[i], i == self.indice and not self.dans_liste)
-        lignes_total = (len(objets) - 1) // COLONNES + 1
-        if lignes_total > LIGNES_VISIBLES:
-            hauteur = LIGNES_VISIBLES * (CASE[1] + 14) - 14
-            pygame.draw.rect(image, (40, 20, 70), (1250, Y_GRILLE, 6, hauteur), border_radius=3)
-            curseur = hauteur * LIGNES_VISIBLES / lignes_total
-            y = Y_GRILLE + (hauteur - curseur) * self.premiere_ligne / max(1, lignes_total - LIGNES_VISIBLES)
-            pygame.draw.rect(image, config.ROSE, (1250, int(y), 6, int(curseur)), border_radius=3)
+        lignes_total = (len(objets) - 1) // colonnes + 1
+        if lignes_total > lignes_visibles:
+            hauteur = lignes_visibles * (CASE[1] + 14) - 14
+            pygame.draw.rect(image, (40, 20, 70), (x_grille + colonnes * (CASE[0] + 18) - 4, y_grille, 6, hauteur), border_radius=3)
+            curseur = hauteur * lignes_visibles / lignes_total
+            y = y_grille + (hauteur - curseur) * self.premiere_ligne / max(1, lignes_total - lignes_visibles)
+            pygame.draw.rect(image, config.ROSE, (x_grille + colonnes * (CASE[0] + 18) - 4, int(y), 6, int(curseur)), border_radius=3)
+        x_message = config.LARGEUR / 2 if en_haut else 810
+        y_message = y_grille + lignes_visibles * (CASE[1] + 14) + 20 if en_haut else 572
         if self.minuteur > 0:
-            dessiner_texte(image, self.message, 810, 572, 2, config.AMBRE, lueur=False)
+            dessiner_texte(image, self.message, x_message, y_message, 2, config.AMBRE, lueur=False)
         elif not self.app.en_ligne.jeton:
-            dessiner_texte(image, "CONNECTE-TOI POUR EQUIPER TES SKINS ET BANNIERES", 810, 572, 2,
-                           config.ROSE, lueur=False)
+            dessiner_texte(image, "CONNECTE-TOI POUR EQUIPER TES SKINS ET BANNIERES", x_message,
+                           y_message, 2, config.ROSE, lueur=False)
         else:
-            dessiner_texte(image, "TON STYLE SE VOIT EN SOLO ET EN LIGNE", 810, 572, 2, GRIS, lueur=False)
-        dessiner_texte(image, "FLECHES : CHOISIR    ENTREE : EQUIPER    TAB : ONGLET", config.LARGEUR / 2,
-                       config.HAUTEUR - 26, 2, (150, 120, 200), lueur=False)
+            dessiner_texte(image, "TON STYLE SE VOIT EN SOLO ET EN LIGNE", x_message, y_message, 2,
+                           GRIS, lueur=False)
+        if not en_haut:
+            dessiner_texte(image, "FLECHES : CHOISIR    ENTREE : EQUIPER    TAB : ONGLET",
+                           config.LARGEUR / 2, config.HAUTEUR - 26, 2, (150, 120, 200), lueur=False)
         self.dessiner_barre(image)
 
     def _compte(self, code):
