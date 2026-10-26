@@ -1,5 +1,17 @@
 [
   {
+    "version": "2.2.0",
+    "titre": "VERSION NAVIGATEUR",
+    "lignes": [
+      "JOUE DANS LE NAVIGATEUR : PC, TELEPHONE, TABLETTE",
+      "SUR IPHONE : PARTAGER > SUR L'ECRAN D'ACCUEIL",
+      "AU DOIGT : GLISSER, TOUCHER, BOUTONS POUVOIRS",
+      "SUPERNOVA, PAUSE ET RETOUR A L'ECRAN",
+      "JEU EN LIGNE ET CLASSEES AUSSI DANS LE NAVIGATEUR",
+      "AFFICHAGE PLUS RAPIDE, SUR PC AUSSI"
+    ]
+  },
+  {
     "version": "2.1.1",
     "titre": "CORRECTIFS",
     "lignes": [
