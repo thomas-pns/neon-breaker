@@ -278,17 +278,19 @@ la production ».
 - [x] **(2.4)** Page de présentation du site (`serveur/vitrine/`) : captures, modes, bouton de
   téléchargement selon l'appareil, étapes d'installation Windows / Mac / iPhone / Android,
   bouton Partager.
-- [ ] Format vertical : texte encore plus grand partout (casier, classements, boutique, aide,
-  salons : beaucoup de libellés en taille 2). Piste : image verticale de 640 px de large au
-  lieu de 800 (tout grossit de 25 %), à essayer écran par écran.
-- [ ] Téléphone : BOUTIQUE sans compte ouvre CONNEXION (sans onglets) ; mieux : un écran
-  boutique « connecte-toi » qui garde la barre d'onglets.
-- [ ] Téléphone : vibration légère (navigator.vibrate sur Android) quand la balle casse une
-  brique ou touche la raquette, réglable dans OPTIONS.
+- [x] **(2.5)** Téléphone : image verticale de 640 px de large au lieu de 800 (tout est 25 %
+  plus gros) ; défis de l'accueil l'un sous l'autre ; nouveautés coupées entre les mots.
+- [x] **(2.5)** BOUTIQUE sans compte : un écran « connecte-toi » qui garde la barre d'onglets.
+- [x] **(2.5)** Android : petite vibration avec les sons (raquette, briques, vie perdue...),
+  option VIBRATIONS dans OPTIONS (l'iPhone ne laisse pas une page vibrer).
 - [ ] Version web : à essayer sur un vrai Android (fluidité, son). Outils : `/jeu/?profil`
   (temps par image) et `/jeu/?banc` dans la console.
-- [ ] Version web : sauvegarde de la progression sur le compte (sinon chaque appareil a la
-  sienne).
+- [x] **(2.5)** Progression sur le compte (`jeu/progression.py`, table `progressions`) :
+  niveaux, étoiles, records, top 10, séries de défis et bulles vues. Chaque appareil envoie la
+  sienne et reçoit la FUSION (le meilleur des deux) : rien n'est jamais écrasé.
+- [x] **(2.5)** Mot de passe : l'admin donne un mot de passe provisoire (écran ADMIN ou
+  `python -m serveur.admin reset-mdp PSEUDO`), le joueur le change dans la roue (MOT DE PASSE).
+  L'admin peut aussi supprimer un compte depuis le jeu (deux appuis pour confirmer).
 
 ## Idées retenues le 26/10 (après la 2.1)
 

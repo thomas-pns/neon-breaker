@@ -56,8 +56,12 @@ def rects_verticaux():
     Sortie : (dict) zone -> Rect.
     """
     haut, bas = haut_contenu() + 14, bas_contenu() - 14
-    ecart = 22
-    hauteurs = {"profil": 110, "reprendre": 186, "jouer": 184, "defis": 220, "boutique": 150}
+    ecart = 18
+    # Les deux défis côte à côte s'il y a la place, sinon l'un sous l'autre (pleine largeur).
+    empiles = config.LARGEUR < 720
+    hauteurs = {"profil": 110, "reprendre": 176, "jouer": 170, "defis": 220, "boutique": 120}
+    if empiles:
+        hauteurs["defis"] = 2 * 160 + ecart
     surplus = max(0, bas - haut - sum(hauteurs.values()) - 4 * ecart)
     hauteurs["reprendre"] += min(150, surplus // 2)
     hauteurs["jouer"] += min(150, surplus // 2)
@@ -67,7 +71,10 @@ def rects_verticaux():
     rects = {}
     for nom in ("profil", "reprendre", "jouer", "defis", "boutique"):
         h = hauteurs[nom]
-        if nom == "defis":
+        if nom == "defis" and empiles:
+            rects["defi"] = pygame.Rect(20, y, largeur, 160)
+            rects["semaine"] = pygame.Rect(20, y + 160 + ecart, largeur, 160)
+        elif nom == "defis":
             moitie = (largeur - 20) // 2
             rects["defi"] = pygame.Rect(20, y, moitie, h)
             rects["semaine"] = pygame.Rect(40 + moitie, y, moitie, h)
@@ -279,7 +286,11 @@ class EcranTitre(EcranMenu):
                        r.x + 28, r.y + 30, 2, config.BLANC, ancrage="gauche", lueur=False)
         nom = niveau.nom.split("  ")[-1] if "  " in niveau.nom else niveau.nom
         titre = f"BOSS {niveau.boss.upper()}" if niveau.boss else f"NIVEAU {indice + 1}  {nom}"
-        dessiner_texte(image, titre[:20], r.x + 28, r.y + 72, 5, couleur, ancrage="gauche")
+        titre = titre[:20]
+        echelle = 5
+        while echelle > 3 and len(titre) * 6 * echelle > r.w - 60:   # écran étroit : un cran plus petit
+            echelle -= 1
+        dessiner_texte(image, titre, r.x + 28, r.y + 72, echelle, couleur, ancrage="gauche")
         dessiner_etoiles(image, 0, (r.x + 68, r.y + 118), 12, masque=masque)
         b = pygame.Rect(r.right - 250, r.bottom - 72, 220, 50)
         bouton(image, b, "CONTINUER" if indice else "JOUER", couleur)
@@ -303,8 +314,10 @@ class EcranTitre(EcranMenu):
         pulse = 1.0 if not choisi else 1.0 + 0.04 * math.sin(self.temps * 5)
         dessiner_texte(image, "JOUER", r.centerx, r.y + max(76, r.h // 2 - 20), int(10 * pulse),
                        config.ROSE)
-        dessiner_texte(image, "CAMPAGNE  -  ARCADE  -  CLASSEE  -  DUEL  -  COOP  -  DEFIS", r.centerx,
-                       r.bottom - 36, 2, config.BLANC, lueur=False)
+        modes = "CAMPAGNE  -  ARCADE  -  CLASSEE  -  DUEL  -  COOP  -  DEFIS"
+        if len(modes) * 12 > r.w - 40:
+            modes = "CAMPAGNE - ARCADE - DUEL - COOP - DEFIS"
+        dessiner_texte(image, modes, r.centerx, r.bottom - 36, 2, config.BLANC, lueur=False)
 
     def _dessiner_defi(self, image, r, code, choisi):
         from jeu.modes import defi as d
@@ -332,16 +345,23 @@ class EcranTitre(EcranMenu):
         for m in modificateurs:
             dessiner_texte(image, m[1], r.x + 22, y, taille, config.BLANC, ancrage="gauche", lueur=False)
             y += pas
+        x_etat, ancrage = r.x + 22, "gauche"
+        if vertical and r.w > 500:          # carte large et basse (défis l'un sous l'autre) :
+            y = r.bottom - 32 - 6           # l'état à droite, au-dessus des jours restants
+            x_etat, ancrage = r.right - 84, "droite"
+        y_etat = r.y + 72 if ancrage == "droite" else y + 6
         joue = jour in d.defis_joues(self.app, periode)
         if not joue:
             if math.sin(self.temps * 5) > -0.3:
-                dessiner_texte(image, "A JOUER !", r.x + 22, y + 6, taille, config.ROSE, ancrage="gauche",
+                dessiner_texte(image, "A JOUER !", x_etat, y_etat, taille, config.ROSE, ancrage=ancrage,
                                lueur=False)
         else:
             record = d.record_du_jour(self.app, jour, code)
-            dessiner_texte(image, f"RECORD {record}" if vertical else f"TON RECORD {record}", r.x + 22,
-                           y + 6, taille, GRIS, ancrage="gauche", lueur=False)
-        if reste:
+            dessiner_texte(image, f"RECORD {record}" if vertical else f"TON RECORD {record}", x_etat,
+                           y_etat, taille, GRIS, ancrage=ancrage, lueur=False)
+        if reste and vertical and r.w > 500:
+            dessiner_texte(image, reste, r.right - 84, y + 6, 2, GRIS, ancrage="droite", lueur=False)
+        elif reste:
             dessiner_texte(image, reste, r.x + 22, y + 6 + pas + 2, 2, GRIS, ancrage="gauche", lueur=False)
         flamme(image, (r.right - 76, r.y + 32), couleur, 3, f"{serie} {unite}")
         from ecrans.tactile import bouton_podium            # voir le classement de ce défi

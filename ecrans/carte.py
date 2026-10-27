@@ -348,6 +348,10 @@ class EcranCarte(EcranBase):
     def _dessiner_titres_mondes(self, image):
         for monde, (debut, fin) in self.bornes.items():
             cx = (debut + fin) / 2 - self.camera
+            if config.LARGEUR < 1000:
+                # Écran étroit (téléphone) : le nom suit le milieu de l'écran sans sortir de son monde.
+                demi = len(NOMS_MONDES.get(monde, "")) * 12 + 20
+                cx = max(debut - self.camera + demi, min(fin - self.camera - demi, config.LARGEUR / 2))
             if -400 < cx < config.LARGEUR + 400:
                 couleur = COULEURS_MONDES.get(monde, config.BLANC)
                 dessiner_texte(image, f"MONDE {monde}", cx, 120, 2, attenuer(couleur, 0.8), lueur=False)

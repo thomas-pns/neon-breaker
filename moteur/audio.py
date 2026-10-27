@@ -286,6 +286,11 @@ CANAUX_MUSIQUE = 3
 VITESSE_FONDU = 1.6          # volume par seconde (fondu d'environ 0,6 s)
 
 
+# Vibrations (millisecondes) qui accompagnent certains sons, au doigt sur Android.
+VIBRATIONS = {"raquette": 12, "raquette_arcade": 12, "raquette_chaud": 12, "raquette_cristal": 12,
+              "raquette_glitch": 12, "raquette_grave": 12, "raquette_laser": 12, "metal": 10,
+              "explosion": 35, "vie_perdue": 120, "supernova": 80, "detruite": 25, "game_over": 200}
+
 class Audio:
     """
     Lecteur des effets sonores et des musiques.
@@ -299,6 +304,7 @@ class Audio:
         self.sons = {}
         self.musiques = {}
         self.volume_effets = 0.7
+        self.vibrations = False       # téléphone Android : petite vibration avec certains sons
         self.volume_musique = 0.5
         self.attenuation = 1.0
         self.actif = pygame.mixer.get_init() is not None
@@ -385,6 +391,11 @@ class Audio:
         if son is not None:
             son.set_volume(self.volume_effets * volume)
             son.play()
+        if self.vibrations:
+            duree = VIBRATIONS.get(nom) or (8 if nom.startswith("brique_") else 0)
+            if duree:
+                from moteur import web
+                web.vibrer(duree)
 
     def jouer_brique(self, combo):
         """

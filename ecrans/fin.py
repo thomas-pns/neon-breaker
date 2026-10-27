@@ -102,7 +102,7 @@ class EcranFin(EcranBase):
         if vertical:
             # Téléphone : cadre plus large, assez haut pour toutes les lignes, textes plus gros.
             pas, taille = 52, 3
-            cadre.size = (700, 200 + pas * len(self.resultat["lignes"]))
+            cadre.size = (min(700, config.LARGEUR - 40), 200 + pas * len(self.resultat["lignes"]))
             cadre.midtop = (config.LARGEUR / 2, y_titre + 70)
         elif avec_top:
             cadre.midright = (config.LARGEUR / 2 - 20, 380)
@@ -123,9 +123,9 @@ class EcranFin(EcranBase):
             dessiner_texte(image, valeur, cadre.right - 40, y, taille, config.BLANC,
                            ancrage="droite", lueur=False)
         if avec_top and vertical:
-            bas_menu = config.HAUTEUR - 230 - config.MARGE_BAS_ECRAN - 40
-            self._dessiner_top(image, pygame.Rect(config.LARGEUR / 2 - 350, cadre.bottom + 24,
-                                                  700, min(360, bas_menu - cadre.bottom - 24)))
+            bas_menu = config.HAUTEUR - 230 - config.MARGE_BAS_ECRAN - 62
+            self._dessiner_top(image, pygame.Rect(cadre.x, cadre.bottom + 24,
+                                                  cadre.w, min(360, bas_menu - cadre.bottom - 24)))
         elif avec_top:
             self._dessiner_top(image, pygame.Rect(config.LARGEUR / 2 + 20, cadre.y,
                                                   420, cadre.h))

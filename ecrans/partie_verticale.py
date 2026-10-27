@@ -26,9 +26,8 @@ from moteur.police_pixel import dessiner_texte
 from ecrans import hud
 from ecrans.tactile import bouton
 
-# Disposition (image verticale de 800 px de large, 1422 px de haut ou plus : elle prend
-# les proportions du téléphone). La place en plus va pour moitié en haut (encoche,
-# barre d'état, au plus 110 px), le reste agrandit les commandes du bas.
+# Disposition (image verticale de 640 px de large, aux proportions du téléphone). La place
+# en plus agrandit les commandes du bas.
 MARGE_TERRAIN = 20
 
 
@@ -36,11 +35,11 @@ def decalage():
     """But : marge ajoutée en haut sur un écran plus allongé que 16:9."""
     if config.MARGES_CONNUES:                   # zone sûre mesurée (iPhone : encoche)
         return config.MARGE_HAUT_ECRAN
-    return min(110, max(0, config.VERTICAL[1] - 1422) // 2)
+    return min(90, max(0, config.VERTICAL[1] - config.VERTICAL[0] * 16 // 9) // 2)
 
 
 def bandeau_rect():
-    return pygame.Rect(16, 18 + decalage(), 768, 160)
+    return pygame.Rect(16, 18 + decalage(), config.VERTICAL[0] - 32, 160)
 GRIS = (170, 140, 220)
 
 
@@ -154,7 +153,7 @@ def dessiner_bandeau(image, mode, joueur):
     """But : bandeau du haut : score, record, multiplicateur, info du mode, vies, jauge."""
     r = bandeau_rect()
     hud.panneau(image, r, joueur.couleur_bord)
-    gauche = r.x + 130
+    gauche = r.x + r.w // 5 + 8
     titre_g, valeur_g, sous_g = mode.score_vertical(joueur)
     hud.etiquette(image, titre_g, gauche, r.y + 24)
     dessiner_texte(image, valeur_g, gauche, r.y + 58, 4, config.AMBRE)
@@ -162,7 +161,7 @@ def dessiner_bandeau(image, mode, joueur):
         hud.etiquette(image, sous_g, gauche, r.y + 94)
     hud.dessiner_multiplicateur(image, r.centerx - 6, r.y + 56, joueur, mode.temps, 5)
     titre, sous_titre, couleur = mode.infos_vertical(joueur)
-    droite = r.right - 130
+    droite = r.right - r.w // 5 - 8
     dessiner_texte(image, titre, droite, r.y + 34, 4 if len(titre) <= 8 else 3, couleur)
     if sous_titre:
         hud.etiquette(image, sous_titre, droite, r.y + 70, config.BLANC)

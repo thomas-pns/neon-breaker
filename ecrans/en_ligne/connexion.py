@@ -26,15 +26,21 @@ class EcranConnexion(EcranEnLigneBase):
 
     vertical = True               # dessiné aussi au format vertical (téléphone)
 
-    def __init__(self, app, inscription=False):
+    def __init__(self, app, inscription=False, changement=False):
         super().__init__(app)
         self.inscription = inscription
+        # changement : changer son mot de passe (compte déjà connecté), au lieu de se connecter.
+        self.changement = changement
         self.pseudo = ChampTexte("PSEUDO", app.en_ligne.pseudo, maximum=12,
                                  autorises=CARACTERES_PSEUDO)
         self.mdp = ChampTexte("MOT DE PASSE", masque=True, maximum=32)
         self.champs = [self.pseudo, self.mdp]
+        if changement:
+            self.ancien = ChampTexte("MOT DE PASSE ACTUEL", masque=True, maximum=32)
+            self.nouveau = ChampTexte("NOUVEAU MOT DE PASSE", masque=True, maximum=32)
+            self.champs = [self.ancien, self.nouveau]
         self.adresse = None
-        if not adresse_serveur(app.reglages) and not config.EST_WEB:   # web : le site lui-même
+        if not changement and not adresse_serveur(app.reglages) and not config.EST_WEB:
             self.adresse = ChampTexte("ADRESSE DU SERVEUR (HTTPS://...)", maximum=60)
             self.champs.append(self.adresse)
         self.boutons = []
@@ -82,6 +88,9 @@ class EcranConnexion(EcranEnLigneBase):
     def activer_bouton(self, indice):
         if indice == 0:
             self.envoyer()
+        elif self.changement:                   # ANNULER
+            from ecrans.titre import EcranTitre
+            self.app.remplacer(EcranTitre(self.app))
         else:
             self.inscription = not self.inscription
             self.message = ""
@@ -89,6 +98,16 @@ class EcranConnexion(EcranEnLigneBase):
 
     def envoyer(self):
         if self.en_cours:
+            return
+        if self.changement:
+            if len(self.nouveau.valeur) < 6:
+                self.message = "NOUVEAU MOT DE PASSE : 6 CARACTERES MINIMUM"
+                return
+            self.en_cours = True
+            self.message = "ENVOI..."
+            self.couleur_message = config.CYAN
+            self.app.audio.jouer("menu_ok")
+            self.app.en_ligne.changer_mdp(self.ancien.valeur, self.nouveau.valeur, self.reponse)
             return
         pseudo, mdp = self.pseudo.valeur.strip(), self.mdp.valeur
         if self.adresse is not None:
@@ -112,7 +131,11 @@ class EcranConnexion(EcranEnLigneBase):
 
     def reponse(self, resultat):
         self.en_cours = False
-        if resultat["ok"]:
+        if resultat["ok"] and self.changement:
+            from ecrans.titre import EcranTitre
+            self.app.notifier("MOT DE PASSE CHANGE !", "VERT")
+            self.app.remplacer(EcranTitre(self.app))
+        elif resultat["ok"]:
             from ecrans.en_ligne.hub import EcranHub
             self.app.notifier(f"BIENVENUE {self.app.en_ligne.pseudo.upper()} !", "CYAN")
             self.app.remplacer(EcranHub(self.app))
@@ -122,11 +145,12 @@ class EcranConnexion(EcranEnLigneBase):
             self.app.audio.jouer("metal")
 
     def dessiner(self, image):
-        self.dessiner_fond(image, "CREER UN COMPTE" if self.inscription else "CONNEXION")
+        self.dessiner_fond(image, "MOT DE PASSE" if self.changement else
+                           ("CREER UN COMPTE" if self.inscription else "CONNEXION"))
         vertical = config.HAUTEUR > config.LARGEUR       # téléphone : plus grand, boutons empilés
         if vertical:
             from ecrans.menus import marge_haut
-            cadre = pygame.Rect(0, 0, 740, 120 + 120 * len(self.champs) + 2 * 84)
+            cadre = pygame.Rect(0, 0, config.LARGEUR - 40, 120 + 120 * len(self.champs) + 2 * 84)
             cadre.midtop = (config.LARGEUR / 2, 130 + marge_haut())
         else:
             cadre = pygame.Rect(0, 0, 640, 170 + 90 * len(self.champs))
@@ -134,16 +158,18 @@ class EcranConnexion(EcranEnLigneBase):
         panneau(image, cadre, config.CYAN)
         y = cadre.y + (80 if vertical else 60)
         for i, champ in enumerate(self.champs):
-            champ.dessiner(image, cadre.centerx, y, 640 if vertical else 520, self.focus == i, self.temps,
+            champ.dessiner(image, cadre.centerx, y, cadre.w - 80 if vertical else 520, self.focus == i, self.temps,
                            grand=vertical)
             y += 120 if vertical else 90
         libelles = ["CREER LE COMPTE" if self.inscription else "SE CONNECTER",
                     "J'AI DEJA UN COMPTE" if self.inscription else "CREER UN COMPTE"]
+        if self.changement:
+            libelles = ["CHANGER", "ANNULER"]
         self.boutons = []
         for k, libelle in enumerate(libelles):
             choisi = self.focus == len(self.champs) + k
             if vertical:
-                rect = pygame.Rect(0, 0, 640, 68)
+                rect = pygame.Rect(0, 0, cadre.w - 80, 68)
                 rect.midtop = (cadre.centerx, y - 10 + k * 84)
                 choisi = choisi or k == 0             # bouton principal toujours plein
             else:

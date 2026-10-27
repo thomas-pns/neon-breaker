@@ -315,6 +315,9 @@ window.neon = {
 const tactile = window.matchMedia("(pointer: coarse)").matches
 const telephone = tactile && Math.min(screen.width, screen.height) < 600
 window.neon.telephone = () => telephone
+// Vibrations (Android : Safari sur iPhone ne laisse pas une page vibrer).
+window.neon.peut_vibrer = () => tactile && typeof navigator.vibrate === "function"
+window.neon.vibrer = duree => { try { navigator.vibrate(duree) } catch (e) {} }
 // Hauteur de la page, telle que le CSS la donne (100 %). Comme dans Parlotte : sur iPhone
 // (iOS 26/27), une hauteur calculée en JavaScript ou une page « fixée » laisse une bande
 // vide en bas ; seul le CSS à 100 % couvre bien tout l'écran.
