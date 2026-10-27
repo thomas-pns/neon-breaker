@@ -39,12 +39,17 @@ def est_vertical():
 
 
 def colonnes_succes():
-    """But : succès par ligne (5 au format vertical, plus étroit)."""
-    return 5 if est_vertical() else COLONNES_SUCCES
+    """But : succès par ligne (3 au format vertical : cases larges, noms lisibles)."""
+    return 3 if est_vertical() else COLONNES_SUCCES
 
 
 def lignes_succes():
-    return 6 if est_vertical() else LIGNES_SUCCES
+    return 8 if est_vertical() else LIGNES_SUCCES
+
+
+def hauteur_case():
+    """But : hauteur d'une case de succès (plus haute au format vertical)."""
+    return 84 if est_vertical() else 64
 
 
 def couper_en_lignes(texte, largeur_max_caracteres, max_lignes=2):
@@ -300,7 +305,7 @@ class EcranProfil(EcranEnLigneBase):
             from ecrans.menus import bas_contenu, haut_contenu
             y = haut_contenu() + 12
             carte = pygame.Rect(20, y, config.LARGEUR - 40, 270)
-            bloc = pygame.Rect(20, carte.bottom + 12, config.LARGEUR - 40, 200)
+            bloc = pygame.Rect(20, carte.bottom + 12, config.LARGEUR - 40, 150)
             records = pygame.Rect(20, bloc.bottom + 12, config.LARGEUR - 40, 110)
             zone_succes = pygame.Rect(20, records.bottom + 12, config.LARGEUR - 40,
                                       bas_contenu() - records.bottom - 24)
@@ -386,7 +391,8 @@ class EcranProfil(EcranEnLigneBase):
                        2, config.OR, lueur=False)
         colonnes = colonnes_succes()
         largeur = (cadre.w - 40) // colonnes
-        visibles = min(lignes_succes(), max(1, (cadre.h - 80) // 70))
+        haut_case = hauteur_case()
+        visibles = min(lignes_succes(), max(1, (cadre.h - 80) // (haut_case + 6)))
         nb_lignes = (len(succes) + colonnes - 1) // colonnes
         self.lignes_visibles = visibles
         self.premiere_ligne = max(0, min(self.premiere_ligne, nb_lignes - visibles))
@@ -394,12 +400,12 @@ class EcranProfil(EcranEnLigneBase):
         self.zones_succes = []
         for i, entree in enumerate(succes[debut:debut + colonnes * visibles], start=debut):
             ligne, colonne = divmod(i - debut, colonnes)
-            rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 46 + ligne * 70,
-                               largeur - 8, 64)
+            rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 46 + ligne * (haut_case + 6),
+                               largeur - 8, haut_case)
             self.zones_succes.append((i, rect.copy()))
             self._case_succes(image, rect, entree, i == self.choix)
         if nb_lignes > visibles:             # barre de défilement à droite
-            piste = pygame.Rect(cadre.right - 12, cadre.y + 46, 4, visibles * 70 - 6)
+            piste = pygame.Rect(cadre.right - 12, cadre.y + 46, 4, visibles * (haut_case + 6) - 6)
             pygame.draw.rect(image, (50, 30, 80), piste, border_radius=2)
             hauteur = max(20, piste.h * visibles // nb_lignes)
             y = piste.y + (piste.h - hauteur) * self.premiere_ligne // max(1, nb_lignes - visibles)
@@ -437,13 +443,18 @@ class EcranProfil(EcranEnLigneBase):
                 couleur if obtenu else (95, 75, 130), 2, lueur=obtenu, defaut=TROPHEE):
             dessiner_texte(image, "?", rect.centerx, rect.y + 18, 3, couleur, lueur=False)
         nom = entree["nom"].upper()
-        lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 12))
-        echelle = 1 if any(len(l) * 12 > rect.w - 8 for l in lignes) else 2
-        if echelle == 1:
-            lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 6))
-        lignes = [l for l in lignes if l]
-        pas = 9 * echelle
-        haut = rect.y + (42 if seuils else 45) - pas * (len(lignes) - 1) / 2
+        if est_vertical():                   # téléphone : toujours la même taille, sur 2 lignes
+            lignes = [l for l in couper_en_lignes(nom, max(1, (rect.w - 12) // 12)) if l]
+            echelle, pas = 2, 20
+            haut = rect.y + 50 - pas * (len(lignes) - 1) / 2
+        else:
+            lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 12))
+            echelle = 1 if any(len(l) * 12 > rect.w - 8 for l in lignes) else 2
+            if echelle == 1:
+                lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 6))
+            lignes = [l for l in lignes if l]
+            pas = 9 * echelle
+            haut = rect.y + (42 if seuils else 45) - pas * (len(lignes) - 1) / 2
         for n, ligne_texte in enumerate(lignes):
             dessiner_texte(image, ligne_texte, rect.centerx, haut + n * pas,
                            echelle, config.BLANC if obtenu else (110, 90, 140),
