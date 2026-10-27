@@ -1,5 +1,13 @@
 [
   {
+    "version": "2.6.1",
+    "titre": "PROFIL SUR TELEPHONE",
+    "lignes": [
+      "SUCCES EN 3 COLONNES : NOMS LISIBLES, MEME TAILLE",
+      "RECORDS DU PROFIL QUI NE DEBORDENT PLUS"
+    ]
+  },
+  {
     "version": "2.6.0",
     "titre": "SUCCES A PALIERS",
     "lignes": [
