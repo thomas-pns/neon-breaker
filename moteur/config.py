@@ -94,6 +94,9 @@ LARGEUR, HAUTEUR = PAYSAGE
 # Zones sûres du téléphone (encoche en haut, barre d'accueil en bas), en pixels de
 # l'image verticale : rien d'important ne doit être dessiné dessous.
 MARGE_HAUT_ECRAN, MARGE_BAS_ECRAN = 0, 0
+# Vrai quand la page les a mesurées (navigateur du téléphone) : elles valent alors
+# peut-être 0 (barre d'état hors du jeu), et on ne devine plus de marge en haut.
+MARGES_CONNUES = False
 
 
 def orienter(taille):

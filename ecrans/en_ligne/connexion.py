@@ -50,7 +50,7 @@ class EcranConnexion(EcranEnLigneBase):
         super().mettre_a_jour(dt)
         entrees = self.app.entrees
         appuis = entrees.appuis
-        if pygame.KSCAN_ESCAPE in appuis:
+        if pygame.KSCAN_ESCAPE in appuis or "retour" in entrees.appuis_tactiles:
             from ecrans.titre import EcranTitre
             self.app.remplacer(EcranTitre(self.app))
             return
@@ -123,23 +123,35 @@ class EcranConnexion(EcranEnLigneBase):
 
     def dessiner(self, image):
         self.dessiner_fond(image, "CREER UN COMPTE" if self.inscription else "CONNEXION")
-        cadre = pygame.Rect(0, 0, 640, 170 + 90 * len(self.champs))
-        cadre.midtop = (config.LARGEUR / 2, 110)
+        vertical = config.HAUTEUR > config.LARGEUR       # téléphone : plus grand, boutons empilés
+        if vertical:
+            from ecrans.menus import marge_haut
+            cadre = pygame.Rect(0, 0, 740, 120 + 120 * len(self.champs) + 2 * 84)
+            cadre.midtop = (config.LARGEUR / 2, 130 + marge_haut())
+        else:
+            cadre = pygame.Rect(0, 0, 640, 170 + 90 * len(self.champs))
+            cadre.midtop = (config.LARGEUR / 2, 110)
         panneau(image, cadre, config.CYAN)
-        y = cadre.y + 60
+        y = cadre.y + (80 if vertical else 60)
         for i, champ in enumerate(self.champs):
-            champ.dessiner(image, cadre.centerx, y, 520, self.focus == i, self.temps)
-            y += 90
+            champ.dessiner(image, cadre.centerx, y, 640 if vertical else 520, self.focus == i, self.temps,
+                           grand=vertical)
+            y += 120 if vertical else 90
         libelles = ["CREER LE COMPTE" if self.inscription else "SE CONNECTER",
                     "J'AI DEJA UN COMPTE" if self.inscription else "CREER UN COMPTE"]
         self.boutons = []
         for k, libelle in enumerate(libelles):
             choisi = self.focus == len(self.champs) + k
-            rect = pygame.Rect(0, 0, 250, 48)
-            rect.center = (cadre.centerx + (k * 2 - 1) * 135, y + 20)
+            if vertical:
+                rect = pygame.Rect(0, 0, 640, 68)
+                rect.midtop = (cadre.centerx, y - 10 + k * 84)
+                choisi = choisi or k == 0             # bouton principal toujours plein
+            else:
+                rect = pygame.Rect(0, 0, 250, 48)
+                rect.center = (cadre.centerx + (k * 2 - 1) * 135, y + 20)
             pygame.draw.rect(image, config.AMBRE if choisi else (60, 30, 90), rect,
                              0 if choisi else 2, border_radius=8)
-            dessiner_texte(image, libelle, rect.centerx, rect.centery, 2,
+            dessiner_texte(image, libelle, rect.centerx, rect.centery, 3 if vertical else 2,
                            (20, 0, 30) if choisi else config.AMBRE, lueur=False)
             bouton = ChampTexte("")
             bouton.rect = rect

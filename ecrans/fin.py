@@ -33,6 +33,7 @@ class EcranFin(EcranBase):
     """
 
     vertical = True               # dessiné aussi au format vertical (téléphone)
+    bouton_retour = False         # au doigt : REJOUER / ACCUEIL suffisent
 
     def musique(self):
         return None                     # silence : jingle de victoire / game over
@@ -97,7 +98,11 @@ class EcranFin(EcranBase):
         avec_top = self.a_un_top()
         largeur = 500
         cadre = pygame.Rect(0, 0, largeur, 360)
+        pas, taille = 40, 2
         if vertical:
+            # Téléphone : cadre plus large, assez haut pour toutes les lignes, textes plus gros.
+            pas, taille = 52, 3
+            cadre.size = (700, 200 + pas * len(self.resultat["lignes"]))
             cadre.midtop = (config.LARGEUR / 2, y_titre + 70)
         elif avec_top:
             cadre.midright = (config.LARGEUR / 2 - 20, 380)
@@ -112,19 +117,20 @@ class EcranFin(EcranBase):
             dessiner_texte(image, "NOUVEAU RECORD !", cadre.centerx, cadre.y + 130, 3,
                            config.ROSE)
         for i, (libelle, valeur) in enumerate(self.resultat["lignes"]):
-            y = cadre.y + 190 + i * 40
-            dessiner_texte(image, libelle, cadre.x + 40, y, 2, config.CYAN,
+            y = cadre.y + 190 + i * pas
+            dessiner_texte(image, libelle, cadre.x + 40, y, taille, config.CYAN,
                            ancrage="gauche", lueur=False)
-            dessiner_texte(image, valeur, cadre.right - 40, y, 2, config.BLANC,
+            dessiner_texte(image, valeur, cadre.right - 40, y, taille, config.BLANC,
                            ancrage="droite", lueur=False)
         if avec_top and vertical:
-            self._dessiner_top(image, pygame.Rect(config.LARGEUR / 2 - 250, cadre.bottom + 24,
-                                                  500, cadre.h))
+            bas_menu = config.HAUTEUR - 230 - config.MARGE_BAS_ECRAN - 40
+            self._dessiner_top(image, pygame.Rect(config.LARGEUR / 2 - 350, cadre.bottom + 24,
+                                                  700, min(360, bas_menu - cadre.bottom - 24)))
         elif avec_top:
             self._dessiner_top(image, pygame.Rect(config.LARGEUR / 2 + 20, cadre.y,
                                                   420, cadre.h))
         self.menu.x = config.LARGEUR / 2
-        self.menu.y = config.HAUTEUR - 230 if vertical else 610
+        self.menu.y = config.HAUTEUR - 230 - config.MARGE_BAS_ECRAN if vertical else 610
         if self.temps > 0.8:
             self.menu.dessiner(image)
 
@@ -140,6 +146,8 @@ class EcranFin(EcranBase):
                        cadre.y + 28, 2, config.CYAN)
         for i, entree in enumerate(self.app.classement(self.resultat["mode"])):
             y = cadre.y + 64 + i * 28
+            if y > cadre.bottom - 14:           # téléphone : seulement les lignes qui tiennent
+                break
             couleur = config.BLANC
             if i == self.rang:
                 couleur = config.AMBRE if int(self.temps * 6) % 2 else config.ROSE

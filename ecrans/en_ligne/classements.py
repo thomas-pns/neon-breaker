@@ -35,9 +35,9 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
     titre = "CLASSEMENTS MONDIAUX"
     onglet = "CLASSEMENTS"
 
-    def __init__(self, app):
+    def __init__(self, app, onglet_initial=None):
         super().__init__(app)
-        self.indice_onglet = 0
+        self.indice_onglet = ONGLETS.index(onglet_initial) if onglet_initial in ONGLETS else 0
         self.donnees = {}
         self.erreur = ""
         self.chargement = set()

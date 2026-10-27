@@ -138,7 +138,13 @@ class TestServeur(unittest.TestCase):
         self.assertEqual(version["protocole"], PROTOCOLE)
         self.assertEqual(version["plateformes"]["windows"]["version"], "1.2.3")
         self.assertEqual(self.client.get("/telechargements/windows").content, contenu)
-        self.assertIn("WINDOWS", self.client.get("/").text)
+        page = self.client.get("/").text
+        self.assertIn('"windows": {"version": "1.2.3"', page)       # données de la page d'accueil
+        self.assertNotIn("__DONNEES__", page)
+        image = self.client.get("/vitrine/pc-arcade.webp")
+        self.assertEqual((image.status_code, image.headers["content-type"]), (200, "image/webp"))
+        self.assertEqual(self.client.get("/vitrine/..%2Fapi.py").status_code, 404)
+        self.assertEqual(self.client.get("/vitrine/index.html").status_code, 404)
 
     def test_partie_en_ligne(self):
         config.ATTENTE_RECONNEXION = 2.0
@@ -434,7 +440,7 @@ class TestVersionNavigateur(unittest.TestCase):
         self.assertEqual(reponse.status_code, 200)
         self.assertIn("NEON", reponse.text)
         self.assertEqual(reponse.headers["cache-control"], "no-cache")
-        self.assertIn("JOUER DANS LE NAVIGATEUR", self.client.get("/").text)
+        self.assertIn('"web": true', self.client.get("/").text)
 
     def test_moteur_compresse(self):
         reponse = self.client.get("/archives/0.9/main.wasm", headers={"Accept-Encoding": "gzip"})

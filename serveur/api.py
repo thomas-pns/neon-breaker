@@ -517,33 +517,38 @@ def moteur_web(chemin: str, accept_encoding: str = Header(default="")):
     return fichier_web("archives", chemin, accept_encoding)
 
 
+DOSSIER_VITRINE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vitrine")
+TYPES_VITRINE = {".webp": "image/webp", ".png": "image/png", ".svg": "image/svg+xml",
+                 ".jpg": "image/jpeg"}
+
+
+@app.get("/vitrine/{nom}")
+def image_vitrine(nom: str):
+    """Images de la page de présentation (captures du jeu)."""
+    extension = os.path.splitext(nom)[1].lower()
+    if not re.fullmatch(r"[a-z0-9-]+\.[a-z]+", nom) or extension not in TYPES_VITRINE:
+        raise HTTPException(404, "Image inconnue")
+    chemin = os.path.join(DOSSIER_VITRINE, nom)
+    if not os.path.isfile(chemin):
+        raise HTTPException(404, "Image inconnue")
+    return FileResponse(chemin, media_type=TYPES_VITRINE[extension],
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 @app.get("/", response_class=HTMLResponse)
-def accueil():
-    """Petite page néon pour que les amis téléchargent le jeu."""
-    noms = {"windows": "WINDOWS (.EXE)", "mac_arm": "MAC PUCE APPLE (M1, M2...)",
-            "mac_intel": "MAC INTEL"}
-    liens = "".join(
-        f'<a href="/telechargements/{p}">{noms[p]}<span>v{html.escape(i["version"])}</span></a>'
-        for p, i in lire_versions().items() if p in noms) or "<p>Aucune version publiee.</p>"
-    if version_web_disponible():
-        liens = ('<a class="web" href="/jeu/">JOUER DANS LE NAVIGATEUR<span>PC, TELEPHONE, TABLETTE</span></a>'
-                 + liens)
-    return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>NEON BREAKER</title>
-<style>body{{margin:0;min-height:100vh;background:linear-gradient(#0a021e,#3c0e6e 60%,#ff2ba0);
-color:#fff;font-family:monospace;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:16px}}
-h1{{font-size:clamp(32px,8vw,72px);color:#00e5ff;text-shadow:0 0 18px #00e5ff,4px 4px 0 #ff2bd6;margin:0}}
-a{{display:flex;justify-content:space-between;gap:24px;min-width:min(420px,90vw);padding:16px 20px;border:2px solid #ffb000;
-border-radius:10px;color:#ffb000;text-decoration:none;font-size:18px;background:#12002bcc;box-shadow:0 0 14px #ffb00088}}
-a:hover{{background:#ffb000;color:#12002b}}
-a.web{{border-color:#00e5ff;color:#00e5ff;box-shadow:0 0 18px #00e5ffaa;font-size:20px;flex-direction:column;gap:6px;align-items:center}}
-a.web span{{font-size:13px;color:#e6d6ff}} a.web:hover{{background:#00e5ff;color:#12002b}} p{{max-width:560px;text-align:center;line-height:1.5;color:#e6d6ff}}</style></head>
-<body><h1>NEON BREAKER</h1>{liens}
-<p>Sur iPhone et iPad : dans Safari, <b>Partager &gt; Sur l'ecran d'accueil</b> pour l'avoir comme une app.<br>
-Windows : si un message bleu « Windows a protege votre ordinateur » apparait, cliquez sur
-<b>Informations complementaires</b> puis <b>Executer quand meme</b>.<br>
-Mac : dezippez, glissez l'application dans Applications, puis <b>clic droit &gt; Ouvrir</b> la premiere fois.</p>
-</body></html>"""
+def accueil(requete: Request):
+    """Page de présentation : captures, modes, installation sur chaque appareil."""
+    versions = {p: {"version": i.get("version", ""), "taille": i.get("taille", 0)}
+                for p, i in lire_versions().items() if p in PLATEFORMES}
+    donnees = json.dumps({"versions": versions, "web": version_web_disponible()})
+    donnees = donnees.replace("<", "\\u003c")          # jamais de </script> dans la page
+    # Adresse publique (pour l'aperçu des liens partagés), d'après le proxy inversé.
+    proto = requete.headers.get("x-forwarded-proto", requete.url.scheme).split(",")[0].strip()
+    hote = requete.headers.get("x-forwarded-host", requete.headers.get("host", "")).split(",")[0].strip()
+    base = html.escape(f"{proto}://{hote}" if re.fullmatch(r"[A-Za-z0-9.:\[\]-]+", hote) else "")
+    with open(os.path.join(DOSSIER_VITRINE, "index.html"), encoding="utf-8") as fichier:
+        page = fichier.read()
+    return page.replace("__DONNEES__", donnees).replace("__BASE__", base)
 
 
 # --- WebSocket ----------------------------------------------------------------------------

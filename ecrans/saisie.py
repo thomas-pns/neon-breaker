@@ -51,6 +51,11 @@ class EcranSaisieNom(EcranBase):
 
     vertical = True               # dessiné aussi au format vertical (téléphone)
 
+    @property
+    def bouton_retour(self):
+        """But : flèche RETOUR seulement si on peut revenir (nom changé depuis les options)."""
+        return self.reglage is not None
+
     def musique(self):
         """But : demander le silence pendant la saisie. Entree(s) : aucune. Sortie : None."""
         return None

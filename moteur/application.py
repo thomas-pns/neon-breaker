@@ -44,9 +44,45 @@ def choisir_format():
             # zone des commandes, en bas, s'agrandit.
             proportion = max(16 / 9, min(2.25, web.proportion() or 16 / 9))
             config.VERTICAL = (config.VERTICAL[0], int(config.VERTICAL[0] * proportion))
-            config.MARGE_HAUT_ECRAN, config.MARGE_BAS_ECRAN = web.marges(config.VERTICAL[0])
+            haut, bas = web.marges(config.VERTICAL[0])
+            # La barre d'accueil de l'iPhone est fine : 70 % de sa zone sûre suffit.
+            config.MARGE_HAUT_ECRAN, config.MARGE_BAS_ECRAN = haut, int(bas * 0.7)
+            config.MARGES_CONNUES = True
             return config.VERTICAL
     return config.PAYSAGE
+
+
+class Glissade:
+    """
+    Passage d'un onglet à l'autre au doigt : l'ancienne image part sur le côté et la
+    nouvelle arrive de l'autre (comme les pages d'un téléphone).
+    Attributs : ancienne (Surface : dernière image affichée), sens (int : +1, la
+    nouvelle arrive par la droite ; -1 par la gauche), temps (float).
+    """
+
+    DUREE = 0.3
+
+    def __init__(self, ancienne, sens):
+        self.ancienne = ancienne
+        self.sens = sens
+        self.temps = 0.0
+
+    def mettre_a_jour(self, dt):
+        self.temps += dt
+        return self.temps >= self.DUREE
+
+    def dessiner(self, image):
+        avance = min(1.0, self.temps / self.DUREE)
+        avance = 1 - (1 - avance) ** 3                  # démarre vite, se pose en douceur
+        largeur = image.get_width()
+        nouvelle = image.copy()
+        decalage = int(self.sens * largeur * avance)
+        x_nouvelle = self.sens * largeur - decalage
+        image.blit(self.ancienne, (-decalage, 0))
+        image.blit(nouvelle, (x_nouvelle, 0))
+        jointure = x_nouvelle if self.sens > 0 else x_nouvelle + largeur   # trait néon entre les deux
+        if 0 < jointure < largeur:
+            image.fill(config.ROSE, (jointure - 2, 0, 4, image.get_height()))
 
 
 class Transition:
@@ -143,6 +179,7 @@ class Application:
         self.horloge = pygame.time.Clock()
         self.pile = Pile()
         self.transition = None
+        self.glissade = None           # passage d'un onglet à l'autre (au doigt)
         self.en_marche = True
         self.debug = debug
         self.donnees = sauvegarde.charger()
@@ -268,6 +305,14 @@ class Application:
         actif = self.ecran_actif()
         if actif is not None:
             actif.reprendre()
+
+    def glisser_vers(self, ecran, sens):
+        """
+        But : remplacer l'écran en le faisant glisser (onglet voisin, au doigt).
+        Entrées : ecran (EcranBase) ; sens (int) : +1 il arrive par la droite, -1 par la gauche.
+        """
+        self.glissade = Glissade(self.ecran.image.copy(), sens)
+        self.remplacer(ecran, transition=False)
 
     def remplacer(self, ecran, transition=True):
         """
@@ -472,6 +517,8 @@ class Application:
                 self.transition = None
             # Pas de commandes pendant la transition.
             self.entrees.debut_image()
+        if self.glissade is not None and self.glissade.mettre_a_jour(dt):
+            self.glissade = None
         actif = self.ecran_actif()
         if actif is not None:
             actif.mettre_a_jour(dt)
@@ -518,6 +565,8 @@ class Application:
         if self.notifications:
             self._dessiner_notifications(image)
         self.crt.appliquer(image)
+        if self.glissade is not None:     # après le CRT : l'ancienne image l'a déjà
+            self.glissade.dessiner(image)
         if self.debug:
             dessiner_texte(image, f"FPS {self.horloge.get_fps():.0f}",
                            8, 8, 2, config.VERT, ancrage="haut_gauche",

@@ -162,7 +162,11 @@ class MenuVertical:
                 pygame.draw.rect(image, couleur, ligne, 2, border_radius=12)
                 self.zones.append(ligne)
                 libelle = texte
-            dessiner_texte(image, libelle, self.x, y, echelle, couleur,
+            taille = echelle
+            if largeur_ligne:                # texte trop long pour la ligne : un cran plus petit
+                while taille > 2 and taille_texte(libelle, taille)[0] > largeur_ligne - 30:
+                    taille -= 1
+            dessiner_texte(image, libelle, self.x, y, taille, couleur,
                            lueur=choisi)
             if not largeur_ligne:
                 largeur, hauteur = taille_texte(f"> {texte} <", echelle)

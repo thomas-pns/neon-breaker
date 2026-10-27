@@ -269,10 +269,24 @@ la production ».
   tous les menus en vertical (accueil, JOUER, carte, casier, boutique, classements, parties en
   ligne, profil, aide au doigt…). PC et tablette restent en paysage. Essai sur PC :
   `NEON_VERTICAL=1` ou `/jeu/?vertical`. Reste en paysage réduit : l'écran ADMIN.
-- [ ] Format vertical : texte plus grand (petits libellés difficiles à lire sur un petit
-  téléphone).
-- [ ] Version web : à essayer sur un vrai iPhone et un vrai Android (fluidité, son, texte
-  assez grand ?). Outils : `/jeu/?profil` (temps par image) et `/jeu/?banc` dans la console.
+- [x] **(2.3.4)** iPhone plein écran (barre d'état « default », canevas à 100 % en CSS, comme
+  Parlotte) : plus de bande vide en bas.
+- [x] **(2.4)** Téléphone : marge du haut mesurée (plus de vide sous la barre d'état), cartes
+  du carrousel plus grandes et qui suivent le doigt, long glissé (ou glissé depuis le bord) pour
+  passer d'un onglet à l'autre avec une animation, flèche RETOUR réparée (connexion, pause),
+  écrans CONNEXION et FIN refaits, petit bouton podium sur les défis (vers leur classement).
+- [x] **(2.4)** Page de présentation du site (`serveur/vitrine/`) : captures, modes, bouton de
+  téléchargement selon l'appareil, étapes d'installation Windows / Mac / iPhone / Android,
+  bouton Partager.
+- [ ] Format vertical : texte encore plus grand partout (casier, classements, boutique, aide,
+  salons : beaucoup de libellés en taille 2). Piste : image verticale de 640 px de large au
+  lieu de 800 (tout grossit de 25 %), à essayer écran par écran.
+- [ ] Téléphone : BOUTIQUE sans compte ouvre CONNEXION (sans onglets) ; mieux : un écran
+  boutique « connecte-toi » qui garde la barre d'onglets.
+- [ ] Téléphone : vibration légère (navigator.vibrate sur Android) quand la balle casse une
+  brique ou touche la raquette, réglable dans OPTIONS.
+- [ ] Version web : à essayer sur un vrai Android (fluidité, son). Outils : `/jeu/?profil`
+  (temps par image) et `/jeu/?banc` dans la console.
 - [ ] Version web : sauvegarde de la progression sur le compte (sinon chaque appareil a la
   sienne).
 

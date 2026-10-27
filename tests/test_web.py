@@ -149,6 +149,33 @@ def ecart_max(a, b):
                       - pygame.surfarray.array3d(b).astype(int)).max())
 
 
+class TestGlisses(TestTactile):
+    """Long glissé (changer d'onglet) et doigt suivi (carrousel)."""
+
+    def test_long_glisse_vers_la_gauche(self):
+        self.nouvelle_image()
+        self.entrees.traiter(doigt(pygame.FINGERDOWN, 900, 300))
+        self.entrees.traiter(doigt(pygame.FINGERMOTION, 700, 310))
+        self.assertEqual(self.entrees.trajet()[:2], (-200, 10))
+        self.entrees.traiter(doigt(pygame.FINGERUP, 400, 320))
+        self.assertEqual((self.entrees.glisse_long, self.entrees.glisse_bord), (-1, False))
+        self.assertIsNone(self.entrees.trajet())
+        self.nouvelle_image()
+        self.assertEqual(self.entrees.glisse_long, 0)
+
+    def test_court_glisse_depuis_le_bord(self):
+        self.nouvelle_image()
+        self.entrees.traiter(doigt(pygame.FINGERDOWN, 10, 300))
+        self.entrees.traiter(doigt(pygame.FINGERUP, 160, 300))
+        self.assertEqual((self.entrees.glisse_long, self.entrees.glisse_bord), (1, True))
+
+    def test_glisse_vertical_ne_change_pas_d_onglet(self):
+        self.nouvelle_image()
+        self.entrees.traiter(doigt(pygame.FINGERDOWN, 600, 100))
+        self.entrees.traiter(doigt(pygame.FINGERUP, 900, 600))
+        self.assertEqual(self.entrees.glisse_long, 0)
+
+
 class TestDessinOptimise(unittest.TestCase):
     """Les optimisations (surtout pour le navigateur) gardent le même rendu."""
 

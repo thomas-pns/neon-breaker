@@ -67,7 +67,7 @@ class EcranPause(EcranBase):
 
     def mettre_a_jour(self, dt):
         super().mettre_a_jour(dt)
-        if self.app.entrees.vient_d_appuyer("pause"):
+        if self.app.entrees.vient_d_appuyer("pause") or "retour" in self.app.entrees.appuis_tactiles:
             self.app.audio.jouer("pause")
             self._reprendre()
             return

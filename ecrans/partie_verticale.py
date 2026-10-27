@@ -34,7 +34,7 @@ MARGE_TERRAIN = 20
 
 def decalage():
     """But : marge ajoutée en haut sur un écran plus allongé que 16:9."""
-    if config.MARGE_HAUT_ECRAN:                 # zone sûre connue (iPhone : encoche)
+    if config.MARGES_CONNUES:                   # zone sûre mesurée (iPhone : encoche)
         return config.MARGE_HAUT_ECRAN
     return min(110, max(0, config.VERTICAL[1] - 1422) // 2)
 

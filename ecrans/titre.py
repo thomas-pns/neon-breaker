@@ -57,7 +57,7 @@ def rects_verticaux():
     """
     haut, bas = haut_contenu() + 14, bas_contenu() - 14
     ecart = 22
-    hauteurs = {"profil": 110, "reprendre": 186, "jouer": 184, "defis": 160, "boutique": 150}
+    hauteurs = {"profil": 110, "reprendre": 186, "jouer": 184, "defis": 220, "boutique": 150}
     surplus = max(0, bas - haut - sum(hauteurs.values()) - 4 * ecart)
     hauteurs["reprendre"] += min(150, surplus // 2)
     hauteurs["jouer"] += min(150, surplus // 2)
@@ -235,7 +235,13 @@ class EcranTitre(EcranMenu):
         if not en_ligne.jeton:
             carte(image, r, config.VERT, choisi)
             dessiner_texte(image, "JOUE EN LIGNE", r.x + 30, r.y + 38, 4, config.VERT, ancrage="gauche")
-            dessiner_texte(image, "CREE TON COMPTE : CLASSEMENTS, NEONS, BOUTIQUE, CLASSEE",
+            if est_vertical():                  # téléphone : plus court, plus gros
+                dessiner_texte(image, "CLASSEMENTS, NEONS, BOUTIQUE", r.x + 30, r.y + 80, 3, GRIS,
+                               ancrage="gauche", lueur=False)
+                dessiner_texte(image, "SE CONNECTER >", r.right - 22, r.y + 38, 2, config.BLANC,
+                               ancrage="droite", lueur=False)
+                return
+            dessiner_texte(image, "CREE TON COMPTE : CLASSEMENTS, BOUTIQUE...",
                            r.x + 30, r.y + 78, 2, GRIS, ancrage="gauche", lueur=False)
             dessiner_texte(image, "SE CONNECTER >", r.right - 20, r.bottom - 18, 2, config.BLANC,
                            ancrage="droite", lueur=False)
@@ -311,7 +317,7 @@ class EcranTitre(EcranMenu):
         else:
             jour = d.semaine_du_defi()
             modificateurs = d.defi_semaine_pour(jour)[1]
-            titre, couleur, periode, unite = ("DEFI DE LA SEMAINE" if r.w > 400 else "DEFI SEMAINE",
+            titre, couleur, periode, unite = ("DEFI DE LA SEMAINE" if r.w > 480 else "DEFI SEMAINE",
                                               VIOLET_SERIE, "semaine", "S")
             serie = series_locales(self.app)[1]
             import datetime
@@ -319,23 +325,27 @@ class EcranTitre(EcranMenu):
             reste = f"ENCORE {jours_restants} JOUR{'S' if jours_restants > 1 else ''}" if jours_restants \
                 else "DERNIER JOUR !"
         carte(image, r, couleur, choisi)
+        vertical = est_vertical()
+        taille, pas = (3, 32) if vertical else (2, 24)    # téléphone : textes plus gros
         dessiner_texte(image, titre, r.x + 22, r.y + 32, 3, couleur, ancrage="gauche")
-        y = r.y + 70
+        y = r.y + (78 if vertical else 70)
         for m in modificateurs:
-            dessiner_texte(image, m[1], r.x + 22, y, 2, config.BLANC, ancrage="gauche", lueur=False)
-            y += 24
+            dessiner_texte(image, m[1], r.x + 22, y, taille, config.BLANC, ancrage="gauche", lueur=False)
+            y += pas
         joue = jour in d.defis_joues(self.app, periode)
         if not joue:
             if math.sin(self.temps * 5) > -0.3:
-                dessiner_texte(image, "A JOUER !", r.x + 22, y + 6, 2, config.ROSE, ancrage="gauche",
+                dessiner_texte(image, "A JOUER !", r.x + 22, y + 6, taille, config.ROSE, ancrage="gauche",
                                lueur=False)
         else:
             record = d.record_du_jour(self.app, jour, code)
-            dessiner_texte(image, f"TON RECORD {record}", r.x + 22, y + 6, 2, GRIS, ancrage="gauche",
-                           lueur=False)
+            dessiner_texte(image, f"RECORD {record}" if vertical else f"TON RECORD {record}", r.x + 22,
+                           y + 6, taille, GRIS, ancrage="gauche", lueur=False)
         if reste:
-            dessiner_texte(image, reste, r.x + 22, y + 32, 2, GRIS, ancrage="gauche", lueur=False)
+            dessiner_texte(image, reste, r.x + 22, y + 6 + pas + 2, 2, GRIS, ancrage="gauche", lueur=False)
         flamme(image, (r.right - 76, r.y + 32), couleur, 3, f"{serie} {unite}")
+        from ecrans.tactile import bouton_podium            # voir le classement de ce défi
+        bouton_podium(image, self.app, (r.right - 36, r.bottom - 36), couleur, f"classement_{code}")
 
     def _dessiner_boutique(self, image, r, choisi):
         from reseau.boutique import COULEURS_RARETES

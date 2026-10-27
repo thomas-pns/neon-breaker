@@ -75,6 +75,10 @@ class Entrees:
         self.doigts = {}              # identifiant -> "bouton" ou [x, y] (doigt sur le jeu)
         self.glissement = 0.0         # défilement vertical accumulé (listes)
         self.balayage = 0             # doigt glissé vite : -1 vers la gauche, +1 vers la droite
+        # Long glissé horizontal (plus d'un tiers de l'écran, ou parti du bord) : -1 / +1.
+        # Les écrans à onglets s'en servent pour passer à l'onglet voisin.
+        self.glisse_long = 0
+        self.glisse_bord = False      # ce long glissé est parti du bord de l'écran
         self.depart_doigt = {}        # identifiant -> (x, y, instant) au moment du toucher
         # Doigt qui vient de se poser (position) : pour le jeu, qui réagit tout de suite.
         # Les menus, eux, reçoivent le clic quand le doigt se lève sans avoir glissé.
@@ -100,6 +104,8 @@ class Entrees:
         self.texte = ""
         self.appuis_tactiles.clear()
         self.balayage = 0
+        self.glisse_long = 0
+        self.glisse_bord = False
         self.doigt_pose = None
         self.boutons, self.boutons_dessines = self.boutons_dessines, []
 
@@ -161,6 +167,23 @@ class Entrees:
                     self.clics.add(1)
                 if abs(dx) > 90 and abs(dx) > 2 * abs(dy) and pygame.time.get_ticks() - depart[2] < 600:
                     self.balayage = 1 if dx > 0 else -1
+                bord = depart[0] < 36 or depart[0] > config.LARGEUR - 36
+                if abs(dx) > 2 * abs(dy) and (abs(dx) > config.LARGEUR / 3 or (bord and abs(dx) > 110)):
+                    self.glisse_long = 1 if dx > 0 else -1
+                    self.glisse_bord = bord
+
+    def trajet(self):
+        """
+        But : chemin parcouru par le doigt posé sur un menu, depuis qu'il s'est posé.
+        Sortie : (dx, dy, x_depart) ou None (aucun doigt, ou plusieurs).
+        """
+        if len(self.doigts) != 1:
+            return None
+        doigt, position = next(iter(self.doigts.items()))
+        depart = self.depart_doigt.get(doigt)
+        if depart is None or not isinstance(position, list):
+            return None
+        return position[0] - depart[0], position[1] - depart[1], depart[0]
 
     def traiter(self, evenement):
         """
