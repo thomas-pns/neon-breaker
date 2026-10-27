@@ -82,3 +82,19 @@ def bouton_retour(image, app):
     pygame.draw.polygon(image, config.CYAN, [(cx - 13, cy), (cx + 1, cy - 12), (cx + 1, cy + 12)])
     image.fill(config.CYAN, (cx, cy - 4, 13, 8))
     app.entrees.bouton_tactile(rect, "retour")
+
+
+def bouton_podium(image, app, centre, couleur, action):
+    """
+    But : petit bouton rond avec un podium (voir le classement), touchable et cliquable.
+    Entrées : centre (x, y) ; couleur ; action (str) : action déclenchée (ex. "classement_defi").
+    Sortie : (Rect) zone du bouton.
+    """
+    from moteur.icones import dessiner_icone
+    rect = pygame.Rect(0, 0, 50, 50)
+    rect.center = (int(centre[0]), int(centre[1]))
+    pygame.draw.rect(image, (20, 5, 40), rect, border_radius=25)
+    pygame.draw.rect(image, couleur, rect, 2, border_radius=25)
+    dessiner_icone(image, "podium", rect.center, couleur, 3)
+    app.entrees.bouton_tactile(rect, action)
+    return rect

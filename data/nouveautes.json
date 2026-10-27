@@ -1,5 +1,17 @@
 [
   {
+    "version": "2.4.0",
+    "titre": "TELEPHONE PLUS AGREABLE",
+    "lignes": [
+      "GLISSE SUR LES CARTES POUR CHANGER DE MODE",
+      "LONG GLISSE (OU DEPUIS LE BORD) : ONGLET SUIVANT",
+      "BOUTON PODIUM SUR LES DEFIS : VOIR LE CLASSEMENT",
+      "FLECHE RETOUR REPAREE, ECRANS CONNEXION ET FIN",
+      "PLUS DE VIDE EN HAUT, TEXTES PLUS GROS",
+      "NOUVELLE PAGE DU SITE POUR INSTALLER LE JEU"
+    ]
+  },
+  {
     "version": "2.3.4",
     "titre": "IPHONE PLEIN ECRAN",
     "lignes": [

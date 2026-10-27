@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NEON BREAKER — le casse-briques synthwave</title>
+<meta name="description" content="Casse-briques synthwave gratuit : campagne, arcade, duels, coop et parties classées en ligne. Sur Windows, Mac, iPhone, Android et dans le navigateur.">
+<meta name="theme-color" content="#0a021e">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NEON BREAKER">
+<meta property="og:description" content="Le casse-briques synthwave. Seul, à deux ou en ligne. Gratuit sur PC, Mac et téléphone.">
+<meta property="og:image" content="__BASE__/vitrine/pc-arcade.webp">
+<meta property="og:url" content="__BASE__/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" href="/jeu/icone-192.png">
+<link rel="apple-touch-icon" href="/jeu/icone-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root {
+  --nuit: #0a021e;
+  --violet: #2a0a52;
+  --cyan: #00e5ff;
+  --rose: #ff2bd6;
+  --ambre: #ffb000;
+  --vert: #39ff8a;
+  --texte: #eadcff;
+  --gris: #a58fd0;
+  --carte: #14042ecc;
+  --pixel: "Press Start 2P", ui-monospace, monospace;
+  --corps: "VT323", ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: var(--nuit); }
+body {
+  margin: 0;
+  color: var(--texte);
+  font-family: var(--corps);
+  font-size: 22px;
+  line-height: 1.35;
+  background: var(--nuit);
+  overflow-x: hidden;
+}
+a { color: inherit; }
+img { display: block; max-width: 100%; }
+.contenu { width: min(1120px, 100% - 32px); margin-inline: auto; }
+
+/* --- Héros : ciel, soleil rayé, montagnes, grille qui défile ------------------------ */
+.heros {
+  position: relative;
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(#05000f 0%, #1a0538 38%, #4a0f6a 58%, #ff2ba0 72%, #2a0a52 72.2%, #0a021e 100%);
+  isolation: isolate;
+}
+.etoiles {
+  position: absolute; inset: 0 0 35% 0; z-index: -3;
+  background-image:
+    radial-gradient(1.5px 1.5px at 12% 22%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 33% 12%, #fff, transparent 60%),
+    radial-gradient(1.5px 1.5px at 57% 30%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 78% 18%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 88% 40%, #fff, transparent 60%),
+    radial-gradient(1.5px 1.5px at 22% 46%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 66% 8%, #fff, transparent 60%),
+    radial-gradient(1px 1px at 45% 50%, #fff, transparent 60%);
+  animation: scintille 4s ease-in-out infinite alternate;
+}
+@keyframes scintille { from { opacity: .55; } to { opacity: 1; } }
+.soleil {
+  position: absolute; z-index: -2;
+  left: 50%; bottom: 28%;
+  width: min(56vw, 460px); aspect-ratio: 1;
+  transform: translate(-50%, 50%);
+  border-radius: 50%;
+  background: linear-gradient(#ffe25a 10%, #ff9a3c 45%, #ff2b8a 85%);
+  box-shadow: 0 0 120px #ff2b8a88;
+  -webkit-mask: linear-gradient(#000 52%, transparent 52% 55%, #000 55% 62%, transparent 62% 66%,
+                #000 66% 72%, transparent 72% 77%, #000 77% 82%, transparent 82% 88%, #000 88%);
+          mask: linear-gradient(#000 52%, transparent 52% 55%, #000 55% 62%, transparent 62% 66%,
+                #000 66% 72%, transparent 72% 77%, #000 77% 82%, transparent 82% 88%, #000 88%);
+}
+.montagnes {
+  position: absolute; z-index: -1; left: 0; right: 0; bottom: 28%;
+  height: 16vh; min-height: 80px;
+  background: #12032a;
+  clip-path: polygon(0 100%, 0 60%, 8% 20%, 15% 55%, 24% 5%, 33% 60%, 40% 35%, 47% 70%,
+                     53% 70%, 60% 30%, 68% 62%, 76% 0, 85% 50%, 92% 25%, 100% 65%, 100% 100%);
+  filter: drop-shadow(0 -2px 0 #ff2bd6);
+}
+.sol {
+  position: absolute; z-index: -1; left: -50%; right: -50%; bottom: 0; height: 28%;
+  background:
+    linear-gradient(90deg, #ff2bd655 2px, transparent 2px) 0 0 / 60px 100%,
+    linear-gradient(#00e5ff66 2px, transparent 2px) 0 0 / 100% 40px,
+    linear-gradient(#1a0538, #0a021e);
+  transform: perspective(240px) rotateX(58deg);
+  transform-origin: top;
+  animation: defile 1.2s linear infinite;
+}
+@keyframes defile { to { background-position: 0 40px, 0 40px, 0 0; } }
+.heros-texte {
+  text-align: center;
+  padding: 96px 16px 34vh;
+  display: flex; flex-direction: column; align-items: center; gap: 22px;
+}
+.logo {
+  font-family: var(--pixel);
+  font-size: clamp(30px, 8.5vw, 84px);
+  line-height: 1.15;
+  margin: 0;
+  color: var(--cyan);
+  text-shadow: 0 0 18px var(--cyan), 5px 5px 0 var(--rose);
+  animation: neon 6s infinite;
+}
+.logo span { display: block; color: var(--ambre); text-shadow: 0 0 18px var(--ambre), 5px 5px 0 #7a1a8a; }
+@keyframes neon { 0%, 92%, 96%, 100% { opacity: 1; } 94% { opacity: .55; } 95% { opacity: .9; } }
+.accroche { font-size: clamp(22px, 3.2vw, 30px); margin: 0; max-width: 680px; color: #fff; text-shadow: 0 2px 8px #000, 0 0 24px #0a021e; }
+.boutons { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+.bouton {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 16px 22px;
+  font-family: var(--pixel); font-size: 13px; letter-spacing: 1px;
+  text-decoration: none; text-transform: uppercase;
+  border: 2px solid currentColor; border-radius: 10px;
+  background: #12002bd9;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s, background .15s, color .15s;
+}
+.bouton:hover, .bouton:focus-visible { transform: translateY(-2px); }
+.bouton small { font-family: var(--corps); font-size: 18px; letter-spacing: 0; text-transform: none; opacity: .85; }
+.bouton.principal { color: var(--nuit); background: var(--rose); border-color: var(--rose); box-shadow: 0 0 26px #ff2bd6aa; font-size: 15px; padding: 20px 28px; }
+.bouton.principal:hover { box-shadow: 0 0 40px #ff2bd6; }
+.bouton.secondaire { color: var(--ambre); box-shadow: 0 0 14px #ffb00055; }
+.bouton.secondaire:hover { background: var(--ambre); color: var(--nuit); }
+.bouton.discret { color: var(--cyan); }
+.bouton.discret:hover { background: var(--cyan); color: var(--nuit); }
+.plateformes { font-size: 20px; color: #fff; margin: 0; text-shadow: 0 0 6px #0a021e, 0 2px 4px #000; }
+@media (max-width: 520px) { .plateformes { font-size: 17px; } .soleil { bottom: 26%; } }
+.descendre { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); font-family: var(--pixel); font-size: 10px; color: var(--gris); text-decoration: none; animation: rebond 1.6s infinite; }
+@keyframes rebond { 50% { transform: translate(-50%, 6px); } }
+
+/* --- Sections ------------------------------------------------------------------------ */
+section { padding: 84px 0; position: relative; }
+h2 {
+  font-family: var(--pixel); font-weight: normal;
+  font-size: clamp(18px, 3vw, 28px);
+  margin: 0 0 12px; color: var(--rose);
+  text-shadow: 0 0 14px #ff2bd688;
+}
+.sous-titre { margin: 0 0 40px; color: var(--gris); font-size: 24px; }
+.apparait { opacity: 0; transform: translateY(24px); transition: opacity .7s, transform .7s; }
+.apparait.vu { opacity: 1; transform: none; }
+
+/* Captures : un écran de PC et un téléphone qui font défiler des images. */
+.vitrine { display: grid; grid-template-columns: 1fr auto; gap: 40px; align-items: center; }
+.ecran-pc {
+  position: relative; border-radius: 14px; padding: 12px;
+  background: linear-gradient(145deg, #2a0a52, #12002b);
+  border: 2px solid #ff2bd655; box-shadow: 0 0 60px #ff2bd633, 0 30px 60px #0008;
+}
+.ecran-pc .defile { aspect-ratio: 16 / 9; border-radius: 6px; }
+.telephone {
+  width: 250px; padding: 12px; border-radius: 40px;
+  background: #07000f; border: 2px solid #00e5ff66; box-shadow: 0 0 50px #00e5ff33, 0 30px 60px #0008;
+}
+.telephone .defile { aspect-ratio: 9 / 16; border-radius: 28px; }
+.defile { position: relative; overflow: hidden; background: #000; }
+.defile img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity .9s; }
+.defile img.actif { opacity: 1; }
+.legende { margin-top: 14px; text-align: center; color: var(--gris); font-size: 20px; min-height: 1.4em; }
+
+/* Modes de jeu */
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; }
+.mode {
+  padding: 22px; border-radius: 14px; background: var(--carte);
+  border: 2px solid var(--c, var(--cyan)); box-shadow: 0 0 18px color-mix(in srgb, var(--c, var(--cyan)) 30%, transparent);
+  transition: transform .2s;
+}
+.mode:hover { transform: translateY(-4px) rotate(-.4deg); }
+.mode h3 { font-family: var(--pixel); font-weight: normal; font-size: 14px; color: var(--c, var(--cyan)); margin: 0 0 12px; display: flex; align-items: center; gap: 12px; }
+.mode p { margin: 0; }
+.mode .icone { font-size: 26px; filter: drop-shadow(0 0 6px var(--c)); }
+
+/* Installer : onglets par appareil */
+.onglets { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px; }
+.onglet {
+  font-family: var(--pixel); font-size: 11px; padding: 12px 16px; border-radius: 8px;
+  background: transparent; color: var(--gris); border: 2px solid #3a1a6a; cursor: pointer;
+}
+.onglet[aria-selected="true"] { color: var(--nuit); background: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 18px #00e5ff88; }
+.panneau {
+  display: none; padding: 28px; border-radius: 14px;
+  background: var(--carte); border: 2px solid #00e5ff55;
+}
+.panneau.actif { display: grid; grid-template-columns: 1fr auto; gap: 28px; align-items: start; }
+.panneau h3 { font-family: var(--pixel); font-weight: normal; font-size: 15px; color: var(--cyan); margin: 0 0 16px; }
+ol.etapes { margin: 0; padding: 0; list-style: none; counter-reset: etape; display: grid; gap: 14px; }
+ol.etapes li { counter-increment: etape; position: relative; padding: 4px 0 0 54px; min-height: 40px; }
+ol.etapes li::before {
+  position: absolute; left: 0; top: 0;
+  content: counter(etape); font-family: var(--pixel); font-size: 13px;
+  width: 36px; height: 36px; display: grid; place-items: center;
+  border-radius: 50%; border: 2px solid var(--rose); color: var(--rose);
+}
+kbd, .touche { font-family: var(--corps); background: #2a0a52; border: 1px solid #6a3aa8; border-radius: 6px; padding: 0 8px; color: #fff; white-space: nowrap; }
+.actions { display: flex; flex-direction: column; gap: 12px; min-width: 260px; }
+.note { color: var(--gris); font-size: 19px; margin-top: 18px; }
+
+/* Partager */
+.partager { text-align: center; }
+.partager .boutons { margin-top: 26px; }
+footer { padding: 40px 0 56px; text-align: center; color: var(--gris); font-size: 19px; border-top: 1px solid #2a0a52; }
+footer b { color: var(--texte); font-weight: normal; }
+.bulle {
+  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 120px);
+  padding: 12px 20px; border-radius: 10px; background: var(--vert); color: var(--nuit);
+  font-family: var(--pixel); font-size: 11px; transition: transform .3s, opacity .3s; z-index: 10;
+  opacity: 0; pointer-events: none;
+}
+.bulle.visible { transform: translate(-50%, 0); opacity: 1; }
+
+@media (max-width: 820px) {
+  body { font-size: 21px; }
+  .vitrine { grid-template-columns: 1fr; }
+  .telephone { margin: 0 auto; width: 220px; }
+  .panneau.actif { grid-template-columns: 1fr; }
+  .actions { min-width: 0; }
+  .bouton { justify-content: center; }
+  .heros-texte { padding-top: 72px; padding-bottom: 40vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .apparait { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="heros">
+  <div class="etoiles"></div>
+  <div class="soleil"></div>
+  <div class="montagnes"></div>
+  <div class="sol"></div>
+  <div class="heros-texte">
+    <h1 class="logo">NEON<span>BREAKER</span></h1>
+    <p class="accroche">Le casse-briques synthwave. Seul, à deux sur le même écran, ou en ligne contre tes potes.</p>
+    <div class="boutons">
+      <a class="bouton principal" id="jouer" href="/jeu/">▶ Jouer maintenant</a>
+      <a class="bouton secondaire" id="telecharger" href="#installer">⬇ Télécharger</a>
+    </div>
+    <p class="plateformes">Gratuit · Windows · Mac · iPhone · Android · Navigateur</p>
+  </div>
+  <a class="descendre" href="#apercu">▼ DÉCOUVRIR</a>
+</header>
+
+<main>
+  <section id="apercu">
+    <div class="contenu">
+      <h2 class="apparait">Ça ressemble à ça</h2>
+      <p class="sous-titre apparait">Briques néon, soleil rayé, musique composée par le jeu lui-même.</p>
+      <div class="vitrine apparait">
+        <div>
+          <div class="ecran-pc"><div class="defile" data-legende="legende-pc">
+            <img src="/vitrine/pc-arcade.webp" alt="Partie en mode arcade" data-texte="Arcade : le mur descend sans fin" class="actif">
+            <img src="/vitrine/pc-duel.webp" alt="Duel à deux sur le même écran" data-texte="Duel : à deux sur le même clavier" loading="lazy">
+            <img src="/vitrine/pc-carte.webp" alt="Carte de la campagne" data-texte="Campagne : 12 niveaux et des boss" loading="lazy">
+            <img src="/vitrine/pc-accueil.webp" alt="Écran d'accueil" data-texte="Défis du jour, boutique, classements" loading="lazy">
+            <img src="/vitrine/pc-modes.webp" alt="Choix du mode de jeu" data-texte="Tous les modes en un coup d'œil" loading="lazy">
+          </div></div>
+          <p class="legende" id="legende-pc">Arcade : le mur descend sans fin</p>
+        </div>
+        <div>
+          <div class="telephone"><div class="defile" data-legende="legende-tel">
+            <img src="/vitrine/tel-partie.webp" alt="Partie sur téléphone" data-texte="Au doigt, en vertical" class="actif">
+            <img src="/vitrine/tel-accueil.webp" alt="Accueil sur téléphone" data-texte="Accueil sur téléphone" loading="lazy">
+            <img src="/vitrine/tel-modes.webp" alt="Modes sur téléphone" data-texte="Glisse pour changer de mode" loading="lazy">
+          </div></div>
+          <p class="legende" id="legende-tel">Au doigt, en vertical</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="modes">
+    <div class="contenu">
+      <h2 class="apparait">Des modes pour tout le monde</h2>
+      <p class="sous-titre apparait">Une partie de deux minutes ou une soirée entière.</p>
+      <div class="modes">
+        <article class="mode apparait" style="--c: var(--cyan)"><h3><span class="icone">👑</span>Campagne</h3><p>12 niveaux, des mondes différents et des boss. Trois étoiles à décrocher par niveau.</p></article>
+        <article class="mode apparait" style="--c: var(--rose)"><h3><span class="icone">♾️</span>Arcade</h3><p>Le mur descend sans fin. Tiens le plus longtemps et grimpe au classement.</p></article>
+        <article class="mode apparait" style="--c: var(--ambre)"><h3><span class="icone">🏆</span>Classée</h3><p>Duels en ligne contre des joueurs de ton niveau, avec divisions et saisons.</p></article>
+        <article class="mode apparait" style="--c: #b45cff"><h3><span class="icone">⚔️</span>Duel &amp; Course</h3><p>À deux sur le même écran ou en ligne : malus pour l'autre, attaques à coups de combos.</p></article>
+        <article class="mode apparait" style="--c: var(--vert)"><h3><span class="icone">🤝</span>Coop</h3><p>Deux raquettes, des vies et un score communs. La campagne se joue aussi à deux.</p></article>
+        <article class="mode apparait" style="--c: var(--ambre)"><h3><span class="icone">🔥</span>Défis</h3><p>Un défi par jour et un par semaine, les mêmes pour tout le monde. Garde ta série.</p></article>
+        <article class="mode apparait" style="--c: var(--rose)"><h3><span class="icone">🎨</span>Casier &amp; boutique</h3><p>Skins de raquette, couleurs et bannières, à gagner en jouant avec des néons.</p></article>
+        <article class="mode apparait" style="--c: var(--cyan)"><h3><span class="icone">🎮</span>Partout</h3><p>Clavier, souris, manette ou doigt. Ta progression te suit avec ton compte.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="installer">
+    <div class="contenu">
+      <h2 class="apparait">Installer le jeu</h2>
+      <p class="sous-titre apparait">Choisis ton appareil. Les versions PC et Mac se mettent à jour toutes seules.</p>
+      <div class="onglets apparait" role="tablist">
+        <button class="onglet" role="tab" data-panneau="windows">Windows</button>
+        <button class="onglet" role="tab" data-panneau="mac">Mac</button>
+        <button class="onglet" role="tab" data-panneau="iphone">iPhone / iPad</button>
+        <button class="onglet" role="tab" data-panneau="android">Android</button>
+        <button class="onglet" role="tab" data-panneau="navigateur">Navigateur</button>
+      </div>
+
+      <div class="panneau" id="windows" role="tabpanel">
+        <div>
+          <h3>Sur Windows</h3>
+          <ol class="etapes">
+            <li>Télécharge <b>NeonBreaker.exe</b> avec le bouton.</li>
+            <li>Lance-le. Si un message bleu « Windows a protégé votre ordinateur » apparaît, clique sur <span class="touche">Informations complémentaires</span> puis <span class="touche">Exécuter quand même</span>.</li>
+            <li>C'est tout : pas d'installation, et le jeu se met à jour tout seul.</li>
+          </ol>
+          <p class="note">Le message bleu apparaît parce que le jeu n'est pas signé (ça coûte cher). Le fichier est vérifié à chaque mise à jour.</p>
+        </div>
+        <div class="actions" data-telechargements="windows"></div>
+      </div>
+
+      <div class="panneau" id="mac" role="tabpanel">
+        <div>
+          <h3>Sur Mac</h3>
+          <ol class="etapes">
+            <li>Télécharge la version de ton Mac. Pas sûr ? Menu Pomme &gt; <span class="touche">À propos de ce Mac</span> : « Puce Apple » (M1, M2…) ou « Intel ».</li>
+            <li>Ouvre le .zip, puis glisse <b>NEON BREAKER</b> dans le dossier <span class="touche">Applications</span>.</li>
+            <li>La première fois : <span class="touche">clic droit</span> sur l'app &gt; <span class="touche">Ouvrir</span>, puis <span class="touche">Ouvrir</span> encore. Ensuite, un double-clic suffit.</li>
+          </ol>
+        </div>
+        <div class="actions" data-telechargements="mac_arm mac_intel"></div>
+      </div>
+
+      <div class="panneau" id="iphone" role="tabpanel">
+        <div>
+          <h3>Sur iPhone et iPad</h3>
+          <ol class="etapes">
+            <li>Ouvre cette page dans <b>Safari</b>, puis touche <span class="touche">Jouer maintenant</span>.</li>
+            <li>Touche le bouton <span class="touche">Partager</span> (le carré avec une flèche).</li>
+            <li>Choisis <span class="touche">Sur l'écran d'accueil</span> : le jeu devient une app, en plein écran.</li>
+          </ol>
+          <p class="note">Le jeu se joue en vertical, au doigt : glisse en bas pour bouger la raquette, touche le terrain pour lancer la balle.</p>
+        </div>
+        <div class="actions"><a class="bouton principal" href="/jeu/">▶ Jouer</a><button class="bouton discret" data-partager>Envoyer le lien</button></div>
+      </div>
+
+      <div class="panneau" id="android" role="tabpanel">
+        <div>
+          <h3>Sur Android</h3>
+          <ol class="etapes">
+            <li>Ouvre cette page dans <b>Chrome</b>, puis touche <span class="touche">Jouer maintenant</span>.</li>
+            <li>Ouvre le menu <span class="touche">⋮</span> en haut à droite.</li>
+            <li>Choisis <span class="touche">Ajouter à l'écran d'accueil</span> (ou <span class="touche">Installer l'application</span>).</li>
+          </ol>
+        </div>
+        <div class="actions"><a class="bouton principal" href="/jeu/">▶ Jouer</a><button class="bouton discret" data-partager>Envoyer le lien</button></div>
+      </div>
+
+      <div class="panneau" id="navigateur" role="tabpanel">
+        <div>
+          <h3>Sans rien installer</h3>
+          <ol class="etapes">
+            <li>Touche ou clique sur <span class="touche">Jouer maintenant</span>.</li>
+            <li>Attends le chargement (quelques secondes la première fois, puis c'est instantané).</li>
+            <li>Joue ! Ta sauvegarde reste dans ce navigateur, et ton compte garde ta progression en ligne.</li>
+          </ol>
+          <p class="note">Marche sur Chrome, Edge, Firefox et Safari récents.</p>
+        </div>
+        <div class="actions"><a class="bouton principal" href="/jeu/">▶ Jouer maintenant</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="partager">
+    <div class="contenu apparait">
+      <h2>Fais tourner</h2>
+      <p class="sous-titre" style="margin:0">Plus on est nombreux, plus le classement est dur.</p>
+      <div class="boutons"><button class="bouton secondaire" data-partager>Partager NEON BREAKER</button></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="contenu">
+    Fait avec ♥ par <b>Thomas Chassanis Pons</b> et <b>Camil Bouziri</b><br>
+    <span id="version"></span>
+  </div>
+</footer>
+<div class="bulle" id="bulle">LIEN COPIÉ !</div>
+
+<script>
+// Données du serveur : versions publiées et version navigateur.
+const DONNEES = __DONNEES__
+const NOMS = {windows: "Windows", mac_arm: "Mac puce Apple", mac_intel: "Mac Intel"}
+
+// Appareil du visiteur : pour mettre en avant le bon bouton et le bon onglet.
+const ua = navigator.userAgent
+const ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+const android = /Android/.test(ua)
+const appareil = ios ? "iphone" : android ? "android" : /Mac/.test(ua) ? "mac" : /Win/.test(ua) ? "windows" : "navigateur"
+
+function taille(octets) { return octets ? ` · ${Math.round(octets / 1e6)} Mo` : "" }
+
+// Boutons de téléchargement de chaque onglet.
+document.querySelectorAll("[data-telechargements]").forEach(zone => {
+  const liste = zone.dataset.telechargements.split(" ").filter(p => DONNEES.versions[p])
+  zone.innerHTML = liste.map((p, k) => {
+    const v = DONNEES.versions[p]
+    return `<a class="bouton ${k ? "discret" : "secondaire"}" href="/telechargements/${p}">⬇ ${NOMS[p]}<small>v${v.version}${taille(v.taille)}</small></a>`
+  }).join("") || `<p class="note">Pas encore de version publiée ici : joue dans le navigateur en attendant.</p>`
+  if (DONNEES.web) zone.insertAdjacentHTML("beforeend", `<a class="bouton discret" href="/jeu/">▶ Ou jouer dans le navigateur</a>`)
+})
+
+// Bouton du haut : télécharge directement sur PC, sinon mène aux étapes d'installation.
+const telecharger = document.getElementById("telecharger")
+if (appareil === "windows" && DONNEES.versions.windows) {
+  telecharger.href = "/telechargements/windows"
+  telecharger.innerHTML = `⬇ Télécharger pour Windows<small>v${DONNEES.versions.windows.version}</small>`
+} else if (appareil === "mac") {
+  telecharger.innerHTML = "⬇ Télécharger pour Mac"
+} else if (appareil === "iphone" || appareil === "android") {
+  telecharger.innerHTML = "📲 L'installer comme une app"
+}
+if (!DONNEES.web) {
+  document.querySelectorAll('a[href="/jeu/"]').forEach(a => a.remove())
+}
+const derniere = Object.values(DONNEES.versions).map(v => v.version).sort((a, b) => a.localeCompare(b, undefined, {numeric: true})).pop()
+if (derniere) document.getElementById("version").textContent = `Version ${derniere}`
+
+// Onglets d'installation.
+function ouvrir(nom) {
+  document.querySelectorAll(".onglet").forEach(o => o.setAttribute("aria-selected", o.dataset.panneau === nom))
+  document.querySelectorAll(".panneau").forEach(p => p.classList.toggle("actif", p.id === nom))
+}
+document.querySelectorAll(".onglet").forEach(o => o.addEventListener("click", () => ouvrir(o.dataset.panneau)))
+ouvrir(appareil)
+
+// Captures qui défilent (fondu), avec leur légende.
+document.querySelectorAll(".defile").forEach((cadre, n) => {
+  const images = [...cadre.querySelectorAll("img")]
+  const legende = document.getElementById(cadre.dataset.legende)
+  let i = 0
+  setInterval(() => {
+    images[i].classList.remove("actif")
+    i = (i + 1) % images.length
+    images[i].classList.add("actif")
+    if (legende) legende.textContent = images[i].dataset.texte
+  }, 3400 + n * 700)
+})
+
+// Apparition au défilement.
+const observateur = new IntersectionObserver(entrees => entrees.forEach(e => {
+  if (e.isIntersecting) { e.target.classList.add("vu"); observateur.unobserve(e.target) }
+}), {threshold: 0.15})
+document.querySelectorAll(".apparait").forEach(el => observateur.observe(el))
+
+// Partager : feuille de partage du téléphone, sinon lien copié.
+const bulle = document.getElementById("bulle")
+document.querySelectorAll("[data-partager]").forEach(b => b.addEventListener("click", async () => {
+  const lien = location.origin + "/"
+  try {
+    if (navigator.share) { await navigator.share({title: "NEON BREAKER", text: "Viens jouer à NEON BREAKER !", url: lien}); return }
+    await navigator.clipboard.writeText(lien)
+  } catch (e) { return }
+  bulle.classList.add("visible")
+  setTimeout(() => bulle.classList.remove("visible"), 1800)
+}))
+</script>
+</body>
+</html>

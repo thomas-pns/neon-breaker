@@ -31,6 +31,9 @@ class EntreesTest:
         self.clics = []
         self.souris = (0, 0)
         self.souris_bougee = False
+        self.appuis_tactiles = set()
+        self.glisse_long = 0
+        self.glisse_bord = False
 
     def vient_d_appuyer(self, action):
         """But : consommer une action. Entree(s) : action (str). Sortie : bool."""

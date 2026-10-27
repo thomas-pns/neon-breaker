@@ -50,7 +50,7 @@ def marge_haut():
     """
     if not est_vertical():
         return 0
-    if config.MARGE_HAUT_ECRAN:                 # zone sûre connue (iPhone : encoche)
+    if config.MARGES_CONNUES:                   # zone sûre mesurée (iPhone : encoche)
         return config.MARGE_HAUT_ECRAN + 6
     return min(110, max(0, config.HAUTEUR - 1422) // 2)
 
@@ -232,7 +232,31 @@ class Navigation:
         if nom == self.onglet:
             return
         self.app.audio.jouer("menu_nav")
+        noms = [n for n, _ in ONGLETS]
+        if est_vertical() and self.onglet in noms:
+            # Téléphone : l'onglet glisse depuis le côté où il est dans la barre.
+            sens = 1 if noms.index(nom) > noms.index(self.onglet) else -1
+            self.app.glisser_vers(ecran_onglet(self.app, nom), sens)
+            return
         self.app.remplacer(ecran_onglet(self.app, nom), transition=False)
+
+    def voir_classement(self, mode):
+        """But : ouvrir l'onglet CLASSEMENTS sur un classement précis (ex. "defi")."""
+        from ecrans.en_ligne.classements import EcranClassementsMondiaux
+        self.app.audio.jouer("menu_ok")
+        ecran = EcranClassementsMondiaux(self.app, mode)
+        if est_vertical():
+            self.app.glisser_vers(ecran, 1)
+        else:
+            self.app.remplacer(ecran, transition=False)
+
+    def accepte_glisse_long(self, sens):
+        """
+        But : un long glissé du doigt peut-il changer d'onglet ici ? (Les écrans qui
+        glissent déjà de côté, comme le carrousel, ne le prennent que depuis le bord.)
+        Entrée : sens (int) : +1 onglet suivant, -1 précédent. Sortie : (bool).
+        """
+        return True
 
     def ouvrir_reglages(self):
         self.app.audio.jouer("menu_ok")
@@ -261,6 +285,16 @@ class Navigation:
         if sens:
             self.aller(noms[(actuel + sens) % len(noms)])
             return True
+        for mode in ("defi", "semaine"):            # petits boutons podium des cartes défi
+            if f"classement_{mode}" in entrees.appuis_tactiles:
+                self.voir_classement(mode)
+                return True
+        if entrees.glisse_long and est_vertical() and self.onglet in noms:
+            # Doigt glissé vers la gauche : onglet suivant (comme des pages).
+            sens = -entrees.glisse_long
+            if 0 <= actuel + sens < len(noms) and self.accepte_glisse_long(sens):
+                self.aller(noms[actuel + sens])
+                return True
         if 1 in entrees.clics:
             zones = self._zones_barre()
             for nom in noms:

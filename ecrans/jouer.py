@@ -69,7 +69,10 @@ Y_CARTES = 360
 def tailles():
     """But : (GRANDE, PETITE, ECART) : plus grandes au format vertical (plus de hauteur)."""
     if est_vertical():
-        return (480, 540), (260, 330), 390
+        # La grande carte prend la hauteur libre (écrans allongés), sans dépasser 760.
+        dispo = bas_contenu() - haut_contenu() - 260
+        hauteur = max(540, min(760, dispo))
+        return (540, hauteur), (280, int(hauteur * 0.62)), 410
     return GRANDE, PETITE, ECART
 
 
@@ -77,7 +80,12 @@ def y_cartes():
     """But : hauteur du centre des cartes (format paysage, ou milieu du contenu en vertical)."""
     if not est_vertical():
         return Y_CARTES
-    return (haut_contenu() + 90 + bas_contenu() - 120) // 2
+    return (haut_contenu() + 80 + bas_contenu() - 110) // 2
+
+
+def y_mention(r):
+    """But : ordonnée d'une petite mention juste au-dessus du bouton de la carte r."""
+    return r.bottom - (122 if est_vertical() else 92)
 
 
 def icone(image, code, centre, couleur, echelle):
@@ -103,6 +111,7 @@ class EcranJouer(EcranMenu):
         self.zones = []
         self.zone_bouton = None
         self.zones_familles = []
+        self.suivi = None                  # au doigt : décalage (px) des cartes qui suivent le doigt
 
     # --- Données ------------------------------------------------------------------------
 
@@ -184,7 +193,21 @@ class EcranJouer(EcranMenu):
             famille = (famille - 1) % len(FAMILLES)
         if entrees.vient_d_appuyer("bas"):
             famille = (famille + 1) % len(FAMILLES)
-        if entrees.balayage:                 # doigt glissé vers la gauche : carte suivante
+        trajet = entrees.trajet() if entrees.tactile else None
+        espacement = tailles()[2]
+        if trajet is not None and (self.suivi is not None or (abs(trajet[0]) > 30
+                                                               and abs(trajet[0]) > abs(trajet[1]))):
+            self.suivi = trajet[0]          # les cartes suivent le doigt, n'importe où sur l'écran
+        elif trajet is None and self.suivi is not None:
+            # Doigt levé : on va à la carte la plus proche (un petit glissé suffit pour changer).
+            pas = round(-self.suivi / espacement)
+            if pas == 0 and abs(self.suivi) > espacement * 0.18:
+                pas = -1 if self.suivi > 0 else 1
+            indice = max(0, min(len(cartes) - 1, indice + pas))
+            self.position = max(-0.4, min(len(cartes) - 0.6, self.position))
+            self.suivi = None
+            entrees.clics.discard(1)        # un glissé n'est jamais un toucher
+        elif entrees.balayage:               # doigt glissé vers la gauche : carte suivante
             indice = max(0, min(len(cartes) - 1, indice - entrees.balayage))
         if 1 in entrees.clics:
             for i, zone in enumerate(self.zones_familles):
@@ -201,7 +224,15 @@ class EcranJouer(EcranMenu):
         self.indices[self.famille] = indice
         if (self.famille, indice) != ancien:
             self.app.audio.jouer("menu_nav")
-        self.position += (indice - self.position) * min(1.0, dt * 12)
+        if self.suivi is not None:
+            # Au bout du carrousel, la carte résiste (elle ne suit qu'à moitié).
+            cible = indice - self.suivi / espacement
+            if cible < 0 or cible > len(cartes) - 1:
+                bout = 0 if cible < 0 else len(cartes) - 1
+                cible = bout + (cible - bout) * 0.35
+            self.position = cible
+        else:
+            self.position += (indice - self.position) * min(1.0, dt * 12)
         clic_bouton = 1 in entrees.clics and self.zone_bouton is not None \
             and self.zone_bouton.collidepoint(entrees.souris) and (self.famille, indice) == ancien
         if entrees.tactile and 1 in entrees.clics and (self.famille, indice) == ancien:
@@ -210,6 +241,14 @@ class EcranJouer(EcranMenu):
                                              for k, zone in self.zones)
         if entrees.vient_d_appuyer("valider") or clic_bouton:
             self.lancer(self.cartes()[indice][0])
+
+    def accepte_glisse_long(self, sens):
+        """But : le carrousel prend les glissés ; l'onglet voisin seulement depuis le bord
+        de l'écran, ou en continuant à glisser une fois au bout des cartes."""
+        if self.app.entrees.glisse_bord:
+            return True
+        indice = self.indices[self.famille]
+        return (sens > 0 and indice == len(self.cartes()) - 1) or (sens < 0 and indice == 0)
 
     # --- Dessin ------------------------------------------------------------------------
 
@@ -285,8 +324,19 @@ class EcranJouer(EcranMenu):
         bouton(image, b, texte, couleur)
         self.zone_bouton = b
 
+    def dy(self, n):
+        """But : décalage vertical dans la grande carte (étiré au format vertical, plus haut)."""
+        if not est_vertical():
+            return n
+        return int(n * (tailles()[0][1] - 96) / 378)
+
+    @staticmethod
+    def ts():
+        """But : taille des petits textes de la grande carte (plus grands sur téléphone)."""
+        return 3 if est_vertical() else 2
+
     def _detail(self, image, r, code, nom, couleur, code_icone):
-        dessiner_texte(image, nom, r.centerx, r.y + 38, 5 if len(nom) <= 10 else 4, couleur)
+        dessiner_texte(image, nom, r.centerx, r.y + self.dy(38), 5 if len(nom) <= 10 else 4, couleur)
         if code == "campagne":
             self._detail_campagne(image, r, couleur)
         elif code in ("classee", "classee_course"):
@@ -294,46 +344,50 @@ class EcranJouer(EcranMenu):
         elif code in ("defi", "semaine"):
             self._detail_defi(image, r, code, couleur)
         else:
-            icone(image, code_icone, (r.centerx, r.y + 130), couleur, 8)
+            icone(image, code_icone, (r.centerx, r.y + self.dy(130)), couleur, 8 + self.ts() - 2)
             for j, ligne in enumerate(DESCRIPTIONS.get(code, [])):
-                dessiner_texte(image, ligne, r.centerx, r.y + 220 + j * 30, 2, config.BLANC, lueur=False)
+                dessiner_texte(image, ligne, r.centerx, r.y + self.dy(220 + j * 30), self.ts(), config.BLANC,
+                               lueur=False)
             record = self.app.meilleur_score(code) if code in ("arcade", "hardcore") else 0
             if record:
-                dessiner_texte(image, f"RECORD  {record}", r.centerx, r.y + 330, 3, config.AMBRE)
+                dessiner_texte(image, f"RECORD  {record}", r.centerx, r.y + self.dy(330), 3, config.AMBRE)
             en_ligne = code.endswith("_en_ligne") or code == "parties"
             self._bouton(image, r, "CREER" if code.endswith("_en_ligne") else
                          ("VOIR" if code == "parties" else "JOUER"), couleur)
             if en_ligne and not self.app.en_ligne.jeton:
-                dessiner_texte(image, "CONNEXION REQUISE", r.centerx, r.bottom - 92, 2, config.ROSE,
+                dessiner_texte(image, "CONNEXION REQUISE", r.centerx, y_mention(r), 2, config.ROSE,
                                lueur=False)
 
     def _detail_campagne(self, image, r, couleur):
         from ecrans.carte import NOMS_MONDES
         niveaux, indice, etoiles, total, boss, total_boss = self._progression_campagne()
         niveau = niveaux[indice]
-        icone(image, "campagne", (r.centerx, r.y + 110), couleur, 7)
+        icone(image, "campagne", (r.centerx, r.y + self.dy(110)), couleur, 7 + self.ts() - 2)
         dessiner_texte(image, f"MONDE {niveau.monde}  {NOMS_MONDES.get(niveau.monde, '')}", r.centerx,
-                       r.y + 180, 3, config.CYAN)
+                       r.y + self.dy(180), 3, config.CYAN)
         nom = niveau.nom.split("  ")[-1] if "  " in niveau.nom else niveau.nom
-        dessiner_texte(image, f"NIVEAU {indice + 1}  {nom}"[:26], r.centerx, r.y + 212, 2, config.BLANC,
-                       lueur=False)
-        dessiner_etoiles(image, 0, (r.centerx, r.y + 250), 14, masque=etoiles.get(indice, 0))
+        dessiner_texte(image, f"NIVEAU {indice + 1}  {nom}"[:26], r.centerx, r.y + self.dy(212), self.ts(),
+                       config.BLANC, lueur=False)
+        dessiner_etoiles(image, 0, (r.centerx, r.y + self.dy(250)), 14, masque=etoiles.get(indice, 0))
         stats = [("ETOILES", f"{total} / {3 * len(niveaux)}"), ("BOSS VAINCUS", f"{boss} / {total_boss}"),
                  ("MEILLEUR SCORE", str(self.app.meilleur_score("campagne")))]
         for k, (a, b) in enumerate(stats):
-            dessiner_texte(image, a, r.x + 50, r.y + 290 + k * 28, 2, GRIS, ancrage="gauche", lueur=False)
-            dessiner_texte(image, b, r.right - 50, r.y + 290 + k * 28, 2, config.BLANC, ancrage="droite",
+            dessiner_texte(image, a, r.x + 50, r.y + self.dy(290 + k * 28), self.ts(), GRIS, ancrage="gauche",
                            lueur=False)
+            dessiner_texte(image, b, r.right - 50, r.y + self.dy(290 + k * 28), self.ts(), config.BLANC,
+                           ancrage="droite", lueur=False)
         self._bouton(image, r, "CONTINUER" if indice else "COMMENCER", couleur)
 
     def _detail_classee(self, image, r, couleur):
         from reseau.classee import division
         en_ligne = self.app.en_ligne
         if not en_ligne.jeton:
-            icone(image, "TROPHEE", (r.centerx, r.y + 140), couleur, 9)
-            dessiner_texte(image, "DUEL CONTRE UN JOUEUR", r.centerx, r.y + 240, 2, config.BLANC, lueur=False)
-            dessiner_texte(image, "DE TON NIVEAU", r.centerx, r.y + 266, 2, config.BLANC, lueur=False)
-            dessiner_texte(image, "CONNEXION REQUISE", r.centerx, r.bottom - 92, 2, config.ROSE, lueur=False)
+            icone(image, "TROPHEE", (r.centerx, r.y + self.dy(140)), couleur, 9 + self.ts() - 2)
+            dessiner_texte(image, "DUEL CONTRE UN JOUEUR", r.centerx, r.y + self.dy(240), self.ts(), config.BLANC,
+                           lueur=False)
+            dessiner_texte(image, "DE TON NIVEAU", r.centerx, r.y + self.dy(266), self.ts(), config.BLANC,
+                           lueur=False)
+            dessiner_texte(image, "CONNEXION REQUISE", r.centerx, y_mention(r), 2, config.ROSE, lueur=False)
             self._bouton(image, r, "SE CONNECTER", couleur)
             return
         nom_division, couleur_division, cote = division_joueur(self.app)
@@ -342,10 +396,10 @@ class EcranJouer(EcranMenu):
         from reseau.classee import jours_avant_fin, nom_saison
         aujourd_hui = datetime.date.today()
         jours = jours_avant_fin(aujourd_hui)
-        dessiner_texte(image, f"{nom_saison(aujourd_hui)}  -  FIN DANS {jours} J", r.centerx, r.y + 72, 2,
+        dessiner_texte(image, f"{nom_saison(aujourd_hui)}  -  FIN DANS {jours} J", r.centerx, r.y + self.dy(72), 2,
                        config.AMBRE if jours <= 3 else GRIS, lueur=False)
-        ecusson(image, (r.x + 100, r.y + 150), 56, couleur_division, cote, 3)
-        dessiner_texte(image, nom_division, r.x + 100, r.y + 228, 3 if len(nom_division) < 8 else 2,
+        ecusson(image, (r.x + 100, r.y + self.dy(150)), 56, couleur_division, cote, 3)
+        dessiner_texte(image, nom_division, r.x + 100, r.y + self.dy(228), 3 if len(nom_division) < 8 else 2,
                        couleur_division)
         victoires = getattr(en_ligne, "classees_victoires", 0)
         parties = getattr(en_ligne, "classees", 0)
@@ -356,21 +410,21 @@ class EcranJouer(EcranMenu):
                  ("SERIE", f"{serie} V" if serie else "-"),
                  ("RECORD", str(getattr(en_ligne, "elo_max", cote)))]
         for k, (a, b) in enumerate(stats):
-            dessiner_texte(image, a, r.x + 190, r.y + 100 + k * 36, 2, GRIS, ancrage="gauche", lueur=False)
-            dessiner_texte(image, b, r.right - 26, r.y + 100 + k * 36, 3,
+            dessiner_texte(image, a, r.x + 190, r.y + self.dy(100 + k * 36), 2, GRIS, ancrage="gauche", lueur=False)
+            dessiner_texte(image, b, r.right - 26, r.y + self.dy(100 + k * 36), 3,
                            config.VERT if a == "SERIE" and serie else config.BLANC,
                            ancrage="droite", lueur=False)
         if parties < 10:
-            dessiner_texte(image, f"PLACEMENT : {parties} / 10 PARTIES", r.centerx, r.y + 284, 2,
+            dessiner_texte(image, f"PLACEMENT : {parties} / 10 PARTIES", r.centerx, r.y + self.dy(284), 2,
                            config.AMBRE, lueur=False)
         elif suivante:
-            barre(image, pygame.Rect(r.x + 40, r.y + 262, r.w - 80, 8),
+            barre(image, pygame.Rect(r.x + 40, r.y + self.dy(262), r.w - 80, 8),
                   (cote - minimum) / max(1, suivante - minimum), couleur_division)
             dessiner_texte(image, f"DIVISION SUIVANTE DANS {suivante - cote} POINTS", r.centerx,
-                           r.y + 284, 2, config.OR, lueur=False)
+                           r.y + self.dy(284), 2, config.OR, lueur=False)
         for k, resultat in enumerate(recents[-5:]):
             case = pygame.Rect(0, 0, 34, 26)
-            case.center = (r.centerx - 80 + k * 40, r.y + 326)
+            case.center = (r.centerx - 80 + k * 40, r.y + self.dy(326))
             teinte = config.VERT if resultat == "V" else config.ROUGE
             pygame.draw.rect(image, teinte, case, 2, border_radius=5)
             dessiner_texte(image, resultat, case.centerx, case.centery, 2, teinte, lueur=False)
@@ -388,17 +442,19 @@ class EcranJouer(EcranMenu):
             modificateurs = d.defi_semaine_pour(jour)[1]
             titre = "SEMAINE " + jour.split("-W")[-1]
             serie, teinte, unite = series_locales(self.app)[1], VIOLET_SERIE, "S"
-        dessiner_texte(image, titre, r.centerx, r.y + 78, 2, GRIS, lueur=False)
-        y = r.y + 120
+        dessiner_texte(image, titre, r.centerx, r.y + self.dy(78), self.ts(), GRIS, lueur=False)
+        y = r.y + self.dy(120)
         for m in modificateurs:
             dessiner_texte(image, m[1], r.centerx, y, 3, config.BLANC)
-            dessiner_texte(image, m[2], r.centerx, y + 28, 2, GRIS, lueur=False)
-            y += 70
-        flamme(image, (r.centerx - 40, r.y + 270), teinte, 4, f"{serie} {unite}")
+            dessiner_texte(image, m[2], r.centerx, y + self.dy(28), self.ts(), GRIS, lueur=False)
+            y += self.dy(70)
+        flamme(image, (r.centerx - 40, r.y + self.dy(270)), teinte, 4, f"{serie} {unite}")
         record = d.record_du_jour(self.app, jour, code)
         joue = jour in d.defis_joues(self.app, "jour" if code == "defi" else "semaine")
         dessiner_texte(image, f"TON RECORD  {record}" if record else "PAS ENCORE JOUE", r.centerx,
-                       r.y + 320, 2, config.AMBRE if record else config.BLANC, lueur=False)
+                       r.y + self.dy(320), self.ts(), config.AMBRE if record else config.BLANC, lueur=False)
         if not joue and math.sin(self.temps * 5) > -0.2:
-            dessiner_texte(image, "A JOUER !", r.centerx, r.y + 350, 3, config.ROSE)
+            dessiner_texte(image, "A JOUER !", r.centerx, r.y + self.dy(350), 3, config.ROSE)
         self._bouton(image, r, "JOUER", couleur)
+        from ecrans.tactile import bouton_podium            # voir le classement de ce défi
+        bouton_podium(image, self.app, (r.right - 40, r.y + 40), couleur, f"classement_{code}")

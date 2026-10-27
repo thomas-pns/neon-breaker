@@ -125,12 +125,15 @@ class ChampTexte:
         if pygame.KSCAN_BACKSPACE in entrees.appuis:
             self.valeur = self.valeur[:-1]
 
-    def dessiner(self, image, x, y, largeur, actif, temps):
-        """But : cadre néon, libellé au-dessus, texte et curseur clignotant."""
-        self.rect = pygame.Rect(int(x - largeur / 2), int(y), int(largeur), 48)
+    def dessiner(self, image, x, y, largeur, actif, temps, grand=False):
+        """
+        But : cadre néon, libellé au-dessus, texte et curseur clignotant.
+        Entrée : grand (bool) : version plus haute et plus lisible (téléphone).
+        """
+        self.rect = pygame.Rect(int(x - largeur / 2), int(y), int(largeur), 64 if grand else 48)
         couleur = config.CYAN if actif else (110, 80, 160)
-        dessiner_texte(image, self.libelle, self.rect.x, y - 16, 2, GRIS, ancrage="gauche",
-                       lueur=False)
+        dessiner_texte(image, self.libelle, self.rect.x, y - (24 if grand else 16), 3 if grand else 2,
+                       GRIS, ancrage="gauche", lueur=False)
         pygame.draw.rect(image, (14, 2, 32), self.rect, border_radius=6)
         if actif:
             lueur = halo_rect(self.rect.w, self.rect.h, attenuer(couleur, 0.7), rayon=8)
@@ -141,8 +144,8 @@ class ChampTexte:
         if self.masque:
             texte = "".join("♥" if False else "*" for _ in self.valeur)
         affiche = texte.upper() if not self.masque else texte
-        zone = dessiner_texte(image, affiche, self.rect.x + 16, self.rect.centery, 3,
+        zone = dessiner_texte(image, affiche, self.rect.x + 16, self.rect.centery, 4 if grand else 3,
                               config.BLANC, ancrage="gauche", lueur=False)
         if actif and int(temps * 2) % 2 == 0:
             x_curseur = zone.right + 4 if self.valeur else self.rect.x + 18
-            image.fill(config.CYAN, (x_curseur, self.rect.y + 10, 3, 28))
+            image.fill(config.CYAN, (x_curseur, self.rect.y + 10, 3, self.rect.h - 20))

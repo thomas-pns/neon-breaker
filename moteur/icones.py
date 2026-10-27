@@ -525,6 +525,9 @@ DIVERS = {
                "XX...XXXX", "XXX.XXXX.", ".XXXXXX.."],
     "verrou": [".........", "...XXX...", "..X...X..", "..X...X..", ".XXXXXXX.", ".XXX.XXX.",
                ".XXX.XXX.", ".XXXXXXX.", "........."],
+    # Podium (petit bouton CLASSEMENT).
+    "podium": ["....o....", "...ooo...", "...XXX...", "...XXX...", "XX.XXX...", "XX.XXX.XX",
+               "XX.XXX.XX", "XX.XXX.XX", "........."],
     "vitesse_mode": ["X...X....", "XX..XX...", ".XX..XX..", "..XX..XX.", "...XX..XX", "..XX..XX.",
                      ".XX..XX..", "XX..XX...", "X...X...."],
 }
