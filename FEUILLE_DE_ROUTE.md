@@ -283,6 +283,13 @@ la production ».
 - [x] **(2.5)** BOUTIQUE sans compte : un écran « connecte-toi » qui garde la barre d'onglets.
 - [x] **(2.5)** Android : petite vibration avec les sons (raquette, briques, vie perdue...),
   option VIBRATIONS dans OPTIONS (l'iPhone ne laisse pas une page vibrer).
+- [ ] Téléphone : **carte des mondes au doigt, fluide** (demandé par Thomas le 27/10). Aujourd'hui,
+  un glissé fait passer d'un niveau au suivant (la caméra saute de nœud en nœud). À faire : la
+  carte suit le doigt en continu (comme le carrousel JOUER), avec de l'inertie au lâcher (elle
+  continue sur sa lancée puis ralentit), sans choisir de niveau pendant le glissé ; toucher un
+  nœud le sélectionne, retoucher le nœud choisi lance le niveau. La caméra ne revient se caler
+  sur le niveau choisi qu'après un moment sans toucher. Fichier : `ecrans/carte.py` (camera,
+  _camera_cible), avec `entrees.trajet()` comme pour le carrousel.
 - [ ] Version web : à essayer sur un vrai Android (fluidité, son). Outils : `/jeu/?profil`
   (temps par image) et `/jeu/?banc` dans la console.
 - [x] **(2.5)** Progression sur le compte (`jeu/progression.py`, table `progressions`) :
