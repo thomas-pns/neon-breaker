@@ -32,6 +32,14 @@ VEDETTE = pygame.Rect(40, 104, 520, 500)
 CASE_BOITE = 6                     # indice de la boîte mystère (après les 6 objets)
 
 
+def taille_carte():
+    """But : (largeur, hauteur, écart horizontal, écart vertical) d'une carte de la sélection."""
+    from ecrans.menus import est_vertical
+    if not est_vertical():
+        return LARGEUR_CARTE, HAUTEUR_CARTE, 15, 28
+    return (config.LARGEUR - 40 - 2 * 12) // COLONNES, 214, 12, 16
+
+
 def disposition():
     """
     But : (vedette, gauche, haut) : en paysage, la vedette à gauche et la sélection à
@@ -40,10 +48,11 @@ def disposition():
     from ecrans.menus import est_vertical, haut_contenu
     if not est_vertical():
         return VEDETTE, GAUCHE, HAUT
-    haut = haut_contenu() + 16
-    vedette = pygame.Rect(20, haut, config.LARGEUR - 40, 480)
-    largeur = COLONNES * LARGEUR_CARTE + (COLONNES - 1) * 15
-    return vedette, (config.LARGEUR - largeur) // 2, vedette.bottom + 52
+    haut = haut_contenu() + 14
+    vedette = pygame.Rect(20, haut, config.LARGEUR - 40, 300)
+    largeur, _, ecart, _ = taille_carte()
+    total = COLONNES * largeur + (COLONNES - 1) * ecart
+    return vedette, (config.LARGEUR - total) // 2, vedette.bottom + 50
 
 
 def temps_avant_minuit():
@@ -190,26 +199,35 @@ class EcranBoutique(EcranEnLigneBase):
 
     def _dessiner_historique(self, image):
         from ecrans.menus import carte
-        cadre = pygame.Rect(0, 0, 720, 500)
-        cadre.center = (config.LARGEUR / 2, 380)
+        vertical = config.HAUTEUR > config.LARGEUR
+        cadre = pygame.Rect(0, 0, config.LARGEUR - 30, 680) if vertical else pygame.Rect(0, 0, 720, 500)
+        cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2 if vertical else 380)
         voile = pygame.Surface(image.get_size(), pygame.SRCALPHA)
         voile.fill((5, 0, 15, 190))
         image.blit(voile, (0, 0))
         carte(image, cadre, config.CYAN, True, alpha=245)
-        dessiner_texte(image, f"HISTORIQUE DES {MONNAIE}", cadre.centerx, cadre.y + 36, 4, config.CYAN)
+        dessiner_texte(image, f"HISTORIQUE DES {MONNAIE}", cadre.centerx, cadre.y + 36, 4 if not vertical else 3,
+                       config.CYAN)
         if not self.historique:
             dessiner_texte(image, "CHARGEMENT...", cadre.centerx, cadre.centery, 2, GRIS, lueur=False)
         for k, ligne in enumerate(self.historique[:12]):
             y = cadre.y + 86 + k * 32
             date = datetime.datetime.fromtimestamp(ligne["le"]).strftime("%d/%m") if ligne["le"] else ""
-            dessiner_texte(image, date, cadre.x + 30, y, 2, GRIS, ancrage="gauche", lueur=False)
-            dessiner_texte(image, str(ligne["raison"])[:30], cadre.x + 110, y, 2, config.BLANC,
+            dessiner_texte(image, date, cadre.x + 24, y, 2, GRIS, ancrage="gauche", lueur=False)
+            place = (cadre.w - 104 - 90) // 12            # caractères qui tiennent avant le montant
+            dessiner_texte(image, str(ligne["raison"])[:min(30, place)], cadre.x + 100, y, 2, config.BLANC,
                            ancrage="gauche", lueur=False)
             montant = ligne["montant"]
             if montant:
-                dessiner_texte(image, f"{'+' if montant > 0 else ''}{montant}", cadre.right - 30, y, 2,
+                dessiner_texte(image, f"{'+' if montant > 0 else ''}{montant}", cadre.right - 24, y, 2,
                                config.VERT if montant > 0 else config.ROSE, ancrage="droite", lueur=False)
-        dessiner_texte(image, "H OU ECHAP : FERMER", cadre.centerx, cadre.bottom - 24, 2, GRIS, lueur=False)
+        if self.app.entrees.tactile:              # au doigt : un vrai bouton pour fermer
+            from ecrans.tactile import bouton
+            rect = pygame.Rect(0, 0, 260, 60)
+            rect.midbottom = (cadre.centerx, cadre.bottom - 18)
+            bouton(image, self.app, rect, "historique", config.CYAN, "FERMER")
+        else:
+            dessiner_texte(image, "H OU ECHAP : FERMER", cadre.centerx, cadre.bottom - 24, 2, GRIS, lueur=False)
 
     def _recu_boite(self, resultat):
         self.en_attente = False
@@ -311,9 +329,9 @@ class EcranBoutique(EcranEnLigneBase):
         vedette, gauche, haut = disposition()
         if i == CASE_BOITE:
             return vedette
-        return pygame.Rect(gauche + (i % COLONNES) * (LARGEUR_CARTE + 15),
-                           haut + (i // COLONNES) * (HAUTEUR_CARTE + 28),
-                           LARGEUR_CARTE, HAUTEUR_CARTE)
+        largeur, hauteur, ecart_x, ecart_y = taille_carte()
+        return pygame.Rect(gauche + (i % COLONNES) * (largeur + ecart_x),
+                           haut + (i // COLONNES) * (hauteur + ecart_y), largeur, hauteur)
 
     def _dessiner_carte(self, image, i, objet):
         from ecrans.menus import carte
@@ -324,14 +342,16 @@ class EcranBoutique(EcranEnLigneBase):
         dessiner_texte(image, NOMS_RARETES[objet["rarete"]] + ("  SKIN" if objet["type"] == "skin"
                                                                else "  BANNIERE"),
                        rect.centerx, rect.y + 22, 1, couleur, lueur=False)
-        self._dessiner_objet(image, objet, (rect.centerx, rect.y + 82), self.temps, rect.w - 30)
-        dessiner_texte(image, objet["nom"], rect.centerx, rect.y + 142, 2, config.BLANC)
+        court = rect.h < 230                    # téléphone : cartes plus basses
+        self._dessiner_objet(image, objet, (rect.centerx, rect.y + (72 if court else 82)), self.temps,
+                             rect.w - 30)
+        dessiner_texte(image, objet["nom"], rect.centerx, rect.y + (124 if court else 142), 2, config.BLANC)
         if objet.get("possede"):
             dessiner_texte(image, "POSSEDE", rect.centerx, rect.bottom - 34, 3, config.VERT)
             return
         if objet.get("promo"):
-            barre = dessiner_texte(image, str(objet["prix_normal"]), rect.centerx, rect.bottom - 64,
-                                   2, GRIS, lueur=False)
+            barre = dessiner_texte(image, str(objet["prix_normal"]), rect.centerx,
+                                   rect.bottom - (58 if court else 64), 2, GRIS, lueur=False)
             pygame.draw.line(image, config.ROSE, (barre.x - 2, barre.centery),
                              (barre.right + 2, barre.centery), 2)
             etiquette = pygame.Rect(rect.right - 70, rect.y - 10, 62, 22)
@@ -339,7 +359,7 @@ class EcranBoutique(EcranEnLigneBase):
             dessiner_texte(image, "-30%", etiquette.centerx, etiquette.centery, 2, config.BLANC,
                            lueur=False)
         abordable = self.app.en_ligne.neons >= objet["prix"]
-        zone = dessiner_texte(image, str(objet["prix"]), rect.centerx + 12, rect.bottom - 34, 3,
+        zone = dessiner_texte(image, str(objet["prix"]), rect.centerx + 12, rect.bottom - (28 if court else 34), 3,
                               config.CYAN if abordable else (150, 90, 120))
         dessiner_piece(image, (zone.x - 16, zone.centery), 10, self.temps)
 
@@ -359,6 +379,9 @@ class EcranBoutique(EcranEnLigneBase):
         choisie = self.indice == CASE_BOITE
         couleur = COULEURS_RARETES["legendaire"]
         carte(image, rect, couleur if choisie else attenuer(couleur, 0.8), choisie)
+        if rect.h < 400:                        # téléphone : vedette compacte
+            self._dessiner_boite_compacte(image, rect, couleur)
+            return
         dessiner_texte(image, "EN VEDETTE", rect.x + 26, rect.y + 30, 2, GRIS, ancrage="gauche",
                        lueur=False)
         vedette = self._vedette()
@@ -382,6 +405,29 @@ class EcranBoutique(EcranEnLigneBase):
         zone = dessiner_texte(image, str(PRIX_BOITE), b.right - 24, b.centery, 4, (20, 0, 30),
                               ancrage="droite", lueur=False, ombre=False)
         dessiner_piece(image, (zone.x - 20, zone.centery), 11, self.temps)
+
+    def _dessiner_boite_compacte(self, image, rect, couleur):
+        """Téléphone : objet en vedette en haut, boîte mystère et bouton OUVRIR en bas."""
+        dessiner_texte(image, "EN VEDETTE", rect.x + 22, rect.y + 26, 2, GRIS, ancrage="gauche", lueur=False)
+        vedette = self._vedette()
+        if vedette is not None:
+            self._dessiner_objet(image, vedette, (rect.centerx, rect.y + 86), self.temps, min(360, rect.w - 120))
+            dessiner_texte(image, vedette["nom"], rect.centerx, rect.y + 142, 4, couleur)
+            dessiner_texte(image, "LEGENDAIRE : SEULEMENT DANS LA BOITE", rect.centerx, rect.y + 174, 2,
+                           config.AMBRE, lueur=False)
+        pygame.draw.line(image, attenuer(couleur, 0.4), (rect.x + 20, rect.y + 196), (rect.right - 20, rect.y + 196), 2)
+        self._dessiner_cube(image, (rect.x + 66, rect.y + 250), 30, self.temps, 0.0)
+        dessiner_texte(image, "BOITE", rect.x + 120, rect.y + 236, 3, couleur, ancrage="gauche", lueur=False)
+        dessiner_texte(image, "MYSTERE", rect.x + 120, rect.y + 264, 3, couleur, ancrage="gauche", lueur=False)
+        b = pygame.Rect(0, 0, 250, 62)
+        b.midright = (rect.right - 20, rect.y + 250)
+        abordable = self.app.en_ligne.neons >= PRIX_BOITE
+        pygame.draw.rect(image, couleur if abordable else (120, 90, 60), b, border_radius=8)
+        dessiner_texte(image, "OUVRIR", b.x + 20, b.centery, 3, (20, 0, 30), ancrage="gauche", lueur=False,
+                       ombre=False)
+        zone = dessiner_texte(image, str(PRIX_BOITE), b.right - 18, b.centery, 3, (20, 0, 30),
+                              ancrage="droite", lueur=False, ombre=False)
+        dessiner_piece(image, (zone.x - 18, zone.centery), 10, self.temps)
 
     def _dessiner_cube(self, image, centre, taille, temps, secousse):
         """Boîte mystère en néon : un cube qui flotte (et tremble à l'ouverture)."""
@@ -408,12 +454,14 @@ class EcranBoutique(EcranEnLigneBase):
         y = haut - 20
         dessiner_texte(image, "SELECTION DU JOUR", gauche, y, 2, config.VIOLET, ancrage="gauche",
                        lueur=False)
-        dessiner_texte(image, f"NOUVELLE DANS {temps_avant_minuit()}", config.LARGEUR - 46, y, 2, GRIS,
+        droite = config.LARGEUR - (gauche if config.HAUTEUR > config.LARGEUR else 46)
+        dessiner_texte(image, f"NOUVELLE DANS {temps_avant_minuit()}", droite, y, 2, GRIS,
                        ancrage="droite", lueur=False)
         if self.app.entrees.tactile and self.etat == "vitrine":       # pas de touche H au doigt
             from ecrans.tactile import bouton
-            rect = pygame.Rect(0, 0, 210, 44)
-            rect.midtop = (config.LARGEUR / 2, haut + 2 * (HAUTEUR_CARTE + 28) - 10)
+            _, hauteur, _, ecart_y = taille_carte()
+            rect = pygame.Rect(0, 0, 240, 50)
+            rect.midtop = (config.LARGEUR / 2, haut + 2 * (hauteur + ecart_y) + 2)
             bouton(image, self.app, rect, "historique", config.VIOLET, "HISTORIQUE")
 
     def _dessiner_superpose(self, image, titre, lignes, couleur):
@@ -421,7 +469,7 @@ class EcranBoutique(EcranEnLigneBase):
         voile.fill((5, 0, 15))
         voile.set_alpha(190)
         image.blit(voile, (0, 0))
-        cadre = pygame.Rect(0, 0, 640, 300)
+        cadre = pygame.Rect(0, 0, min(640, config.LARGEUR - 30), 300)
         cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2)
         panneau(image, cadre, couleur)
         dessiner_texte(image, titre, cadre.centerx, cadre.y + 44, 4, couleur)
@@ -477,7 +525,8 @@ class EcranBoutique(EcranEnLigneBase):
         self._dessiner_boite(image)
         y_message = 640
         if config.HAUTEUR > config.LARGEUR:
-            y_message = disposition()[2] + 2 * (HAUTEUR_CARTE + 28) + 60
+            _, hauteur, _, ecart_y = taille_carte()
+            y_message = disposition()[2] + 2 * (hauteur + ecart_y) + 82
         if self.message and self.minuteur > 0:
             dessiner_texte(image, self.message, config.LARGEUR / 2, y_message, 3, config.AMBRE)
         elif config.HAUTEUR > config.LARGEUR:

@@ -259,15 +259,21 @@ class EcranTitre(EcranMenu):
         nom_division, couleur_division, cote = division_joueur(self.app)
         ecusson(image, (r.x + 62, r.centery), 40, couleur_division,
                 cote if getattr(en_ligne, "classees", 0) else None, 2)
-        dessiner_texte(image, en_ligne.pseudo.upper(), r.x + 130, r.y + 36, 5, config.BLANC,
-                       ancrage="gauche")
+        etroit = r.w < 700                      # téléphone : séries à droite, sans « PROFIL > »
+        pseudo = en_ligne.pseudo.upper()
+        echelle = 5 if not etroit or len(pseudo) * 30 < r.w - 150 else 4
+        dessiner_texte(image, pseudo, r.x + 130, r.y + 36, echelle, config.BLANC, ancrage="gauche")
         dessiner_texte(image, f"RANG {en_ligne.niveau}   {nom_division}", r.x + 132, r.y + 72, 2,
                        config.AMBRE, ancrage="gauche", lueur=False)
         from reseau.profil import niveau_pour, xp_pour_niveau
         niveau = niveau_pour(en_ligne.xp)
         debut, fin = xp_pour_niveau(niveau), xp_pour_niveau(niveau + 1)
-        barre(image, pygame.Rect(r.x + 132, r.y + 88, 300, 8), (en_ligne.xp - debut) / max(1, fin - debut),
-              config.AMBRE)
+        barre(image, pygame.Rect(r.x + 132, r.y + 88, 200 if etroit else 300, 8),
+              (en_ligne.xp - debut) / max(1, fin - debut), config.AMBRE)
+        if etroit:
+            flamme(image, (r.right - 170, r.y + 80), JAUNE_SERIE, 3, f"{jours} J")
+            flamme(image, (r.right - 84, r.y + 80), VIOLET_SERIE, 3, f"{semaines} S")
+            return
         flamme(image, (r.x + 470, r.y + 76), JAUNE_SERIE, 3, f"{jours} J")
         flamme(image, (r.x + 570, r.y + 76), VIOLET_SERIE, 3, f"{semaines} S")
         dessiner_texte(image, "PROFIL >", r.right - 18, r.bottom - 16, 2, config.BLANC, ancrage="droite",

@@ -21,7 +21,7 @@ import os
 from moteur import config
 
 # Changer VERSION et l'envoyer sur main fabrique et publie les exécutables.
-VERSION = "2.6.2"
+VERSION = "2.7.0"
 PROTOCOLE = 1          # à augmenter quand les messages réseau changent
 
 

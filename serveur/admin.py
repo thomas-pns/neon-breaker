@@ -44,7 +44,7 @@ def main(arguments):
         return 0
     commande = arguments[0]
     if commande == "lister":
-        for joueur in base.liste_joueurs():
+        for joueur in base.liste_joueurs(tous=True):
             vu = datetime.datetime.fromtimestamp(joueur["vu_le"]).strftime("%d/%m/%Y %H:%M")
             print(f"{joueur['pseudo']:<14} niveau {joueur['niveau']:<3} xp {joueur['xp']:<7} "
                   f"succes {joueur['succes']:<3} vu le {vu}")

@@ -210,9 +210,10 @@ class Navigation:
                 zones[nom] = pygame.Rect(i * largeur + 6, config.HAUTEUR - 116 - marge_bas(),
                                          largeur - 12, 76)
             m = marge_haut()
-            zones["profil"] = pygame.Rect(170, 16 + m, 310, 58)
-            zones["neons"] = pygame.Rect(496, 25 + m, 140, 40)
-            zones["reglages"] = pygame.Rect(config.LARGEUR - 70, 19 + m, 52, 52)
+            # Logo à gauche, puis profil, NEONS et roue : chacun sa place (rien ne se chevauche).
+            zones["reglages"] = pygame.Rect(config.LARGEUR - 60, 19 + m, 48, 52)
+            zones["neons"] = pygame.Rect(zones["reglages"].x - 10 - 112, 25 + m, 112, 40)
+            zones["profil"] = pygame.Rect(136, 16 + m, zones["neons"].x - 10 - 136, 58)
             return zones
         x = 160
         for nom, _ in ONGLETS:
@@ -363,7 +364,8 @@ class Navigation:
                              border_radius=6)
             _, couleur_division, _ = division_joueur(self.app)
             ecusson(image, (profil.x + 24, profil.centery), 14, couleur_division)
-            dessiner_texte(image, en_ligne.pseudo.upper()[:9], profil.x + 48, profil.centery - 7, 2,
+            place = max(6, (profil.w - 48 - 100) // 12)       # caractères avant les séries
+            dessiner_texte(image, en_ligne.pseudo.upper()[:place], profil.x + 48, profil.centery - 7, 2,
                            config.BLANC, ancrage="gauche", lueur=False)
             dessiner_texte(image, f"RANG {en_ligne.niveau}", profil.x + 48, profil.centery + 11, 1,
                            config.AMBRE, ancrage="gauche", lueur=False)

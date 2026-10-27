@@ -136,7 +136,8 @@ def connexion(identifiants: Identifiants, requete: Request):
         raise HTTPException(401, "Pseudo ou mot de passe incorrect")
     if joueur["banni"]:
         raise HTTPException(403, "Compte suspendu")
-    return ouvrir_session(joueur)
+    rattrapes = base.rattraper_paliers(joueur["id"])      # paliers déjà mérités (2.6)
+    return {**ouvrir_session(base.joueur_par_id(joueur["id"])), "nouveaux_succes": rattrapes}
 
 
 class ChangementMdp(BaseModel):
@@ -172,7 +173,11 @@ def deconnexion(authorization: str = Header(default="")):
 def moi(authorization: str = Header(default="")):
     joueur = joueur_connecte(authorization)
     base.toucher(joueur["id"])
-    return {**presentation(joueur), "messages": base.messages_non_lus(joueur["id"])}
+    rattrapes = base.rattraper_paliers(joueur["id"])      # paliers déjà mérités (2.6)
+    if rattrapes:
+        joueur = base.joueur_par_id(joueur["id"])          # NEONS crédités
+    return {**presentation(joueur), "messages": base.messages_non_lus(joueur["id"]),
+            "nouveaux_succes": rattrapes}
 
 
 class MessagesLus(BaseModel):
@@ -297,6 +302,9 @@ def admin_action(pseudo: str, action: ActionAdmin, authorization: str = Header(d
         base.bannir(cible["id"], False)
     elif action.action == "neons":
         base.crediter(cible["id"], max(-100000, min(100000, action.valeur)), "CADEAU ADMIN")
+    elif action.action == "invisible":
+        base.rendre_invisible(cible["id"], not cible["invisible"])
+        gestionnaire.diffuser_liste()
     elif action.action == "cote":
         base.ecrire("UPDATE joueurs SET elo = 1000, classees = 0, classees_victoires = 0, "
                     "classees_recents = '' WHERE id = ?", (cible["id"],))
@@ -426,10 +434,19 @@ def joueurs():
 
 
 @app.get("/api/joueurs/{pseudo}")
-def profil(pseudo: str):
+def profil(pseudo: str, authorization: str = Header(default="")):
     donnees = base.profil(pseudo)
     if donnees is None:
         raise HTTPException(404, "Joueur introuvable")
+    cible = base.joueur_par_pseudo(pseudo)
+    if cible["invisible"]:
+        # Compte invisible : seuls lui-même et les admins voient son profil.
+        try:
+            lecteur = joueur_connecte(authorization)
+        except HTTPException:
+            lecteur = None
+        if lecteur is None or (lecteur["id"] != cible["id"] and not base.est_admin(lecteur)):
+            raise HTTPException(404, "Joueur introuvable")
     donnees["en_ligne"] = donnees["pseudo"] in gestionnaire.connexions
     joueur = base.joueur_par_pseudo(pseudo)
     donnees["series"] = base.series_de(joueur["id"], aujourd_hui())
