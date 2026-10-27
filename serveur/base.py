@@ -170,6 +170,9 @@ class Base:
                 self.connexion.execute("UPDATE joueurs SET admin = 1 WHERE pseudo = ?", (pseudo,))
             if "saison_max" not in colonnes:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN saison_max INTEGER NOT NULL DEFAULT 0")
+            # Migration 2.7 : joueur invisible (comptes d'admin) : absent des listes et classements.
+            if "invisible" not in colonnes:
+                self.connexion.execute("ALTER TABLE joueurs ADD COLUMN invisible INTEGER NOT NULL DEFAULT 0")
             if "classees_victoires" not in colonnes:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_victoires INTEGER NOT NULL DEFAULT 0")
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_recents TEXT NOT NULL DEFAULT ''")
@@ -423,7 +426,7 @@ class Base:
     def meilleur_fantome(self, mode, jour):
         """But : fantôme du meilleur score d'un défi, ou None."""
         lignes = self.lire("SELECT f.score, f.donnees, j.pseudo FROM fantomes f JOIN joueurs j "
-                           "ON j.id = f.joueur_id WHERE f.mode = ? AND f.jour = ? AND j.banni = 0 "
+                           "ON j.id = f.joueur_id WHERE f.mode = ? AND f.jour = ? AND j.banni = 0 AND j.invisible = 0 "
                            "ORDER BY f.score DESC LIMIT 1", (mode, jour))
         if not lignes:
             return None
@@ -438,6 +441,7 @@ class Base:
         """But : tous les joueurs (bannis compris) avec ce qu'il faut pour les gérer."""
         return [{"pseudo": l["pseudo"], "niveau": catalogue.niveau_pour(l["xp"]), "neons": l["neons"],
                  "elo": l["elo"], "banni": bool(l["banni"]), "admin": bool(l["admin"]),
+                 "invisible": bool(l["invisible"]),
                  "vu_le": l["vu_le"]}
                 for l in self.lire("SELECT * FROM joueurs ORDER BY vu_le DESC")]
 
@@ -474,6 +478,34 @@ class Base:
     def supprimer_joueur(self, joueur_id):
         """But : effacer un compte et tout ce qui lui appartient (parties, succès...)."""
         self.ecrire("DELETE FROM joueurs WHERE id = ?", (joueur_id,))
+
+    def rattraper_paliers(self, joueur_id):
+        """
+        But : donner les paliers déjà mérités d'après les statistiques (ex. 2 344 briques
+        cassées avant l'arrivée des paliers), avec leurs NEONS, sans attendre une partie.
+        Sortie : (list de dict) succès donnés (pour les annoncer).
+        """
+        from reseau import boutique
+        cumul = self.cumul(joueur_id)
+        deja = set(self.succes_de(joueur_id))
+        donnes = []
+        for famille in catalogue.PALIERS:
+            valeur = famille.mesurer(cumul)
+            for code, seuil in zip(famille.codes(), famille.seuils):
+                if code not in deja and valeur >= seuil:
+                    self.ecrire("INSERT OR IGNORE INTO succes (joueur_id, code, obtenu_le) VALUES (?, ?, ?)",
+                                (joueur_id, code, time.time()))
+                    self.crediter(joueur_id, boutique.GAINS_PALIERS[code.rsplit("_", 1)[1]],
+                                  "PALIER " + catalogue.PAR_CODE[code].nom)
+                    donnes.append(catalogue.PAR_CODE[code].en_dict())
+        return donnes
+
+    def rendre_invisible(self, joueur_id, invisible=True):
+        self.ecrire("UPDATE joueurs SET invisible = ? WHERE id = ?", (int(invisible), joueur_id))
+
+    def pseudos_invisibles(self):
+        """But : pseudos des joueurs invisibles (à cacher de la liste « en ligne »)."""
+        return {l["pseudo"] for l in self.lire("SELECT pseudo FROM joueurs WHERE invisible = 1")}
 
     def bannir(self, joueur_id, banni=True):
         self.ecrire("UPDATE joueurs SET banni = ? WHERE id = ?", (int(banni), joueur_id))
@@ -569,18 +601,18 @@ class Base:
         if mode == "classe":
             lignes = self.lire(
                 "SELECT pseudo, couleur, xp, banniere, elo AS valeur, classees FROM joueurs "
-                "WHERE banni = 0 AND classees > 0 ORDER BY elo DESC, classees ASC LIMIT ?", (limite,))
+                "WHERE banni = 0 AND invisible = 0 AND classees > 0 ORDER BY elo DESC, classees ASC LIMIT ?", (limite,))
         elif mode in MODES_VICTOIRES:
             lignes = self.lire(
                 "SELECT j.pseudo, j.couleur, j.xp, j.banniere, SUM(p.victoire) AS valeur, COUNT(*) AS parties "
                 "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
-                "WHERE p.mode = ? AND j.banni = 0 GROUP BY p.joueur_id "
+                "WHERE p.mode = ? AND j.banni = 0 AND j.invisible = 0 GROUP BY p.joueur_id "
                 "ORDER BY valeur DESC, parties ASC LIMIT ?", (mode, limite))
         else:
             lignes = self.lire(
                 "SELECT j.pseudo, j.couleur, j.xp, j.banniere, MAX(p.score) AS valeur "
                 "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
-                "WHERE p.mode = ? AND j.banni = 0 GROUP BY p.joueur_id "
+                "WHERE p.mode = ? AND j.banni = 0 AND j.invisible = 0 GROUP BY p.joueur_id "
                 "ORDER BY valeur DESC LIMIT ?", (mode, limite))
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
                  "niveau": catalogue.niveau_pour(l["xp"]), "banniere": l["banniere"]} for l in lignes]
@@ -590,7 +622,7 @@ class Base:
         lignes = self.lire(
             "SELECT j.pseudo, j.couleur, j.xp, j.banniere, MAX(p.score) AS valeur, COUNT(*) AS essais "
             "FROM parties p JOIN joueurs j ON j.id = p.joueur_id "
-            "WHERE p.mode = ? AND p.jour = ? AND j.banni = 0 GROUP BY p.joueur_id "
+            "WHERE p.mode = ? AND p.jour = ? AND j.banni = 0 AND j.invisible = 0 GROUP BY p.joueur_id "
             "ORDER BY valeur DESC LIMIT ?", (mode, jour, limite))
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "valeur": int(l["valeur"] or 0),
                  "niveau": catalogue.niveau_pour(l["xp"]), "essais": l["essais"],
@@ -619,7 +651,7 @@ class Base:
         par_joueur = {}
         for l in self.lire("SELECT p.joueur_id, p.jour FROM parties p JOIN joueurs j "
                            "ON j.id = p.joueur_id WHERE p.mode = 'defi' AND p.jour IS NOT NULL "
-                           "AND j.banni = 0"):
+                           "AND j.banni = 0 AND j.invisible = 0"):
             par_joueur.setdefault(l["joueur_id"], set()).add(l["jour"])
         lignes = []
         for joueur_id, jours in par_joueur.items():
@@ -632,10 +664,14 @@ class Base:
         lignes.sort(key=lambda l: (-l["valeur"], -l["record"], l["pseudo"].lower()))
         return lignes[:limite]
 
-    def liste_joueurs(self):
-        """But : tous les joueurs (non bannis), du plus haut niveau au plus bas."""
+    def liste_joueurs(self, tous=False):
+        """
+        But : les joueurs (non bannis, et visibles sauf si tous=True), du plus haut niveau
+        au plus bas.
+        """
         lignes = self.lire("SELECT id, pseudo, couleur, xp, vu_le, banniere FROM joueurs "
-                           "WHERE banni = 0 ORDER BY xp DESC, pseudo")
+                           "WHERE banni = 0" + ("" if tous else " AND invisible = 0") +
+                           " ORDER BY xp DESC, pseudo")
         nb_succes = {l["joueur_id"]: l["n"] for l in
                      self.lire("SELECT joueur_id, COUNT(*) AS n FROM succes GROUP BY joueur_id")}
         return [{"pseudo": l["pseudo"], "couleur": l["couleur"], "xp": l["xp"],

@@ -227,7 +227,8 @@ class Gestionnaire:
     def diffuser_liste(self):
         """But : envoyer la liste des parties à tous ceux qui ne jouent pas."""
         message = {"t": "salons", "liste": [s.resume() for s in self.salons.values()],
-                   "en_ligne": sorted(self.connexions), "max": config.MAX_PARTIES}
+                   "en_ligne": sorted(set(self.connexions) - self.base.pseudos_invisibles()),
+                   "max": config.MAX_PARTIES}
         for connexion in self.connexions.values():
             if connexion.salon is None or connexion.salon.etat == "attente":
                 connexion.envoyer(message)

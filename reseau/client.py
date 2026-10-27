@@ -425,6 +425,8 @@ class ServiceEnLigne:
                 self.memoriser(resultat["donnees"])
                 self.vider_file()
                 self.synchroniser_progression(forcer=True)
+                if resultat["donnees"].get("nouveaux_succes"):     # paliers rattrapés
+                    self.annoncer_gains({"nouveaux_succes": resultat["donnees"]["nouveaux_succes"]})
             rappel(resultat)
         chemin = "/api/inscription" if inscription else "/api/connexion"
         self.appeler("POST", chemin, {"pseudo": pseudo, "mdp": mdp}, recu, authentifie=False)
@@ -439,6 +441,8 @@ class ServiceEnLigne:
                 self.memoriser(resultat["donnees"])
                 self.vider_file()
                 self.synchroniser_progression(forcer=True)
+                if resultat["donnees"].get("nouveaux_succes"):     # paliers rattrapés
+                    self.annoncer_gains({"nouveaux_succes": resultat["donnees"]["nouveaux_succes"]})
             elif resultat["code"] == 401:
                 self.oublier()
             if rappel:

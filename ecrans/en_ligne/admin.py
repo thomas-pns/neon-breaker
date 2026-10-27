@@ -23,7 +23,8 @@ from ecrans.en_ligne.commun import EcranEnLigneBase, GRIS, date_courte
 from ecrans.menus import bouton, carte
 
 ACTIONS = [("bot", "BOT DE TEST"), ("neons", "+100 NEONS"), ("suspendre", "SUSPENDRE / RETABLIR"),
-           ("cote", "COTE A 1000"), ("mdp", "MOT DE PASSE PROVISOIRE"), ("supprimer", "SUPPRIMER LE COMPTE")]
+           ("cote", "COTE A 1000"), ("invisible", "INVISIBLE / VISIBLE"), ("mdp", "MOT DE PASSE PROVISOIRE"),
+           ("supprimer", "SUPPRIMER LE COMPTE")]
 A_CONFIRMER = {"mdp", "supprimer"}         # deux appuis de suite sur le même joueur
 VISIBLES = 10
 
@@ -135,7 +136,8 @@ class EcranAdmin(EcranEnLigneBase):
             couleur = (150, 90, 120) if joueur["banni"] else config.BLANC
             point = config.VERT if joueur["pseudo"] in self.en_ligne_pseudos else (70, 50, 100)
             pygame.draw.circle(image, point, (liste.x + 32, y), 6)
-            dessiner_texte(image, joueur["pseudo"].upper() + ("  (ADMIN)" if joueur["admin"] else ""),
+            etiquette = " (INV)" if joueur.get("invisible") else (" (ADMIN)" if joueur["admin"] else "")
+            dessiner_texte(image, joueur["pseudo"].upper() + etiquette,
                            liste.x + 50, y, 2, couleur, ancrage="gauche", lueur=False)
             dessiner_texte(image, f"RANG {joueur['niveau']}", liste.x + 330, y, 2, GRIS, ancrage="gauche",
                            lueur=False)
@@ -148,7 +150,7 @@ class EcranAdmin(EcranEnLigneBase):
         carte(image, cote, config.AMBRE, False)
         dessiner_texte(image, "ACTIONS", cote.x + 24, cote.y + 24, 2, config.AMBRE, ancrage="gauche", lueur=False)
         for k, (code, nom) in enumerate(ACTIONS):
-            r = pygame.Rect(cote.x + 24, cote.y + 56 + k * 60, cote.w - 48, 48)
+            r = pygame.Rect(cote.x + 24, cote.y + 52 + k * 54, cote.w - 48, 44)
             self.zones_actions.append((k, r))
             if k == self.action:
                 bouton(image, r, nom, config.AMBRE, 2)

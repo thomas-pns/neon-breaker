@@ -123,6 +123,18 @@ class TestServeur(unittest.TestCase):
         cumul = mettre_a_jour_cumul(cumul, {"mode": "campagne", "etoiles": {"0": 4}, "stats": {}})
         self.assertEqual(cumul["etoiles"], {"0": 7, "1": 7})
 
+    def test_paliers_rattrapes(self):
+        """Des statistiques d'avant les paliers donnent les paliers (et leurs NEONS) au retour."""
+        jeton = self.inscrire("Revenant")
+        entete = {"Authorization": f"Bearer {jeton}"}
+        joueur = api.base.joueur_par_pseudo("Revenant")
+        api.base.ecrire("INSERT INTO cumuls (joueur_id, donnees) VALUES (?, ?)",
+                        (joueur["id"], '{"briques": 2344}'))
+        neons = self.client.get("/api/moi", headers=entete).json()
+        self.assertIn("briques_argent", [s["code"] for s in neons["nouveaux_succes"]])
+        self.assertEqual(neons["neons"], joueur["neons"] + 60)
+        self.assertEqual(self.client.get("/api/moi", headers=entete).json()["nouveaux_succes"], [])
+
     def test_migration_succes_2_6(self):
         """Les anciens succès comptés deviennent des paliers (sans rien perdre)."""
         from serveur.base import Base
@@ -432,6 +444,16 @@ class TestServeur(unittest.TestCase):
             self.inscrire("Partant")
             self.assertEqual(self.client.post("/api/admin/joueurs/Patron", headers=entete,
                                               json={"action": "supprimer"}).status_code, 400)
+            # Invisible : absent de la liste publique et des profils, sauf pour lui et les admins.
+            jeton_fantome = self.inscrire("Fantome")
+            self.client.post("/api/admin/joueurs/Fantome", headers=entete, json={"action": "invisible"})
+            self.assertNotIn("Fantome", [j["pseudo"] for j in self.client.get("/api/joueurs").json()["joueurs"]])
+            self.assertEqual(self.client.get("/api/joueurs/Fantome").status_code, 404)
+            self.assertEqual(self.client.get("/api/joueurs/Fantome", headers={
+                "Authorization": f"Bearer {jeton_fantome}"}).status_code, 200)
+            self.assertEqual(self.client.get("/api/joueurs/Fantome", headers=entete).status_code, 200)
+            self.client.post("/api/admin/joueurs/Fantome", headers=entete, json={"action": "invisible"})
+            self.assertEqual(self.client.get("/api/joueurs/Fantome").status_code, 200)
         finally:
             config.ADMINS.remove("Patron")
 
