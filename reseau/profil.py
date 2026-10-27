@@ -13,7 +13,7 @@ Réalisé le 21/10/2026
 
 import math
 
-NOMBRE_SUCCES = 34                   # doit suivre serveur/succes.py (vérifié par un test)
+NOMBRE_SUCCES = 59                   # doit suivre serveur/succes.py NOMBRE_CODES (vérifié par un test)
 
 COULEURS = ["cyan", "rose", "ambre", "violet", "vert", "bleu"]
 

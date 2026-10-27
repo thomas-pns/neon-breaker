@@ -34,6 +34,8 @@ class EntreesTest:
         self.appuis_tactiles = set()
         self.glisse_long = 0
         self.glisse_bord = False
+        self.molette = 0
+        self.tactile = False
 
     def vient_d_appuyer(self, action):
         """But : consommer une action. Entree(s) : action (str). Sortie : bool."""
@@ -74,7 +76,7 @@ class TestProfilSucces(unittest.TestCase):
         ecran.erreur = ""
         ecran.choix = 0
         ecran.fiche_ouverte = False
-        ecran.zones_succes = [pygame.Rect(470, 270, 100, 72)]
+        ecran.zones_succes = [(0, pygame.Rect(470, 270, 100, 72))]
         ecran.rect_fiche = pygame.Rect(315, 180, 650, 360)
         return app, ecran
 
@@ -92,7 +94,7 @@ class TestProfilSucces(unittest.TestCase):
         app.entrees.actions.add("retour")
         ecran.mettre_a_jour(1 / 60)
         self.assertFalse(ecran.fiche_ouverte)
-        app.entrees.souris = ecran.zones_succes[0].center
+        app.entrees.souris = ecran.zones_succes[0][1].center
         app.entrees.clics = [1]
         ecran.mettre_a_jour(1 / 60)
         self.assertTrue(ecran.fiche_ouverte)
@@ -115,8 +117,8 @@ class TestNombreSucces(unittest.TestCase):
     def test_nombre_succes_suit_le_serveur(self):
         """But : le total affiché côté jeu suit la liste du serveur. Sortie : aucune."""
         from reseau.profil import NOMBRE_SUCCES
-        from serveur.succes import SUCCES
-        self.assertEqual(NOMBRE_SUCCES, len(SUCCES))
+        from serveur.succes import NOMBRE_CODES
+        self.assertEqual(NOMBRE_SUCCES, NOMBRE_CODES)
 
 
 if __name__ == "__main__":

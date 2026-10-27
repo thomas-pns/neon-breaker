@@ -302,8 +302,11 @@ la production ».
 - [ ] **Mode spectateur** : depuis la liste des parties en ligne, regarder une partie en
   cours (le serveur envoie déjà les instantanés ; le spectateur ne joue pas et n'est pas compté
   dans la partie). Plus tard : regarder les parties classées des meilleurs joueurs.
-- [ ] **Succès à paliers** : bronze, argent et or pour les succès qui comptent quelque chose
-  (briques cassées, parties, séries, victoires en ligne…), avec une récompense en NEONS à chaque
-  palier. Ajouter des succès pour les nouveautés : classée (première victoire, divisions),
-  étoiles de la Campagne, boutique, saisons.
+- [x] **(2.6) Succès à paliers** ARGENT, OR, PLATINE (couleurs des divisions de la classée) :
+  12 familles (briques, parties, boss, étoiles de campagne, combo, SUPERNOVAS, vague d'Arcade,
+  victoires en ligne, Coop, défis joués, séries jour et semaine), 60 / 150 / 400 NEONS par
+  palier, barre de progression dans le profil, reflet sur les cases platine. Les anciens succès
+  équivalents sont convertis (ex. briques_10000 -> briques argent + or).
+- [ ] Succès encore à ajouter : classée (première victoire, divisions atteintes), boutique
+  (objets possédés), saisons.
 
