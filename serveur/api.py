@@ -139,6 +139,28 @@ def connexion(identifiants: Identifiants, requete: Request):
     return ouvrir_session(joueur)
 
 
+class ChangementMdp(BaseModel):
+    ancien: str
+    nouveau: str
+
+
+@app.put("/api/moi/mdp")
+def changer_mdp(changement: ChangementMdp, requete: Request, authorization: str = Header(default="")):
+    """Le joueur change son mot de passe (par ex. après un mot de passe provisoire donné par
+    un admin). Les autres appareils sont déconnectés ; celui-ci reçoit une nouvelle session."""
+    joueur = joueur_connecte(authorization)
+    if not limiteur.autoriser(adresse_ip(requete)):
+        raise HTTPException(429, "Trop de tentatives, attendez une minute")
+    if not securite.verifier_mdp(changement.ancien, joueur["mdp"]):
+        raise HTTPException(403, "Mot de passe actuel incorrect")
+    erreur = securite.erreur_mdp(changement.nouveau)
+    if erreur:
+        raise HTTPException(400, erreur)
+    base.changer_mdp(joueur["id"], securite.hacher_mdp(changement.nouveau))
+    base.supprimer_sessions_joueur(joueur["id"])
+    return ouvrir_session(base.joueur_par_id(joueur["id"]))
+
+
 @app.post("/api/deconnexion")
 def deconnexion(authorization: str = Header(default="")):
     if authorization.lower().startswith("bearer "):
@@ -216,6 +238,28 @@ def changer_banniere(choix: Banniere, authorization: str = Header(default="")):
     return {"ok": True, "banniere": choix.banniere}
 
 
+# --- Progression gardée sur le compte (2.5) ---------------------------------------------
+
+class Progression(BaseModel):
+    progression: dict
+
+
+@app.get("/api/moi/progression")
+def lire_progression(authorization: str = Header(default="")):
+    joueur = joueur_connecte(authorization)
+    return {"progression": base.progression(joueur["id"])}
+
+
+@app.put("/api/moi/progression")
+def envoyer_progression(recue: Progression, authorization: str = Header(default="")):
+    """L'appareil envoie sa progression ; il reçoit la fusion avec celle du compte."""
+    joueur = joueur_connecte(authorization)
+    from jeu.progression import TAILLE_MAX
+    if len(json.dumps(recue.progression)) > TAILLE_MAX:
+        raise HTTPException(413, "Progression trop grosse")
+    return {"progression": base.fusionner_progression(joueur["id"], recue.progression)}
+
+
 # --- Administration (2.1) ---------------------------------------------------------------
 
 class ActionAdmin(BaseModel):
@@ -256,10 +300,28 @@ def admin_action(pseudo: str, action: ActionAdmin, authorization: str = Header(d
     elif action.action == "cote":
         base.ecrire("UPDATE joueurs SET elo = 1000, classees = 0, classees_victoires = 0, "
                     "classees_recents = '' WHERE id = ?", (cible["id"],))
+    elif action.action == "mdp":
+        # Mot de passe provisoire, montré à l'admin (une seule fois) pour le donner au joueur.
+        import secrets
+        provisoire = "-".join(secrets.choice(MOTS_PROVISOIRES) for _ in range(2)) + str(secrets.randbelow(90) + 10)
+        base.changer_mdp(cible["id"], securite.hacher_mdp(provisoire))
+        base.supprimer_sessions_joueur(cible["id"])
+        journal_admin.info("Admin %s : mot de passe provisoire pour %s", admin["pseudo"], pseudo)
+        return {"ok": True, "joueurs": base.liste_admin(), "mdp": provisoire}
+    elif action.action == "supprimer":
+        if cible["id"] == admin["id"] or base.est_admin(cible):
+            raise HTTPException(400, "Impossible de supprimer un administrateur")
+        base.supprimer_sessions_joueur(cible["id"])
+        base.supprimer_joueur(cible["id"])
     else:
         raise HTTPException(400, "Action inconnue")
     journal_admin.info("Admin %s : %s %s (%s)", admin["pseudo"], action.action, pseudo, action.valeur)
     return {"ok": True, "joueurs": base.liste_admin()}
+
+
+# Mots faciles à dicter pour les mots de passe provisoires (ex. « laser-pixel42 »).
+MOTS_PROVISOIRES = ["neon", "laser", "pixel", "turbo", "astro", "comete", "cobra", "orbite",
+                    "plasma", "radar", "sonar", "nova", "vortex", "zenith", "arcade", "brique"]
 
 
 # --- Boutique (2.0) -----------------------------------------------------------------------

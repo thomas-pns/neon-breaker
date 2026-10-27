@@ -27,6 +27,25 @@ def charger_nouveautes():
         return json.load(fichier)
 
 
+
+def couper_lignes(lignes, maximum):
+    """
+    But : couper les lignes trop longues entre deux mots.
+    Entrées : lignes (list de str) ; maximum (int) : caractères par ligne. Sortie : (list de str).
+    """
+    resultat = []
+    for ligne in lignes:
+        courante = ""
+        for mot in ligne.split(" "):
+            essai = f"{courante} {mot}".strip()
+            if len(essai) > maximum and courante:
+                resultat.append(courante)
+                courante = mot
+            else:
+                courante = essai
+        resultat.append(courante)
+    return resultat
+
 class EcranNouveautes(EcranBase):
     """Ecran de consultation des nouveautes, navigable au clavier et a la souris."""
 
@@ -77,14 +96,15 @@ class EcranNouveautes(EcranBase):
         self.app.fond.dessiner(image)
         voile(image, 175)
         vertical = config.HAUTEUR > config.LARGEUR
-        haut = (50 + min(110, max(0, config.HAUTEUR - 1422) // 2)) if vertical else 0
+        haut = (50 + min(90, max(0, config.HAUTEUR - config.LARGEUR * 16 // 9) // 2)) if vertical else 0
         dessiner_texte(image, "NOUVEAUTES", config.LARGEUR / 2, 48 + haut, 5, config.CYAN)
         self.zones = []
         hauteur = min(58, 500 // max(1, len(self.versions)))
         for i, version in enumerate(self.versions):
             if vertical:                     # téléphone : versions en pastilles, 4 par ligne
                 ligne, colonne = divmod(i, 4)
-                rect = pygame.Rect(24 + colonne * 190, 110 + haut + ligne * 64, 178, 54)
+                pas = (config.LARGEUR - 36) // 4
+                rect = pygame.Rect(24 + colonne * pas, 110 + haut + ligne * 64, pas - 12, 54)
             else:
                 rect = pygame.Rect(105, 115 + i * hauteur, 300, hauteur - 8)
             self.zones.append(rect)
@@ -102,7 +122,10 @@ class EcranNouveautes(EcranBase):
             panneau(image, rect, config.CYAN)
             dessiner_texte(image, version.get("titre", ""), rect.centerx, rect.y + 45,
                            4, config.AMBRE)
-            for i, ligne in enumerate(version.get("lignes", [])):
+            lignes = version.get("lignes", [])
+            if vertical:                     # écran étroit : lignes coupées entre les mots
+                lignes = couper_lignes(lignes, (rect.w - 60) // 12)
+            for i, ligne in enumerate(lignes):
                 dessiner_texte(image, ligne, rect.x + 36, rect.y + 105 + i * 36,
                                2, config.BLANC, ancrage="gauche", lueur=False)
         if not vertical:

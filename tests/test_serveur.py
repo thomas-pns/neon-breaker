@@ -374,6 +374,59 @@ class TestServeur(unittest.TestCase):
         finally:
             config.ADMINS.remove("Chef")
 
+    def test_admin_mdp_et_suppression(self):
+        entete = {"Authorization": f"Bearer {self.inscrire('Patron')}"}
+        jeton_oublieux = self.inscrire("Oublieux")
+        self.inscrire("Partant")
+        config.ADMINS.append("Patron")
+        try:
+            r = self.client.post("/api/admin/joueurs/Oublieux", headers=entete, json={"action": "mdp"})
+            provisoire = r.json()["mdp"]
+            self.assertGreaterEqual(len(provisoire), 6)
+            # L'ancienne session ne marche plus ; le mot de passe provisoire, si.
+            self.assertEqual(self.client.get("/api/moi", headers={
+                "Authorization": f"Bearer {jeton_oublieux}"}).status_code, 401)
+            connexion = self.client.post("/api/connexion", json={"pseudo": "Oublieux", "mdp": provisoire})
+            self.assertEqual(connexion.status_code, 200)
+            # Le joueur choisit ensuite son propre mot de passe.
+            sienne = {"Authorization": f"Bearer {connexion.json()['jeton']}"}
+            self.assertEqual(self.client.put("/api/moi/mdp", headers=sienne, json={
+                "ancien": "faux-mdp", "nouveau": "nouveau123"}).status_code, 403)
+            change = self.client.put("/api/moi/mdp", headers=sienne, json={
+                "ancien": provisoire, "nouveau": "nouveau123"})
+            self.assertEqual(change.status_code, 200)
+            self.assertEqual(self.client.get("/api/moi", headers={
+                "Authorization": f"Bearer {change.json()['jeton']}"}).status_code, 200)
+            self.assertEqual(self.client.post("/api/connexion", json={
+                "pseudo": "Oublieux", "mdp": "nouveau123"}).status_code, 200)
+            # Suppression : le compte disparaît (et son pseudo redevient libre).
+            r = self.client.post("/api/admin/joueurs/Partant", headers=entete, json={"action": "supprimer"})
+            self.assertNotIn("Partant", [j["pseudo"] for j in r.json()["joueurs"]])
+            self.inscrire("Partant")
+            self.assertEqual(self.client.post("/api/admin/joueurs/Patron", headers=entete,
+                                              json={"action": "supprimer"}).status_code, 400)
+        finally:
+            config.ADMINS.remove("Patron")
+
+    def test_progression_sur_le_compte(self):
+        entete = {"Authorization": f"Bearer {self.inscrire('Nomade')}"}
+        pc = {"progression": {"campagne": 4}, "etoiles": {"campagne": {"0": 3, "1": 1}},
+              "meilleurs": {"arcade": 5000}, "defis_joues": {"jour": ["2026-10-20"]}}
+        telephone = {"progression": {"campagne": 2}, "etoiles": {"campagne": {"1": 4, "2": 1}},
+                     "meilleurs": {"arcade": 7000, "hardcore": 900},
+                     "defis_joues": {"jour": ["2026-10-21"]}}
+        self.assertEqual(self.client.get("/api/moi/progression", headers=entete).json(), {"progression": {}})
+        self.client.put("/api/moi/progression", headers=entete, json={"progression": pc})
+        fusion = self.client.put("/api/moi/progression", headers=entete,
+                                 json={"progression": telephone}).json()["progression"]
+        self.assertEqual(fusion["progression"]["campagne"], 4)
+        self.assertEqual(fusion["etoiles"]["campagne"], {"0": 3, "1": 5, "2": 1})
+        self.assertEqual(fusion["meilleurs"], {"arcade": 7000, "hardcore": 900})
+        self.assertEqual(fusion["defis_joues"]["jour"], ["2026-10-20", "2026-10-21"])
+        self.assertEqual(self.client.get("/api/moi/progression", headers=entete).json()["progression"], fusion)
+        self.assertEqual(self.client.put("/api/moi/progression", headers=entete,
+                                         json={"progression": {"bulles_vues": ["x" * 70000]}}).status_code, 413)
+
     def test_migration_base_1_0(self):
         """Une base créée par la version 1.0 (sans skin ni jour) est mise à niveau."""
         import sqlite3

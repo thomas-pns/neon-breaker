@@ -104,6 +104,11 @@ CREATE TABLE IF NOT EXISTS possessions (
     obtenu_le REAL NOT NULL,
     PRIMARY KEY (joueur_id, code)
 );
+CREATE TABLE IF NOT EXISTS progressions (
+    joueur_id INTEGER PRIMARY KEY REFERENCES joueurs(id) ON DELETE CASCADE,
+    donnees TEXT NOT NULL,
+    maj_le REAL NOT NULL
+);
 """
 
 
@@ -131,6 +136,7 @@ class Base:
         self.connexion = sqlite3.connect(chemin, check_same_thread=False)
         self.connexion.row_factory = sqlite3.Row
         self.verrou = threading.Lock()
+        self.verrou_progression = threading.Lock()      # lire + fusionner + écrire d'un bloc
         with self.verrou:
             self.connexion.execute("PRAGMA journal_mode=WAL")
             self.connexion.execute("PRAGMA foreign_keys=ON")
@@ -432,6 +438,34 @@ class Base:
 
     def changer_mdp(self, joueur_id, mdp_hache):
         self.ecrire("UPDATE joueurs SET mdp = ? WHERE id = ?", (mdp_hache, joueur_id))
+
+    # --- Progression gardée sur le compte (2.5) ------------------------------------------
+
+    def progression(self, joueur_id):
+        """But : progression enregistrée du joueur. Sortie : (dict), vide s'il n'en a pas."""
+        lignes = self.lire("SELECT donnees FROM progressions WHERE joueur_id = ?", (joueur_id,))
+        try:
+            return json.loads(lignes[0]["donnees"]) if lignes else {}
+        except ValueError:
+            return {}
+
+    def fusionner_progression(self, joueur_id, recue):
+        """
+        But : ajouter la progression d'un appareil à celle du compte (on garde le meilleur
+        des deux, voir jeu/progression.py). Sortie : (dict) progression fusionnée.
+        """
+        from jeu.progression import fusionner
+        with self.verrou_progression:
+            fusion = fusionner(self.progression(joueur_id), recue)
+            self.ecrire("INSERT INTO progressions (joueur_id, donnees, maj_le) VALUES (?, ?, ?) "
+                        "ON CONFLICT(joueur_id) DO UPDATE SET donnees = excluded.donnees, "
+                        "maj_le = excluded.maj_le",
+                        (joueur_id, json.dumps(fusion, separators=(",", ":")), time.time()))
+        return fusion
+
+    def supprimer_joueur(self, joueur_id):
+        """But : effacer un compte et tout ce qui lui appartient (parties, succès...)."""
+        self.ecrire("DELETE FROM joueurs WHERE id = ?", (joueur_id,))
 
     def bannir(self, joueur_id, banni=True):
         self.ecrire("UPDATE joueurs SET banni = ? WHERE id = ?", (int(banni), joueur_id))

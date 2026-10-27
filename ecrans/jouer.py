@@ -72,7 +72,8 @@ def tailles():
         # La grande carte prend la hauteur libre (écrans allongés), sans dépasser 760.
         dispo = bas_contenu() - haut_contenu() - 260
         hauteur = max(540, min(760, dispo))
-        return (540, hauteur), (280, int(hauteur * 0.62)), 410
+        largeur = min(540, config.LARGEUR - 140)            # les voisines dépassent sur les côtés
+        return (largeur, hauteur), (240, int(hauteur * 0.62)), int(config.LARGEUR * 0.555)
     return GRANDE, PETITE, ECART
 
 
@@ -257,7 +258,7 @@ class EcranJouer(EcranMenu):
         self.zones_familles = []
         y_familles = haut_contenu() + 30
         for k, (_, nom, couleur) in enumerate(FAMILLES):
-            cx = config.LARGEUR / 2 + (k - 1) * (250 if est_vertical() else 210)
+            cx = config.LARGEUR / 2 + (k - 1) * (int(config.LARGEUR * 0.32) if est_vertical() else 210)
             actif = k == self.famille
             zone = dessiner_texte(image, nom, cx, y_familles, 3, couleur if actif else GRIS, lueur=actif)
             self.zones_familles.append(zone.inflate(30, 30))

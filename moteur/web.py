@@ -79,6 +79,22 @@ def telephone():
         return False
 
 
+def peut_vibrer():
+    """But : le téléphone sait-il vibrer depuis une page (Android oui, iPhone non) ?"""
+    try:
+        return bool(_neon().peut_vibrer())
+    except Exception:
+        return False
+
+
+def vibrer(duree):
+    """But : faire vibrer le téléphone pendant duree millisecondes."""
+    try:
+        _neon().vibrer(int(duree))
+    except Exception:
+        pass
+
+
 def proportion():
     """But : hauteur / largeur de la page (téléphone en portrait : environ 2,1). 0 si inconnue."""
     try:

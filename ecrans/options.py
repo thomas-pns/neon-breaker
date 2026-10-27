@@ -78,6 +78,8 @@ class EcranOptions(EcranBase):
             (f"PARTICULES : {r['particules'].upper()}", lambda: self._particules(1),
              self._particules),
         ] + ([] if config.EST_WEB else [("PLEIN ECRAN  (F11)", self.app.ecran.basculer_plein_ecran)]) + (
+            [(f"VIBRATIONS : {oui_non[bool(r.get('vibrations', True))]}", self._vibrations,
+              lambda s: self._vibrations())] if self._peut_vibrer() else []) + (
             [] if getattr(self.app, "vertical", False) else [("COMMANDES / MANETTE", self._commandes)]) + [
             (f"FANTOME DES DEFIS : {self._nom_fantome()}", lambda: self._fantome(1), self._fantome),
             (f"NOM DES RECORDS J1 : {self._nom_defaut(1)}", lambda: self._saisir_nom(1)),
@@ -112,6 +114,22 @@ class EcranOptions(EcranBase):
     def _basculer(self, cle):
         self.app.reglages[cle] = not self.app.reglages[cle]
         self.app.audio.jouer("menu_nav")
+        self.app.enregistrer()
+        self._construire()
+
+    @staticmethod
+    def _peut_vibrer():
+        """But : afficher l'option VIBRATIONS (téléphone Android, dans le navigateur) ?"""
+        if not config.EST_WEB:
+            return False
+        from moteur import web
+        return web.peut_vibrer()
+
+    def _vibrations(self):
+        r = self.app.reglages
+        r["vibrations"] = not r.get("vibrations", True)
+        self.app.audio.vibrations = r["vibrations"]
+        self.app.audio.jouer("raquette")              # pour sentir la différence
         self.app.enregistrer()
         self._construire()
 

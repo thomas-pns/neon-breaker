@@ -220,11 +220,12 @@ class EcranSalons(EcranTempsReel):
             rect = pygame.Rect(liste.x + 20, y + 74, liste.w - 40, 56)
             choisi = self.indice == len(self.salons) + 1
             self._cadre(image, rect, choisi, config.VERT)
-            dessiner_texte(image, "NIVEAU DE DEPART", rect.x + 24, rect.centery, 2, GRIS,
-                           ancrage="gauche", lueur=False)
-            dessiner_texte(image, f"< {self.niveau + 1} >", rect.x + 360, rect.centery, 3,
-                           config.VERT, lueur=choisi)
-            if self.niveau_max() < 11:
+            etroit = rect.w < 640                    # téléphone : sans la mention des débloqués
+            dessiner_texte(image, "NIVEAU" if etroit else "NIVEAU DE DEPART", rect.x + 24, rect.centery, 2,
+                           GRIS, ancrage="gauche", lueur=False)
+            dessiner_texte(image, f"< {self.niveau + 1} >", rect.centerx if etroit else rect.x + 360,
+                           rect.centery, 3, config.VERT, lueur=choisi)
+            if self.niveau_max() < 11 and not etroit:
                 dessiner_texte(image, f"DEBLOQUES : 1 A {self.niveau_max() + 1}", rect.right - 24,
                                rect.centery, 2, GRIS, ancrage="droite", lueur=False)
             self.zones.append(rect)

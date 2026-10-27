@@ -272,6 +272,11 @@ class ServiceEnLigne:
         self.envoi_en_cours = False
         self._prochaine_verification_version = time.monotonic() + 30
         self.requetes_web = {}          # version navigateur : numéro -> rappel
+        # Progression gardée sur le compte : dernière version envoyée (empreinte), envoi en
+        # cours, et prochaine vérification (la sauvegarde a-t-elle changé depuis ?).
+        self.progression_envoyee = None
+        self.envoi_progression = False
+        self._prochaine_progression = 0.0
 
     # --- Adresse ---------------------------------------------------------------
 
@@ -316,6 +321,9 @@ class ServiceEnLigne:
 
     def traiter(self):
         """But : exécuter les rappels arrivés (appelé à chaque image)."""
+        if self.jeton and time.monotonic() >= self._prochaine_progression:
+            self._prochaine_progression = time.monotonic() + 20
+            self.synchroniser_progression()
         if self.version_serveur is None and time.monotonic() >= self._prochaine_verification_version:
             self._prochaine_verification_version = time.monotonic() + 30
             # Vérification silencieuse : on mémorise la version, sans fenêtre pendant
@@ -380,11 +388,43 @@ class ServiceEnLigne:
                                       "admin": self.admin}
         self.app.enregistrer()
 
+    def synchroniser_progression(self, forcer=False):
+        """
+        But : garder la progression sur le compte (niveaux, étoiles, records, séries...).
+        L'appareil envoie la sienne et reçoit la fusion avec celle du compte (le meilleur des
+        deux), qu'il adopte. Rien n'est envoyé si elle n'a pas changé depuis le dernier envoi.
+        """
+        from jeu import progression
+        if not self.jeton or self.envoi_progression or self.protege():
+            return
+        locale = progression.extraire(self.app.donnees)
+        if not forcer and progression.empreinte(locale) == self.progression_envoyee:
+            return
+        self.envoi_progression = True
+
+        def recu(resultat):
+            self.envoi_progression = False
+            if not resultat["ok"] or not isinstance(resultat["donnees"], dict):
+                return
+            if progression.appliquer(self.app.donnees, resultat["donnees"].get("progression", {})):
+                self.app.enregistrer()
+            self.progression_envoyee = progression.empreinte(progression.extraire(self.app.donnees))
+        self.appeler("PUT", "/api/moi/progression", {"progression": locale}, recu)
+
+    def changer_mdp(self, ancien, nouveau, rappel):
+        """But : changer son mot de passe (une nouvelle session est donnée par le serveur)."""
+        def recu(resultat):
+            if resultat["ok"]:
+                self.memoriser(resultat["donnees"])
+            rappel(resultat)
+        self.appeler("PUT", "/api/moi/mdp", {"ancien": ancien, "nouveau": nouveau}, recu)
+
     def se_connecter(self, pseudo, mdp, inscription, rappel):
         def recu(resultat):
             if resultat["ok"]:
                 self.memoriser(resultat["donnees"])
                 self.vider_file()
+                self.synchroniser_progression(forcer=True)
             rappel(resultat)
         chemin = "/api/inscription" if inscription else "/api/connexion"
         self.appeler("POST", chemin, {"pseudo": pseudo, "mdp": mdp}, recu, authentifie=False)
@@ -398,6 +438,7 @@ class ServiceEnLigne:
             if resultat["ok"]:
                 self.memoriser(resultat["donnees"])
                 self.vider_file()
+                self.synchroniser_progression(forcer=True)
             elif resultat["code"] == 401:
                 self.oublier()
             if rappel:
@@ -406,6 +447,7 @@ class ServiceEnLigne:
 
     def oublier(self):
         self.jeton = ""
+        self.progression_envoyee = None
         self.connecte = False
         self.skin, self.skins = "neon", ["neon"]
         self.neons, self.banniere, self.bannieres = 0, "", []

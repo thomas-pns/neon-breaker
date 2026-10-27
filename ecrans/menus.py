@@ -52,7 +52,7 @@ def marge_haut():
         return 0
     if config.MARGES_CONNUES:                   # zone sûre mesurée (iPhone : encoche)
         return config.MARGE_HAUT_ECRAN + 6
-    return min(110, max(0, config.HAUTEUR - 1422) // 2)
+    return min(90, max(0, config.HAUTEUR - config.LARGEUR * 16 // 9) // 2)
 
 
 def marge_bas():
@@ -184,10 +184,7 @@ def ecran_onglet(app, nom):
     if nom == "CASIER":
         from ecrans.casier import EcranCasier
         return EcranCasier(app)
-    if nom == "BOUTIQUE":
-        if not app.en_ligne.jeton:
-            from ecrans.en_ligne.connexion import EcranConnexion
-            return EcranConnexion(app)
+    if nom == "BOUTIQUE":                  # sans compte : invitation à se connecter
         from ecrans.en_ligne.boutique import EcranBoutique
         return EcranBoutique(app)
     from ecrans.titre import EcranTitre
@@ -420,6 +417,8 @@ class EcranReglages(EcranBase):
                    ("JOUEURS", self._joueurs)]
         if connecte and getattr(self.app.en_ligne, "admin", False):
             options.append(("ADMIN", self._admin))
+        if connecte:
+            options.append(("MOT DE PASSE", self._mot_de_passe))
         options.append(("SE DECONNECTER" if connecte else "SE CONNECTER", self._compte))
         if not config.EST_WEB:                  # dans le navigateur, on ferme l'onglet
             options.append(("QUITTER LE JEU", self._quitter))
@@ -462,6 +461,10 @@ class EcranReglages(EcranBase):
             self.app.remplacer(EcranTitre(self.app), transition=False)
         else:
             self.app.remplacer(EcranConnexion(self.app), transition=False)
+
+    def _mot_de_passe(self):
+        from ecrans.en_ligne.connexion import EcranConnexion
+        self.app.remplacer(EcranConnexion(self.app, changement=True), transition=False)
 
     def _quitter(self):
         self.app.en_marche = False

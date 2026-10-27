@@ -89,7 +89,7 @@ TITRE = "NEON BREAKER"
 # LARGEUR et HAUTEUR donnent le format EN COURS : un écran pas encore prévu pour le
 # vertical est dessiné en paysage (voir Application), et ils valent alors 1280x720.
 PAYSAGE = (1280, 720)
-VERTICAL = (800, 1422)
+VERTICAL = (640, 1138)          # 640 de large : tout est 25 % plus gros qu'à 800 (2.5)
 LARGEUR, HAUTEUR = PAYSAGE
 # Zones sûres du téléphone (encoche en haut, barre d'accueil en bas), en pixels de
 # l'image verticale : rien d'important ne doit être dessiné dessous.

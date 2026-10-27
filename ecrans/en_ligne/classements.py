@@ -96,14 +96,20 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
         """But : les meilleurs scores de ce PC, mode par mode (top 5)."""
         dessiner_texte(image, "MES RECORDS (SUR CE PC)", cadre.x + 40, cadre.y + 26, 2, config.AMBRE,
                        ancrage="gauche", lueur=False)
+        etroit = config.HAUTEUR > config.LARGEUR       # téléphone : 2 colonnes sur 2 rangées
         for k, (mode, nom, couleur) in enumerate(MODES_RECORDS):
-            x = cadre.x + 30 + k * 180
-            dessiner_texte(image, nom, x + 80, cadre.y + 74, 3, couleur)
-            lignes = self.app.classement(mode)[:8]
+            x, haut, nombre = cadre.x + 30 + k * 180, cadre.y + 74, 8
+            if etroit:
+                largeur = (cadre.w - 60) // 2
+                x = cadre.x + 30 + (k % 2) * largeur + (largeur - 160) // 2
+                haut = cadre.y + 74 + (k // 2) * ((cadre.h - 90) // 2)
+                nombre = max(1, min(8, ((cadre.h - 90) // 2 - 70) // 36))
+            dessiner_texte(image, nom, x + 80, haut, 3, couleur)
+            lignes = self.app.classement(mode)[:nombre]
             if not lignes:
-                dessiner_texte(image, "AUCUN SCORE", x + 80, cadre.y + 120, 2, (120, 90, 170), lueur=False)
+                dessiner_texte(image, "AUCUN SCORE", x + 80, haut + 46, 2, (120, 90, 170), lueur=False)
             for i, ligne in enumerate(lignes):
-                y = cadre.y + 120 + i * 40
+                y = haut + 46 + i * (36 if etroit else 40)
                 teinte = COULEURS_RANGS[i] if i < 3 else config.BLANC
                 dessiner_texte(image, f"{i + 1}", x + 6, y, 2, teinte, ancrage="gauche", lueur=False)
                 dessiner_texte(image, str(ligne.get("nom", "???"))[:3], x + 32, y, 2, teinte,
@@ -141,7 +147,8 @@ class EcranClassementsMondiaux(EcranEnLigneBase):
         for i, mode in enumerate(ONGLETS):
             if vertical:                     # téléphone : onglets sur plusieurs lignes, 4 par ligne
                 ligne, colonne = divmod(i, 4)
-                rect = pygame.Rect(20 + colonne * 192, haut_contenu() + 16 + ligne * 60, 180, 50)
+                pas = (config.LARGEUR - 28) // 4
+                rect = pygame.Rect(16 + colonne * pas, haut_contenu() + 16 + ligne * 60, pas - 10, 50)
             else:
                 rect = pygame.Rect(0, 0, 106, 40)
                 rect.center = (int(config.LARGEUR / 2 + (i - (len(ONGLETS) - 1) / 2) * 112), 104)

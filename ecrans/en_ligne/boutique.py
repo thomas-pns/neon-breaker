@@ -77,9 +77,14 @@ class EcranBoutique(EcranEnLigneBase):
         self.minuteur = 0.0
         self.apercus = {}
         self.en_attente = False
+        self.zone_connexion = None
+        if not app.en_ligne.jeton:
+            # Sans compte : l'onglet reste là (barre d'onglets, glissés), avec une invitation.
+            self.etat = "sans_compte"
 
     def entrer(self):
-        self.app.en_ligne.charger_boutique(self._recu_vitrine)
+        if self.etat != "sans_compte":
+            self.app.en_ligne.charger_boutique(self._recu_vitrine)
 
     def _recu_vitrine(self, resultat):
         if not resultat["ok"]:
@@ -233,6 +238,18 @@ class EcranBoutique(EcranEnLigneBase):
         super().mettre_a_jour(dt)
         entrees = self.app.entrees
         self.minuteur = max(0.0, self.minuteur - dt)
+        if self.etat == "sans_compte":
+            if self.app.ecran_actif() is not self:
+                return                                  # la barre a déjà changé d'onglet
+            clic = 1 in entrees.clics and self.zone_connexion is not None \
+                and self.zone_connexion.collidepoint(entrees.souris)
+            if entrees.vient_d_appuyer("valider") or clic:
+                from ecrans.en_ligne.connexion import EcranConnexion
+                self.app.audio.jouer("menu_ok")
+                self.app.remplacer(EcranConnexion(self.app), transition=False)
+            elif entrees.vient_d_appuyer("retour"):
+                self.retour_accueil()
+            return
         if self.etat == "ouverture":
             if self.minuteur <= 0 and self.gagne is not None:
                 self.etat, self.minuteur = "revele", 0.0
@@ -422,8 +439,32 @@ class EcranBoutique(EcranEnLigneBase):
                "retour", config.ROSE, non)
         return True
 
+    def _dessiner_sans_compte(self, image):
+        """Sans compte : ce qu'on trouve dans la boutique, et un bouton pour se connecter."""
+        from ecrans.menus import bouton, carte
+        from moteur.icones import dessiner_icone
+        vertical = config.HAUTEUR > config.LARGEUR
+        cadre = pygame.Rect(0, 0, config.LARGEUR - 40 if vertical else 760, 620 if vertical else 440)
+        cadre.center = (config.LARGEUR / 2, config.HAUTEUR / 2 + (0 if vertical else 30))
+        carte(image, cadre, config.VIOLET, False)
+        dessiner_texte(image, "BOUTIQUE", cadre.centerx, cadre.y + 60, 5, config.VIOLET)
+        dessiner_icone(image, "TROPHEE", (cadre.centerx, cadre.y + 160), config.AMBRE, 8)
+        lignes = ["SKINS DE RAQUETTE, BANNIERES", "ET BOITE MYSTERE, A GAGNER", f"AVEC DES {MONNAIE} EN JOUANT"]
+        for k, ligne in enumerate(lignes):
+            dessiner_texte(image, ligne, cadre.centerx, cadre.y + (250 + k * 40 if vertical else 222 + k * 28),
+                           3 if vertical else 2,
+                           config.BLANC, lueur=False)
+        bouton_rect = pygame.Rect(0, 0, 460 if vertical else 360, 80 if vertical else 60)
+        bouton_rect.midbottom = (cadre.centerx, cadre.bottom - 40)
+        bouton(image, bouton_rect, "SE CONNECTER", config.VERT, 3)
+        self.zone_connexion = bouton_rect
+        dessiner_texte(image, "GRATUIT, SANS E-MAIL", cadre.centerx, bouton_rect.y - 28, 2, GRIS, lueur=False)
+
     def dessiner(self, image):
         self.dessiner_fond(image)
+        if self.etat == "sans_compte":
+            self._dessiner_sans_compte(image)
+            return
         if self.etat in ("chargement", "erreur"):
             texte = "CHARGEMENT..." if self.etat == "chargement" else self.message
             dessiner_texte(image, texte, config.LARGEUR / 2, config.HAUTEUR / 2, 3,

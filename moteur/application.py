@@ -186,6 +186,9 @@ class Application:
         self.reglages = self.donnees["reglages"]
         self.entrees.appliquer_perso(self.reglages.get("touches"))
         self.audio.volume_effets = self.reglages["volume_effets"]
+        if config.EST_WEB:
+            from moteur import web
+            self.audio.vibrations = web.peut_vibrer() and self.reglages.get("vibrations", True)
         self.audio.volume_musique = self.reglages["volume_musique"]
         from reseau.client import ServiceEnLigne
         self.en_ligne = ServiceEnLigne(self)
