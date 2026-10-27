@@ -24,6 +24,7 @@ from ecrans.hud import barre, dessiner_etoiles
 from ecrans.menus import (bas_contenu, est_vertical, haut_contenu, EcranMenu, GRIS, JAUNE_SERIE, VIOLET_SERIE, bouton, carte,
                           division_joueur, ecusson, flamme, series_locales)
 
+LOCAUX = ("coop", "duel", "course")         # à deux sur le même écran : pas sur téléphone
 FAMILLES = [("solo", "SOLO", config.CYAN), ("en_ligne", "EN LIGNE", config.VERT),
             ("defis", "DEFIS", config.AMBRE)]
 
@@ -117,7 +118,12 @@ class EcranJouer(EcranMenu):
     # --- Données ------------------------------------------------------------------------
 
     def cartes(self):
-        return CARTES[FAMILLES[self.famille][0]]
+        cartes = CARTES[FAMILLES[self.famille][0]]
+        if est_vertical():
+            # Téléphone : pas de modes à deux sur le même écran (un seul doigt, un seul écran) ;
+            # la Coop, le Duel et la Course se jouent en ligne, chacun sur son téléphone.
+            cartes = [c for c in cartes if c[0] not in LOCAUX]
+        return cartes
 
     def _progression_campagne(self):
         from jeu.niveau import charger_campagne

@@ -42,6 +42,14 @@ def comment_obtenir(banniere):
     return NOMS_RARETES[banniere["rarete"]]
 
 
+def case():
+    """But : taille d'une case (moins large sur un téléphone étroit, pour tenir à 3 de front)."""
+    from ecrans.menus import est_vertical
+    if est_vertical():
+        return (min(CASE[0], (config.LARGEUR - 40 - 2 * 14) // 3), CASE[1])
+    return CASE
+
+
 def grille():
     """
     But : disposition de la grille : (colonnes, lignes visibles, x, y, catégories en haut ?).
@@ -52,8 +60,8 @@ def grille():
         return COLONNES, LIGNES_VISIBLES, X_GRILLE, Y_GRILLE, False
     y = haut_contenu() + 90
     lignes = max(1, (bas_contenu() - 80 - y) // (CASE[1] + 14))
-    largeur = 3 * CASE[0] + 2 * 18
-    return 3, lignes, (config.LARGEUR - largeur) // 2 - 8, y, True
+    largeur = 3 * case()[0] + 2 * 14
+    return 3, lignes, (config.LARGEUR - largeur) // 2, y, True
 
 
 class EcranCasier(EcranMenu):
@@ -190,6 +198,7 @@ class EcranCasier(EcranMenu):
         self.dessiner_fond(image)
         self.zones_categories = []
         colonnes, lignes_visibles, x_grille, y_grille, en_haut = grille()
+        taille, ecart = case(), (14 if en_haut else 18)
         for k, (code, nom) in enumerate(CATEGORIES):
             objets_categorie = self._compte(code)
             if en_haut:
@@ -200,23 +209,30 @@ class EcranCasier(EcranMenu):
             self.zones_categories.append(r)
             actif = k == self.categorie
             carte(image, r, config.ROSE if actif else (90, 60, 130), actif and self.dans_liste)
-            dessiner_texte(image, f"{nom}  {objets_categorie}", r.x + 20, r.centery, 2,
-                           config.BLANC if actif else GRIS, ancrage="gauche", lueur=False)
+            if en_haut:                        # téléphone : le nombre sous le nom (onglets étroits)
+                dessiner_texte(image, nom, r.centerx, r.centery - (10 if objets_categorie else 0), 2,
+                               config.BLANC if actif else GRIS, lueur=False)
+                if objets_categorie:
+                    dessiner_texte(image, objets_categorie, r.centerx, r.centery + 13, 2,
+                                   config.ROSE if actif else (120, 90, 160), lueur=False)
+            else:
+                dessiner_texte(image, f"{nom}  {objets_categorie}", r.x + 20, r.centery, 2,
+                               config.BLANC if actif else GRIS, ancrage="gauche", lueur=False)
         objets = self.objets()
         self.zones = []
         debut = self.premiere_ligne * colonnes
         for i in range(debut, min(len(objets), debut + colonnes * lignes_visibles)):
             col, lig = (i - debut) % colonnes, (i - debut) // colonnes
-            r = pygame.Rect(x_grille + col * (CASE[0] + 18), y_grille + lig * (CASE[1] + 14), *CASE)
+            r = pygame.Rect(x_grille + col * (taille[0] + ecart), y_grille + lig * (CASE[1] + 14), *taille)
             self.zones.append((i, r))
             self._dessiner_objet(image, r, objets[i], i == self.indice and not self.dans_liste)
         lignes_total = (len(objets) - 1) // colonnes + 1
         if lignes_total > lignes_visibles:
             hauteur = lignes_visibles * (CASE[1] + 14) - 14
-            pygame.draw.rect(image, (40, 20, 70), (x_grille + colonnes * (CASE[0] + 18) - 4, y_grille, 6, hauteur), border_radius=3)
+            pygame.draw.rect(image, (40, 20, 70), (x_grille + colonnes * (taille[0] + ecart) - 4, y_grille, 6, hauteur), border_radius=3)
             curseur = hauteur * lignes_visibles / lignes_total
             y = y_grille + (hauteur - curseur) * self.premiere_ligne / max(1, lignes_total - lignes_visibles)
-            pygame.draw.rect(image, config.ROSE, (x_grille + colonnes * (CASE[0] + 18) - 4, int(y), 6, int(curseur)), border_radius=3)
+            pygame.draw.rect(image, config.ROSE, (x_grille + colonnes * (taille[0] + ecart) - 4, int(y), 6, int(curseur)), border_radius=3)
         x_message = config.LARGEUR / 2 if en_haut else 810
         y_message = y_grille + lignes_visibles * (CASE[1] + 14) + 20 if en_haut else 572
         if self.minuteur > 0:
