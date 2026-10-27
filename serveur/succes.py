@@ -15,8 +15,9 @@ Par :
 
 Réalisé le 21/10/2026
 
-ToDo List:
-    Succès à paliers (bronze, argent, or).
+    Succès à paliers (2.6) : certains succès comptent quelque chose (briques, parties,
+    séries...) et ont trois paliers, ARGENT, OR puis PLATINE. Chaque palier est un code à
+    part dans la base (ex. "briques_or") et rapporte des NEONS.
 """
 
 from reseau.series import record  # noqa: E402  (partagé avec le jeu)
@@ -83,14 +84,10 @@ SUCCES = [
            "campagne", lambda r, c: _campagne_complete(r) and _stat(r, "vies_perdues") == 0),
     Succes("combo_8", "x8", "Atteindre le multiplicateur x8", "habilete",
            lambda r, c: _stat(r, "meilleur_combo") >= 35),
-    Succes("combo_50", "INARRETABLE", "Combo de 50 briques", "habilete",
-           lambda r, c: _stat(r, "meilleur_combo") >= 50),
     Succes("supernova", "SUPERNOVA", "Declencher une SUPERNOVA", "habilete",
            lambda r, c: _stat(r, "supernovas") >= 1),
     Succes("bombe_10", "ARTIFICIER", "10 briques avec une seule bombe", "habilete",
            lambda r, c: _stat(r, "bombe_max") >= 10),
-    Succes("arcade_30", "SURVIVANT", "Atteindre la vague 30 en Arcade", "modes",
-           lambda r, c: r.get("mode") == "arcade" and r.get("vagues", 0) >= 30),
     Succes("arcade_drone", "CHASSEUR DE DRONES", "Vaincre un mini-boss DRONE", "modes",
            lambda r, c: "drone" in _stat(r, "boss_vaincus", [])),
     Succes("hardcore_monde", "HARDCORE", "Finir un monde en Hardcore", "modes",
@@ -99,8 +96,6 @@ SUCCES = [
            lambda r, c: r.get("mode") == "duel" and _gagne(r) and _adverse(r) == 0),
     Succes("course_parfaite", "FLECHE NEON", "Gagner une Course sans perdre de manche",
            "modes", lambda r, c: r.get("mode") == "course" and _gagne(r) and _adverse(r) == 0),
-    Succes("coop_10", "DUO", "10 parties en Coop en ligne", "coop",
-           lambda r, c: c.get("parties_par_mode", {}).get("coop", 0) >= 10),
     Succes("coop_boss", "FORCES COMBINEES", "Vaincre un boss en Coop", "coop",
            lambda r, c: r.get("mode") == "coop" and len(_stat(r, "boss_vaincus", [])) >= 1),
     Succes("coop_campagne", "INSEPARABLES", "Finir la campagne en Coop", "coop",
@@ -109,32 +104,106 @@ SUCCES = [
            "collection", lambda r, c: TOUTES_CAPSULES <= set(c.get("capsules_types", []))),
     Succes("tous_pouvoirs", "ARSENAL", "Utiliser chaque pouvoir", "collection",
            lambda r, c: TOUS_POUVOIRS <= set(c.get("pouvoirs_utilises", []))),
-    Succes("briques_10000", "DEMOLISSEUR", "10 000 briques au total", "endurance",
-           lambda r, c: c.get("briques", 0) >= 10000),
-    Succes("parties_100", "ACCRO", "100 parties jouees", "endurance",
-           lambda r, c: c.get("parties", 0) >= 100),
     Succes("defi_1", "DEFI RELEVE", "Jouer un defi du jour", "defi",
            lambda r, c: r.get("mode") == "defi"),
-    Succes("defi_7", "HABITUE", "Jouer le defi 7 jours differents", "defi",
-           lambda r, c: len(c.get("jours_defi", [])) >= 7),
     Succes("defi_vague_20", "MUR DU JOUR", "Atteindre la vague 20 dans un defi", "defi",
            lambda r, c: r.get("mode") == "defi" and r.get("vagues", 0) >= 20),
-    Succes("serie_3", "EN RYTHME", "Jouer le defi 3 jours de suite", "defi",
-           lambda r, c: record(c.get("jours_defi", [])) >= 3),
-    Succes("serie_7", "SEMAINE PARFAITE", "Jouer le defi 7 jours de suite", "defi",
-           lambda r, c: record(c.get("jours_defi", [])) >= 7),
-    Succes("serie_30", "INFATIGABLE", "Jouer le defi 30 jours de suite", "defi",
-           lambda r, c: record(c.get("jours_defi", [])) >= 30),
     Succes("semaine_1", "HEBDO", "Jouer un defi de la semaine", "defi",
            lambda r, c: r.get("mode") == "semaine"),
-    Succes("semaine_4", "UN MOIS DE DEFIS", "Defi de la semaine 4 semaines de suite", "defi",
-           lambda r, c: record(c.get("semaines_defi", []), semaines=True) >= 4),
-    Succes("semaine_12", "SAISON COMPLETE", "Defi de la semaine 12 semaines de suite", "defi",
-           lambda r, c: record(c.get("semaines_defi", []), semaines=True) >= 12),
     Succes("secret_malus", "MASOCHISTE", "Finir un niveau en ayant attrape 5 malus",
            "secret", lambda r, c: bool(_stat(r, "niveau_5_malus")), secret=True),
 ]
+
+
+# --- Succès à paliers (2.6) -------------------------------------------------------------
+
+NOMS_PALIERS = ("ARGENT", "OR", "PLATINE")
+CODES_PALIERS = ("argent", "or", "platine")
+
+
+class Palier:
+    """
+    Famille de succès à trois paliers. Attributs : code, nom, description (avec {n} pour le
+    seuil), categorie, valeur (fonction(cumul) -> int), seuils (3 int croissants), icone.
+    """
+
+    def __init__(self, code, nom, description, categorie, valeur, seuils, icone=None):
+        self.code = code
+        self.nom = nom
+        self.description = description
+        self.categorie = categorie
+        self.valeur = valeur
+        self.seuils = seuils
+        self.icone = icone or code
+
+    def codes(self):
+        """But : codes des trois paliers (ex. "briques_argent", "briques_or"...)."""
+        return [f"{self.code}_{p}" for p in CODES_PALIERS]
+
+    def palier(self, code):
+        """But : succès (Succes) d'un palier, pour l'annoncer au joueur."""
+        indice = self.codes().index(code)
+        seuil = self.seuils[indice]
+        return Succes(code, f"{self.nom} {NOMS_PALIERS[indice]}",
+                      self.description.format(n=f"{seuil:,}".replace(",", " ")), self.categorie,
+                      lambda r, c, s=seuil: self.valeur(c) >= s)
+
+    def mesurer(self, cumul):
+        try:
+            return max(0, int(self.valeur(cumul)))
+        except (TypeError, ValueError, KeyError):
+            return 0
+
+
+def _etoiles(cumul):
+    return sum(bin(int(m) & 7).count("1") for m in cumul.get("etoiles", {}).values())
+
+
+PALIERS = [
+    Palier("briques", "DEMOLISSEUR", "Casser {n} briques au total", "endurance",
+           lambda c: c.get("briques", 0), (1000, 10000, 100000), "briques_10000"),
+    Palier("parties", "ACCRO", "Jouer {n} parties", "endurance",
+           lambda c: c.get("parties", 0), (25, 100, 500), "parties_100"),
+    Palier("boss", "CHASSEUR DE BOSS", "Vaincre {n} boss", "campagne",
+           lambda c: sum(c.get("boss_vaincus", {}).values()), (5, 25, 100), "boss_core"),
+    Palier("etoiles", "ETOILE MONTANTE", "Gagner {n} etoiles en Campagne", "campagne",
+           _etoiles, (12, 24, 36), "campagne"),
+    Palier("combo", "INARRETABLE", "Combo de {n} briques", "habilete",
+           lambda c: c.get("meilleur_combo", 0), (50, 100, 200), "combo_50"),
+    Palier("supernovas", "ETOILE FILANTE", "Declencher {n} SUPERNOVAS", "habilete",
+           lambda c: c.get("supernovas", 0), (10, 50, 250), "supernova"),
+    Palier("arcade", "SURVIVANT", "Atteindre la vague {n} en Arcade", "modes",
+           lambda c: c.get("vague_max_arcade", 0), (30, 50, 80), "arcade_30"),
+    Palier("duelliste", "DUELLISTE", "Gagner {n} Duels ou Courses en ligne", "modes",
+           lambda c: c.get("victoires", {}).get("duel", 0) + c.get("victoires", {}).get("course", 0),
+           (10, 50, 200), "duel_7_0"),
+    Palier("coop", "DUO", "Jouer {n} parties en Coop en ligne", "coop",
+           lambda c: c.get("parties_par_mode", {}).get("coop", 0), (10, 50, 200), "coop_10"),
+    Palier("defis", "HABITUE", "Jouer le defi du jour {n} jours differents", "defi",
+           lambda c: len(c.get("jours_defi", [])), (7, 30, 100), "defi_7"),
+    Palier("serie", "INFATIGABLE", "Jouer le defi {n} jours de suite", "defi",
+           lambda c: record(c.get("jours_defi", [])), (3, 7, 30), "serie_30"),
+    Palier("semaines", "SAISON COMPLETE", "Defi de la semaine {n} semaines de suite", "defi",
+           lambda c: record(c.get("semaines_defi", []), semaines=True), (4, 12, 26), "semaine_4"),
+]
+PALIERS_PAR_CODE = {code: famille for famille in PALIERS for code in famille.codes()}
 PAR_CODE = {s.code: s for s in SUCCES}
+PAR_CODE.update({code: famille.palier(code) for code, famille in PALIERS_PAR_CODE.items()})
+NOMBRE_CODES = len(SUCCES) + 3 * len(PALIERS)      # total affiché (« SUCCES 12 / 59 »)
+
+# Anciens succès (avant 2.6) devenus des paliers : convertis une fois dans la base.
+ANCIENS_CODES = {"briques_10000": ["briques_argent", "briques_or"],
+                 "parties_100": ["parties_argent", "parties_or"],
+                 "combo_50": ["combo_argent"], "arcade_30": ["arcade_argent"],
+                 "coop_10": ["coop_argent"], "defi_7": ["defis_argent"],
+                 "serie_3": ["serie_argent"], "serie_7": ["serie_argent", "serie_or"],
+                 "serie_30": ["serie_argent", "serie_or", "serie_platine"],
+                 "semaine_4": ["semaines_argent"], "semaine_12": ["semaines_argent", "semaines_or"]}
+
+
+def palier_obtenu(famille, obtenus):
+    """But : nombre de paliers obtenus (0 à 3) d'une famille. Entrée : obtenus (codes)."""
+    return sum(1 for code in famille.codes() if code in obtenus)
 
 
 def mettre_a_jour_cumul(cumul, rapport):
@@ -157,6 +226,16 @@ def mettre_a_jour_cumul(cumul, rapport):
     if rapport.get("victoire") or _gagne(rapport):
         victoires = cumul.setdefault("victoires", {})
         victoires[mode] = victoires.get(mode, 0) + 1
+    if mode == "arcade":
+        cumul["vague_max_arcade"] = max(cumul.get("vague_max_arcade", 0), int(rapport.get("vagues", 0)))
+    if mode in ("campagne", "hardcore") and isinstance(rapport.get("etoiles"), dict):
+        # Étoiles de la Campagne : on garde, niveau par niveau, toutes celles obtenues.
+        etoiles = cumul.setdefault("etoiles", {})
+        for indice, masque in list(rapport["etoiles"].items())[:60]:
+            try:
+                etoiles[str(int(indice))] = int(etoiles.get(str(int(indice)), 0)) | (int(masque) & 7)
+            except (TypeError, ValueError):
+                continue
     if mode == "defi" and rapport.get("jour"):
         cumul["jours_defi"] = sorted(set(cumul.get("jours_defi", [])) | {str(rapport["jour"])[:10]})
     if mode == "semaine" and rapport.get("jour"):
@@ -183,6 +262,11 @@ def evaluer(rapport, cumul, deja):
                 nouveaux.append(succes.code)
         except (TypeError, ValueError, KeyError):
             continue                     # rapport incomplet : on ignore
+    for famille in PALIERS:              # paliers : d'après les statistiques cumulées
+        valeur = famille.mesurer(cumul)
+        for code, seuil in zip(famille.codes(), famille.seuils):
+            if code not in deja and valeur >= seuil:
+                nouveaux.append(code)
     return nouveaux
 
 

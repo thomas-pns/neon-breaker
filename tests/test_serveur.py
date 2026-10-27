@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 try:
     from fastapi.testclient import TestClient
     from serveur import api, config, securite
-    from serveur.succes import evaluer, mettre_a_jour_cumul, SUCCES
+    from serveur.succes import evaluer, mettre_a_jour_cumul, SUCCES, PALIERS
     from moteur.version import PROTOCOLE
     DISPONIBLE = True
 except ImportError:                       # dépendances du serveur absentes
@@ -96,20 +96,47 @@ class TestServeur(unittest.TestCase):
                                    json={"rapports": [rapport, rapport, {"mode": "duel", "score": 9}]})
         resultats = reponse.json()["resultats"]
         codes = [s["code"] for s in resultats[0]["nouveaux_succes"]]
-        self.assertIn("arcade_30", codes)
+        self.assertIn("arcade_argent", codes)
         self.assertTrue(resultats[1]["doublon"])
         self.assertTrue(resultats[2]["refuse"])           # le Duel est compté par le serveur
         classement = self.client.get("/api/classements/arcade").json()["lignes"]
         self.assertEqual(classement[0]["pseudo"], "Lea")
         profil = self.client.get("/api/joueurs/lea").json()
         self.assertEqual(profil["records"]["arcade"], 5000)
-        self.assertEqual(len(profil["succes"]), len(SUCCES))
+        self.assertEqual(len(profil["succes"]), len(SUCCES) + len(PALIERS))
+        arcade = [s for s in profil["succes"] if s["code"] == "arcade"][0]
+        self.assertEqual((arcade["palier"], arcade["seuils"]), (1, [30, 50, 80]))
+        self.assertGreaterEqual(arcade["valeur"], 30)
         secret = [s for s in profil["succes"] if s["code"] == "secret_malus"][0]
         self.assertEqual(secret["nom"], "???")
         self.assertIn("Lea", [j["pseudo"] for j in self.client.get("/api/joueurs").json()["joueurs"]])
 
+    def test_paliers(self):
+        cumul = {"briques": 12000, "parties": 30, "jours_defi": ["2026-10-01", "2026-10-02", "2026-10-03"]}
+        codes = evaluer({"mode": "arcade"}, cumul, {"briques_argent"})
+        self.assertIn("briques_or", codes)
+        self.assertNotIn("briques_argent", codes)            # déjà obtenu
+        self.assertNotIn("briques_platine", codes)
+        self.assertIn("parties_argent", codes)
+        self.assertIn("serie_argent", codes)
+        cumul = mettre_a_jour_cumul({}, {"mode": "campagne", "etoiles": {"0": 3, "1": 7}, "stats": {}})
+        cumul = mettre_a_jour_cumul(cumul, {"mode": "campagne", "etoiles": {"0": 4}, "stats": {}})
+        self.assertEqual(cumul["etoiles"], {"0": 7, "1": 7})
+
+    def test_migration_succes_2_6(self):
+        """Les anciens succès comptés deviennent des paliers (sans rien perdre)."""
+        from serveur.base import Base
+        chemin = os.path.join(dossier_temporaire("neon_test_migr_"), "neon.sqlite3")
+        base = Base(chemin)
+        jid = base.creer_joueur("Ancien", "x")
+        base.ecrire("INSERT INTO succes (joueur_id, code, obtenu_le) VALUES (?, 'serie_7', 5)", (jid,))
+        base.ecrire("INSERT INTO succes (joueur_id, code, obtenu_le) VALUES (?, 'premiere_brique', 4)", (jid,))
+        base.connexion.close()
+        codes = set(Base(chemin).succes_de(jid))
+        self.assertEqual(codes, {"serie_argent", "serie_or", "premiere_brique"})
+
     def test_catalogue_succes(self):
-        self.assertEqual(len(SUCCES), 34)
+        self.assertEqual(len(SUCCES), 23)
         cumul = mettre_a_jour_cumul({}, {"mode": "duel", "numero": 1, "gagnant": 1,
                                          "points": [7, 0], "stats": {"briques": 3}})
         codes = evaluer({"mode": "duel", "numero": 1, "gagnant": 1, "points": [7, 0],
@@ -277,7 +304,7 @@ class TestServeur(unittest.TestCase):
         rapports.append({"uid": "w1", "mode": "semaine", "score": 77, "jour": id_semaine(aujourd_hui)})
         reponse = self.client.post("/api/parties", json={"rapports": rapports}, headers=entete)
         codes = {s["code"] for r in reponse.json()["resultats"] for s in r["nouveaux_succes"]}
-        self.assertIn("serie_3", codes)
+        self.assertIn("serie_argent", codes)
         self.assertIn("semaine_1", codes)
         profil = self.client.get("/api/joueurs/Regulier").json()
         self.assertEqual(profil["series"]["jour"], {"en_cours": 3, "record": 3})

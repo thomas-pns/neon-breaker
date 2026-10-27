@@ -1,5 +1,17 @@
 [
   {
+    "version": "2.6.0",
+    "titre": "SUCCES A PALIERS",
+    "lignes": [
+      "12 SUCCES ONT 3 PALIERS : ARGENT, OR, PLATINE",
+      "BRIQUES, PARTIES, BOSS, ETOILES, COMBO, SERIES...",
+      "CHAQUE PALIER RAPPORTE DES NEONS (60 / 150 / 400)",
+      "BARRE DE PROGRESSION VERS LE PALIER SUIVANT",
+      "DANS LE PROFIL (TOUCHE UN SUCCES POUR LE DETAIL)",
+      "LES ANCIENS SUCCES EQUIVALENTS SONT CONSERVES"
+    ]
+  },
+  {
     "version": "2.5.0",
     "titre": "PROGRESSION SUR LE COMPTE",
     "lignes": [

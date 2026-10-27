@@ -173,6 +173,14 @@ class Base:
             if "classees_victoires" not in colonnes:
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_victoires INTEGER NOT NULL DEFAULT 0")
                 self.connexion.execute("ALTER TABLE joueurs ADD COLUMN classees_recents TEXT NOT NULL DEFAULT ''")
+            # Migration 2.6 : anciens succès devenus des paliers (ex. briques_10000 -> briques_or).
+            from serveur.succes import ANCIENS_CODES
+            for ancien, nouveaux in ANCIENS_CODES.items():
+                for nouveau in nouveaux:
+                    self.connexion.execute(
+                        "INSERT OR IGNORE INTO succes (joueur_id, code, obtenu_le) "
+                        "SELECT joueur_id, ?, obtenu_le FROM succes WHERE code = ?", (nouveau, ancien))
+                self.connexion.execute("DELETE FROM succes WHERE code = ?", (ancien,))
             self.connexion.commit()
 
     def _cadeaux_bienvenue(self):
@@ -534,8 +542,13 @@ class Base:
                         (joueur_id, code, time.time()))
         xp = self.joueur_par_id(joueur_id)["xp"]
         niveau = catalogue.niveau_pour(xp)
-        if nouveaux:
-            detail.append((f"SUCCES x{len(nouveaux)}", boutique.GAIN_SUCCES * len(nouveaux)))
+        simples = [c for c in nouveaux if c not in catalogue.PALIERS_PAR_CODE]
+        if simples:
+            detail.append((f"SUCCES x{len(simples)}", boutique.GAIN_SUCCES * len(simples)))
+        for code in nouveaux:                   # paliers : plus le palier est haut, plus il rapporte
+            if code in catalogue.PALIERS_PAR_CODE:
+                palier = code.rsplit("_", 1)[1]
+                detail.append((f"PALIER {palier.upper()}", boutique.GAINS_PALIERS[palier]))
         if niveau > ancien_niveau:
             detail.append((f"RANG {niveau}", boutique.GAIN_RANG * (niveau - ancien_niveau)))
         gagnes = boutique.total(detail)
@@ -643,6 +656,14 @@ class Base:
         cumul = self.cumul(jid)
         obtenus = self.succes_de(jid)
         liste_succes = []
+        for famille in catalogue.PALIERS:       # succès à paliers d'abord (avec leur progression)
+            atteints = catalogue.palier_obtenu(famille, obtenus)
+            dates = [obtenus[c] for c in famille.codes() if c in obtenus]
+            liste_succes.append({
+                "code": famille.code, "icone": famille.icone, "nom": famille.nom,
+                "description": famille.description.format(n="..."), "categorie": famille.categorie,
+                "secret": False, "palier": atteints, "seuils": list(famille.seuils),
+                "valeur": famille.mesurer(cumul), "obtenu_le": max(dates) if dates else None})
         for definition in catalogue.SUCCES:
             obtenu = definition.code in obtenus
             entree = definition.en_dict()

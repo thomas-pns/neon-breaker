@@ -27,6 +27,9 @@ COULEURS_CATEGORIES = {"debuts": config.CYAN, "campagne": config.ROSE, "habilete
                        "modes": config.VIOLET, "coop": config.VERT, "collection": config.OR,
                        "endurance": config.BLEU, "secret": (200, 200, 255),
                        "defi": config.ROUGE}
+# Paliers des succès (2.6) : mêmes couleurs que les divisions de la classée.
+NOMS_PALIERS = ("ARGENT", "OR", "PLATINE")
+COULEURS_PALIERS = ((200, 210, 230), (255, 210, 60), (90, 240, 220))
 COLONNES_SUCCES = 7
 LIGNES_SUCCES = 5
 
@@ -203,7 +206,9 @@ class EcranProfil(EcranEnLigneBase):
         self.prochaine_tentative = 0.0
         self.choix = 0
         self.fiche_ouverte = False
-        self.zones_succes = []
+        self.zones_succes = []           # (indice dans la liste, Rect) des succès affichés
+        self.premiere_ligne = 0          # grille des succès : première ligne affichée (défilement)
+        self.lignes_visibles = LIGNES_SUCCES
         self.rect_fiche = pygame.Rect(0, 0, 650, 360)
         self.rect_fiche.center = (850, 447)
         self._charger()
@@ -241,14 +246,16 @@ class EcranProfil(EcranEnLigneBase):
             if not self.rect_fiche.collidepoint(entrees.souris):
                 self.fiche_ouverte = False
             return
-        if not self.fiche_ouverte and self.profil and entrees.souris_bougee:
-            for i, zone in enumerate(self.zones_succes):
+        if not self.fiche_ouverte and entrees.molette:          # molette ou doigt glissé
+            self.premiere_ligne -= entrees.molette
+        if not self.fiche_ouverte and self.profil and entrees.souris_bougee and not entrees.tactile:
+            for i, zone in self.zones_succes:
                 if zone.collidepoint(entrees.souris):
                     self.choix = i
                     break
         clic = 1 in entrees.clics
         if clic and not self.fiche_ouverte:
-            for i, zone in enumerate(self.zones_succes):
+            for i, zone in self.zones_succes:
                 if zone.collidepoint(entrees.souris):
                     self.choix = i
                     valider = True
@@ -259,8 +266,7 @@ class EcranProfil(EcranEnLigneBase):
                 self.app.audio.jouer("menu_ok")
             return
         ancien = self.choix
-        total = min(colonnes_succes() * lignes_succes(), len(self.profil["succes"])) if self.profil else 1
-        total = max(1, total)
+        total = max(1, len(self.profil["succes"]) if self.profil else 1)
         if entrees.vient_d_appuyer("droite"):
             self.choix = (self.choix + 1) % total
         if entrees.vient_d_appuyer("gauche"):
@@ -271,6 +277,8 @@ class EcranProfil(EcranEnLigneBase):
             self.choix = (self.choix - colonnes_succes()) % total
         if self.choix != ancien:
             self.app.audio.jouer("menu_nav")
+            ligne = self.choix // colonnes_succes()          # le succès choisi reste visible
+            self.premiere_ligne = min(max(self.premiere_ligne, ligne - self.lignes_visibles + 1), ligne)
 
     def _retour_ecran(self):
         """But : revenir a la liste ou au hub. Entree(s) : aucune. Sortie : aucune."""
@@ -296,6 +304,7 @@ class EcranProfil(EcranEnLigneBase):
             records = pygame.Rect(20, bloc.bottom + 12, config.LARGEUR - 40, 110)
             zone_succes = pygame.Rect(20, records.bottom + 12, config.LARGEUR - 40,
                                       bas_contenu() - records.bottom - 24)
+            self.rect_fiche.size = (config.LARGEUR - 30, 440)
             self.rect_fiche.center = (config.LARGEUR // 2, config.HAUTEUR // 2)
         else:
             carte = pygame.Rect(30, 96, 400, 270)
@@ -361,74 +370,146 @@ class EcranProfil(EcranEnLigneBase):
             x = records.x + ecart // 2 + i * ecart
             dessiner_texte(image, NOMS_MODES.get(mode, mode.upper()), x, records.y + 34, 2, GRIS,
                            lueur=False)
-            dessiner_texte(image, f"{valeur:07d}", x, records.y + 74, 3, config.AMBRE)
+            texte = f"{valeur:07d}"
+            echelle = 3 if len(texte) * 18 < ecart - 6 else 2      # étroit : chiffres plus petits
+            dessiner_texte(image, texte if echelle == 3 else str(valeur), x, records.y + 74, echelle,
+                           config.AMBRE)
         self._grille_succes(image, zone_succes)
 
     def _grille_succes(self, image, cadre):
         """But : dessiner la grille et sa fiche. Entree(s) : image, cadre. Sortie : aucune."""
         succes = self.profil["succes"]
-        obtenus = sum(1 for s in succes if s["obtenu_le"])
+        obtenus = sum(s.get("palier", 1) if s.get("seuils") else 1 for s in succes if s["obtenu_le"])
+        total = sum(len(s["seuils"]) if s.get("seuils") else 1 for s in succes)
         panneau(image, cadre, config.OR)
-        dessiner_texte(image, f"SUCCES  {obtenus} / {len(succes)}", cadre.centerx, cadre.y + 24,
+        dessiner_texte(image, f"SUCCES  {obtenus} / {total}", cadre.centerx, cadre.y + 24,
                        2, config.OR, lueur=False)
-        largeur = (cadre.w - 40) // colonnes_succes()
+        colonnes = colonnes_succes()
+        largeur = (cadre.w - 40) // colonnes
         visibles = min(lignes_succes(), max(1, (cadre.h - 80) // 70))
+        nb_lignes = (len(succes) + colonnes - 1) // colonnes
+        self.lignes_visibles = visibles
+        self.premiere_ligne = max(0, min(self.premiere_ligne, nb_lignes - visibles))
+        debut = self.premiere_ligne * colonnes
         self.zones_succes = []
-        for i, entree in enumerate(succes[:colonnes_succes() * visibles]):
-            ligne, colonne = divmod(i, colonnes_succes())
+        for i, entree in enumerate(succes[debut:debut + colonnes * visibles], start=debut):
+            ligne, colonne = divmod(i - debut, colonnes)
             rect = pygame.Rect(cadre.x + 20 + colonne * largeur, cadre.y + 46 + ligne * 70,
                                largeur - 8, 64)
-            self.zones_succes.append(rect.copy())
-            obtenu = bool(entree["obtenu_le"])
-            couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN)
-            if not obtenu:
-                couleur = (80, 60, 110)
-            choisi = i == self.choix
-            pygame.draw.rect(image, (16, 4, 36), rect, border_radius=8)
-            if choisi:
-                lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=6)
-                image.blit(lueur, (rect.x - 12, rect.y - 12), special_flags=pygame.BLEND_RGB_ADD)
-            pygame.draw.rect(image, couleur, rect, 3 if choisi else 2, border_radius=8)
-            from moteur.icones import dessiner_icone, TROPHEE
-            secret_cache = entree.get("secret") and not obtenu
-            if secret_cache or not dessiner_icone(
-                    image, entree["code"], (rect.centerx, rect.y + 17),
-                    couleur if obtenu else (95, 75, 130), 2, lueur=obtenu, defaut=TROPHEE):
-                dessiner_texte(image, "?", rect.centerx, rect.y + 18, 3, couleur, lueur=False)
-            nom = entree["nom"].upper()
-            lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 12))
-            echelle = 1 if any(len(l) * 12 > rect.w - 8 for l in lignes) else 2
-            if echelle == 1:
-                lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 6))
-            lignes = [l for l in lignes if l]
-            pas = 9 * echelle
-            haut = rect.y + 45 - pas * (len(lignes) - 1) / 2
-            for n, ligne_texte in enumerate(lignes):
-                dessiner_texte(image, ligne_texte, rect.centerx, haut + n * pas,
-                               echelle, config.BLANC if obtenu else (110, 90, 140),
-                               lueur=False, ombre=False)
-        dessiner_texte(image, "CLIC / ENTREE : DETAIL", cadre.centerx, cadre.bottom - 20,
-                       2, config.BLANC, lueur=False)
+            self.zones_succes.append((i, rect.copy()))
+            self._case_succes(image, rect, entree, i == self.choix)
+        if nb_lignes > visibles:             # barre de défilement à droite
+            piste = pygame.Rect(cadre.right - 12, cadre.y + 46, 4, visibles * 70 - 6)
+            pygame.draw.rect(image, (50, 30, 80), piste, border_radius=2)
+            hauteur = max(20, piste.h * visibles // nb_lignes)
+            y = piste.y + (piste.h - hauteur) * self.premiere_ligne // max(1, nb_lignes - visibles)
+            pygame.draw.rect(image, config.OR, (piste.x, y, 4, hauteur), border_radius=2)
+        aide = "GLISSE POUR VOIR LA SUITE" if nb_lignes > visibles and self.app.entrees.tactile \
+            else ("TOUCHE UN SUCCES : DETAIL" if self.app.entrees.tactile else "CLIC / ENTREE : DETAIL")
+        dessiner_texte(image, aide, cadre.centerx, cadre.bottom - 20, 2, config.BLANC, lueur=False)
         if self.fiche_ouverte and succes:
-            entree = succes[self.choix]
-            pygame.draw.rect(image, (12, 2, 28), self.rect_fiche, border_radius=10)
-            panneau(image, self.rect_fiche, config.CYAN)
-            obtenu = bool(entree["obtenu_le"])
-            couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN) if obtenu else GRIS
-            from moteur.icones import dessiner_icone, TROPHEE
-            if not (entree.get("secret") and not obtenu):
-                dessiner_icone(image, entree["code"],
-                               (self.rect_fiche.x + 60, self.rect_fiche.y + 60),
-                               couleur, 5, lueur=obtenu, defaut=TROPHEE)
-            dessiner_texte(image, entree["nom"].upper(), self.rect_fiche.centerx,
-                           self.rect_fiche.y + 42, 3, config.BLANC)
-            dessiner_texte(image, entree["categorie"].upper(), self.rect_fiche.centerx,
-                           self.rect_fiche.y + 88, 2, couleur, lueur=False)
-            description = entree["description"].upper()
-            lignes = couper_en_lignes(description, 50, 5)
+            self._fiche(image, succes[min(self.choix, len(succes) - 1)])
+
+    def _case_succes(self, image, rect, entree, choisi):
+        """But : une case de la grille (icône, nom ; paliers : couleur du palier et barre)."""
+        from moteur.icones import dessiner_icone, TROPHEE
+        seuils = entree.get("seuils")
+        palier = entree.get("palier", 0) if seuils else 0
+        obtenu = bool(entree["obtenu_le"])
+        couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN)
+        if seuils and palier:
+            couleur = COULEURS_PALIERS[palier - 1]
+        if not obtenu:
+            couleur = (80, 60, 110)
+        pygame.draw.rect(image, (16, 4, 36), rect, border_radius=8)
+        if choisi:
+            lueur = halo_rect(rect.w, rect.h, attenuer(couleur, 0.9), rayon=6)
+            image.blit(lueur, (rect.x - 12, rect.y - 12), special_flags=pygame.BLEND_RGB_ADD)
+        if palier == 3:                       # platine : un reflet passe sur la case
+            x = rect.x + int((self.temps * 90) % (rect.w + 60)) - 30
+            reflet = pygame.Rect(max(rect.x + 2, x), rect.y + 2, 10, rect.h - 4).clip(rect.inflate(-4, -4))
+            if reflet.w > 0:
+                image.fill((30, 60, 55), reflet, special_flags=pygame.BLEND_RGB_ADD)
+        pygame.draw.rect(image, couleur, rect, 3 if choisi else 2, border_radius=8)
+        secret_cache = entree.get("secret") and not obtenu
+        if secret_cache or not dessiner_icone(
+                image, entree.get("icone", entree["code"]), (rect.centerx, rect.y + 17),
+                couleur if obtenu else (95, 75, 130), 2, lueur=obtenu, defaut=TROPHEE):
+            dessiner_texte(image, "?", rect.centerx, rect.y + 18, 3, couleur, lueur=False)
+        nom = entree["nom"].upper()
+        lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 12))
+        echelle = 1 if any(len(l) * 12 > rect.w - 8 for l in lignes) else 2
+        if echelle == 1:
+            lignes = couper_en_lignes(nom, max(1, (rect.w - 8) // 6))
+        lignes = [l for l in lignes if l]
+        pas = 9 * echelle
+        haut = rect.y + (42 if seuils else 45) - pas * (len(lignes) - 1) / 2
+        for n, ligne_texte in enumerate(lignes):
+            dessiner_texte(image, ligne_texte, rect.centerx, haut + n * pas,
+                           echelle, config.BLANC if obtenu else (110, 90, 140),
+                           lueur=False, ombre=False)
+        if seuils:                            # barre vers le palier suivant
+            barre_rect = pygame.Rect(rect.x + 8, rect.bottom - 8, rect.w - 16, 4)
+            pygame.draw.rect(image, (45, 30, 70), barre_rect, border_radius=2)
+            part = 1.0 if palier >= 3 else min(1.0, entree.get("valeur", 0) / max(1, seuils[palier]))
+            teinte = COULEURS_PALIERS[min(palier, 2)]
+            if part > 0:
+                image.fill(teinte, (barre_rect.x, barre_rect.y, max(2, int(barre_rect.w * part)), 4))
+
+    def _fiche(self, image, entree):
+        """But : fiche d'un succès ; pour un succès à paliers, les 3 paliers et la progression."""
+        from moteur.icones import dessiner_icone, TROPHEE
+        r = self.rect_fiche
+        pygame.draw.rect(image, (12, 2, 28), r, border_radius=10)
+        panneau(image, r, config.CYAN)
+        obtenu = bool(entree["obtenu_le"])
+        seuils = entree.get("seuils")
+        palier = entree.get("palier", 0) if seuils else 0
+        couleur = COULEURS_CATEGORIES.get(entree["categorie"], config.CYAN) if obtenu else GRIS
+        if seuils and palier:
+            couleur = COULEURS_PALIERS[palier - 1]
+        if not (entree.get("secret") and not obtenu):
+            dessiner_icone(image, entree.get("icone", entree["code"]), (r.x + 60, r.y + 60),
+                           couleur, 5, lueur=obtenu, defaut=TROPHEE)
+        dessiner_texte(image, entree["nom"].upper(), r.centerx, r.y + 42, 3, config.BLANC)
+        titre = entree["categorie"].upper()
+        if seuils:
+            titre = NOMS_PALIERS[palier - 1] if palier else "AUCUN PALIER"
+        dessiner_texte(image, titre, r.centerx, r.y + 88, 2, couleur, lueur=False)
+        if not seuils:
+            lignes = couper_en_lignes(entree["description"].upper(), max(10, (r.w - 40) // 12), 5)
             for i, ligne_texte in enumerate(lignes):
-                dessiner_texte(image, ligne_texte, self.rect_fiche.centerx,
-                               self.rect_fiche.y + 150 + i * 32, 2, config.BLANC, lueur=False)
+                dessiner_texte(image, ligne_texte, r.centerx, r.y + 150 + i * 32, 2, config.BLANC,
+                               lueur=False)
             etat = f"OBTENU LE {date_courte(entree['obtenu_le'])}" if obtenu else "PAS ENCORE OBTENU"
-            dessiner_texte(image, etat, self.rect_fiche.centerx, self.rect_fiche.bottom - 42,
-                           2, couleur, lueur=False)
+            dessiner_texte(image, etat, r.centerx, r.bottom - 42, 2, couleur, lueur=False)
+            return
+        # Les trois paliers, puis la barre de progression vers le suivant.
+        valeur = entree.get("valeur", 0)
+        prochain = f"{seuils[min(palier, 2)]:,}".replace(",", " ")
+        dessiner_texte(image, entree["description"].upper().replace("...", prochain), r.centerx, r.y + 126,
+                       2, config.BLANC, lueur=False)
+        for k, (nom, seuil) in enumerate(zip(NOMS_PALIERS, seuils)):
+            y = r.y + 172 + k * 40
+            atteint = k < palier
+            teinte = COULEURS_PALIERS[k] if atteint else (110, 90, 140)
+            pygame.draw.circle(image, teinte, (r.x + 50, y), 10, 0 if atteint else 2)
+            dessiner_texte(image, nom, r.x + 74, y, 3, teinte, ancrage="gauche", lueur=atteint)
+            dessiner_texte(image, f"{seuil:,}".replace(",", " "), r.right - 40, y, 3,
+                           config.BLANC if atteint else (150, 130, 180), ancrage="droite", lueur=False)
+        bas = r.y + 172 + 3 * 40 - 8
+        barre_rect = pygame.Rect(r.x + 40, bas, r.w - 80, 14)
+        pygame.draw.rect(image, (45, 30, 70), barre_rect, border_radius=7)
+        if palier >= 3:
+            image.fill(COULEURS_PALIERS[2], barre_rect.inflate(-4, -4))
+            texte = f"PLATINE !  {valeur:,}".replace(",", " ")
+        else:
+            cible = seuils[palier]
+            depart = seuils[palier - 1] if palier else 0
+            part = max(0.0, min(1.0, (valeur - depart) / max(1, cible - depart)))
+            if part > 0:
+                interieur = barre_rect.inflate(-4, -4)
+                image.fill(COULEURS_PALIERS[palier], (interieur.x, interieur.y,
+                                                      max(3, int(interieur.w * part)), interieur.h))
+            texte = (f"{valeur:,} / {cible:,}".replace(",", " ") + f"  VERS {NOMS_PALIERS[palier]}")
+        dessiner_texte(image, texte, r.centerx, bas + 40, 2, config.BLANC, lueur=False)

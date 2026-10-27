@@ -185,6 +185,7 @@ GAIN_SEMAINE = 60                 # première partie du défi de la semaine
 GAIN_VICTOIRE_EN_LIGNE = 15
 GAIN_PARTIE_EN_LIGNE = 5
 GAIN_SUCCES = 25
+GAINS_PALIERS = {"argent": 60, "or": 150, "platine": 400}     # succès à paliers (2.6)
 GAIN_RANG = 30
 PARTICIPATION_MAX = 10            # par partie (≥ 45 s), selon le score
 PARTICIPATION_JOUR = 60           # plafond quotidien de la participation

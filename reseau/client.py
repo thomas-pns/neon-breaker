@@ -601,7 +601,11 @@ class ServiceEnLigne:
             self.classees_victoires = getattr(self, "classees_victoires", 0) + int(bool(gains.get("victoire_classee")))
             self.classees_recents = (getattr(self, "classees_recents", "") + ("V" if gains.get("victoire_classee") else "D"))[-10:]
         for succes in gains.get("nouveaux_succes", []):
-            self.app.notifier("SUCCES : " + succes["nom"], "OR", succes["description"])
+            # Paliers : la notification prend la couleur du palier (argent, or, platine).
+            palier = succes["code"].rsplit("_", 1)[-1]
+            couleur = {"argent": "BLANC", "or": "OR", "platine": "CYAN"}.get(palier, "OR")
+            titre = "PALIER : " if palier in ("argent", "or", "platine") else "SUCCES : "
+            self.app.notifier(titre + succes["nom"], couleur, succes["description"])
 
     # --- Temps réel ----------------------------------------------------------------
 
